@@ -1,0 +1,268 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>Where’s the Element?</title>
+<style>
+body { font-family: sans-serif; text-align: center; background: #f0f0f0; }
+h1 { margin-top: 20px; }
+select { padding: 5px; font-size: 16px; margin: 10px; }
+#score { margin: 10px; font-weight: bold; }
+#question { font-size: 18px; margin: 20px 0; }
+
+/* 周期表 */
+#ptable {
+  display: grid;
+  grid-template-columns: repeat(18, 60px);
+  grid-auto-rows: 50px;
+  gap: 3px;
+  justify-content: center;
+  margin: 0 auto;
+}
+.cell {
+  background: #fff;
+  border: 1px solid #ccc;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  align-items: center;
+  cursor: pointer;
+  font-size: 12px;
+  transition: 0.2s;
+}
+.cell:hover { transform: scale(1.1); }
+.correct { background: #00FF00 !important; }
+.wrong { background: #FF6666 !important; }
+.empty { background: transparent; border: none; cursor: default; }
+</style>
+</head>
+<body>
+
+<h1>Where’s the Element?</h1>
+
+<label>レベル選択：
+  <select id="level">
+    <option value="1">Level① 中学</option>
+    <option value="2">Level② 高校</option>
+    <option value="3">Level③ 全元素</option>
+  </select>
+</label>
+
+<div id="score">正答数: 0 / 0 | 連続正解: 0 | 正答率: 0%</div>
+<div id="question">ここに問題が表示されます</div>
+
+<div id="ptable"></div>
+
+<script>
+// 全元素リスト（周期表順）
+const allElements = [
+  {symbol:"H", name:"水素", period:1, group:1},
+  {symbol:"He", name:"ヘリウム", period:1, group:18},
+  {symbol:"Li", name:"リチウム", period:2, group:1},
+  {symbol:"Be", name:"ベリリウム", period:2, group:2},
+  {symbol:"B", name:"ホウ素", period:2, group:13},
+  {symbol:"C", name:"炭素", period:2, group:14},
+  {symbol:"N", name:"窒素", period:2, group:15},
+  {symbol:"O", name:"酸素", period:2, group:16},
+  {symbol:"F", name:"フッ素", period:2, group:17},
+  {symbol:"Ne", name:"ネオン", period:2, group:18},
+  {symbol:"Na", name:"ナトリウム", period:3, group:1},
+  {symbol:"Mg", name:"マグネシウム", period:3, group:2},
+  {symbol:"Al", name:"アルミニウム", period:3, group:13},
+  {symbol:"Si", name:"シリコン", period:3, group:14},
+  {symbol:"P", name:"リン", period:3, group:15},
+  {symbol:"S", name:"硫黄", period:3, group:16},
+  {symbol:"Cl", name:"塩素", period:3, group:17},
+  {symbol:"Ar", name:"アルゴン", period:3, group:18},
+  {symbol:"K", name:"カリウム", period:4, group:1},
+  {symbol:"Ca", name:"カルシウム", period:4, group:2},
+  {symbol:"Sc", name:"スカンジウム", period:4, group:3},
+  {symbol:"Ti", name:"チタン", period:4, group:4},
+  {symbol:"V", name:"バナジウム", period:4, group:5},
+  {symbol:"Cr", name:"クロム", period:4, group:6},
+  {symbol:"Mn", name:"マンガン", period:4, group:7},
+  {symbol:"Fe", name:"鉄", period:4, group:8},
+  {symbol:"Co", name:"コバルト", period:4, group:9},
+  {symbol:"Ni", name:"ニッケル", period:4, group:10},
+  {symbol:"Cu", name:"銅", period:4, group:11},
+  {symbol:"Zn", name:"亜鉛", period:4, group:12},
+  {symbol:"Ga", name:"ガリウム", period:4, group:13},
+  {symbol:"Ge", name:"ゲルマニウム", period:4, group:14},
+  {symbol:"As", name:"ヒ素", period:4, group:15},
+  {symbol:"Se", name:"セレン", period:4, group:16},
+  {symbol:"Br", name:"臭素", period:4, group:17},
+  {symbol:"Kr", name:"クリプトン", period:4, group:18},
+  {symbol:"Rb", name:"ルビジウム", period:5, group:1},
+  {symbol:"Sr", name:"ストロンチウム", period:5, group:2},
+  {symbol:"Y",  name:"イットリウム", period:5, group:3},
+  {symbol:"Zr", name:"ジルコニウム", period:5, group:4},
+  {symbol:"Nb", name:"ニオブ", period:5, group:5},
+  {symbol:"Mo", name:"モリブデン", period:5, group:6},
+  {symbol:"Tc", name:"テクネチウム", period:5, group:7},
+  {symbol:"Ru", name:"ルテニウム", period:5, group:8},
+  {symbol:"Rh", name:"ロジウム", period:5, group:9},
+  {symbol:"Pd", name:"パラジウム", period:5, group:10},
+  {symbol:"Ag", name:"銀", period:5, group:11},
+  {symbol:"Cd", name:"カドミウム", period:5, group:12},
+  {symbol:"In", name:"インジウム", period:5, group:13},
+  {symbol:"Sn", name:"スズ", period:5, group:14},
+  {symbol:"Sb", name:"アンチモン", period:5, group:15},
+  {symbol:"Te", name:"テルル", period:5, group:16},
+  {symbol:"I",  name:"ヨウ素", period:5, group:17},
+  {symbol:"Xe", name:"キセノン", period:5, group:18},
+  {symbol:"Cs", name:"セシウム", period:6, group:1},
+  {symbol:"Ba", name:"バリウム", period:6, group:2},
+  {symbol:"  ", name:"ランタノイド", period:6, group:3}, // ランタノイド開始
+/*----------
+  {symbol:"Ce", name:"セリウム", period:8, group:4},
+  {symbol:"Pr", name:"プラセオジム", period:8, group:5},
+  {symbol:"Nd", name:"ネオジム", period:8, group:6},
+  {symbol:"Pm", name:"プロメチウム", period:8, group:7},
+  {symbol:"Sm", name:"サマリウム", period:8, group:8},
+  {symbol:"Eu", name:"ユウロピウム", period:8, group:9},
+  {symbol:"Gd", name:"ガドリニウム", period:8, group:10},
+  {symbol:"Tb", name:"テルビウム", period:8, group:11},
+  {symbol:"Dy", name:"ジスプロシウム", period:8, group:12},
+  {symbol:"Ho", name:"ホルミウム", period:8, group:13},
+  {symbol:"Er", name:"エルビウム", period:8, group:14},
+  {symbol:"Tm", name:"ツリウム", period:8, group:15},
+  {symbol:"Yb", name:"イッテルビウム", period:8, group:16},
+  {symbol:"Lu", name:"ルテチウム", period:6, group:17}, // ランタノイド終了
+----------*/
+  {symbol:"Hf", name:"ハフニウム", period:6, group:4},
+  {symbol:"Ta", name:"タンタル", period:6, group:5},
+  {symbol:"W", name:"タングステン", period:6, group:6},
+  {symbol:"Re", name:"レニウム", period:6, group:7},
+  {symbol:"Os", name:"オスミウム", period:6, group:8},
+  {symbol:"Ir", name:"イリジウム", period:6, group:9},
+  {symbol:"Pt", name:"プラチナ", period:6, group:10},
+  {symbol:"Au", name:"金", period:6, group:11},
+  {symbol:"Hg", name:"水銀", period:6, group:12},
+  {symbol:"Tl", name:"タリウム", period:6, group:13},
+  {symbol:"Pb", name:"鉛", period:6, group:14},
+  {symbol:"Bi", name:"ビスマス", period:6, group:15},
+  {symbol:"Po", name:"ポロニウム", period:6, group:16},
+  {symbol:"At", name:"アスタチン", period:6, group:17},
+  {symbol:"Rn", name:"ラドン", period:6, group:18},
+  {symbol:"Fr", name:"フランシウム", period:7, group:1},
+  {symbol:"Ra", name:"ラジウム", period:7, group:2},
+  {symbol:"  ", name:"アクチノイド", period:7, group:3}, // アクチノイド開始
+/*----------
+  {symbol:"Th", name:"トリウム", period:9, group:4},
+  {symbol:"Pa", name:"プロトアクチニウム", period:9, group:5},
+  {symbol:"U", name:"ウラン", period:9, group:6},
+  {symbol:"Np", name:"ネプツニウム", period:9, group:7},
+  {symbol:"Pu", name:"プルトニウム", period:9, group:8},
+  {symbol:"Am", name:"アメリシウム", period:9, group:9},
+  {symbol:"Cm", name:"キュリウム", period:9, group:10},
+  {symbol:"Bk", name:"バークリウム", period:9, group:11},
+  {symbol:"Cf", name:"カリホルニウム", period:9, group:12},
+  {symbol:"Es", name:"アインスタイニウム", period:9, group:13},
+  {symbol:"Fm", name:"フェルミウム", period:9, group:14},
+  {symbol:"Md", name:"メンデレビウム", period:9, group:15},
+  {symbol:"No", name:"ノーベリウム", period:9, group:16},
+  {symbol:"Lr", name:"ローレンシウム", period:7, group:17},
+----------*/
+  {symbol:"Rf", name:"ラザホージウム", period:7, group:4},
+  {symbol:"Db", name:"ドブニウム", period:7, group:5},
+  {symbol:"Sg", name:"シーボーギウム", period:7, group:6},
+  {symbol:"Bh", name:"ボーリウム", period:7, group:7},
+  {symbol:"Hs", name:"ハッシウム", period:7, group:8},
+  {symbol:"Mt", name:"マイトネリウム", period:7, group:9},
+  {symbol:"Ds", name:"ダームスタチウム", period:7, group:10},
+  {symbol:"Rg", name:"レントゲニウム", period:7, group:11},
+  {symbol:"Cn", name:"コペルニシウム", period:7, group:12},
+  {symbol:"Nh", name:"ニホニウム", period:7, group:13},
+  {symbol:"Fl", name:"フレロビウム", period:7, group:14},
+  {symbol:"Mc", name:"モスコビウム", period:7, group:15},
+  {symbol:"Lv", name:"リバモリウム", period:7, group:16},
+  {symbol:"Ts", name:"テネシン", period:7, group:17},
+  {symbol:"Og", name:"オガネソン", period:7, group:18}
+];
+
+// レベル別出題対象
+const level1 = ["H","C","N","O","Na","Mg","Al","Si","S","K","Ca","Fe","Cu","Zn","Ag","Au","Hg","Ba"];
+const level2 = level1.concat(["Cr","Mn","Co","Ni","Ti","Mo","Sn","Pb"]);
+const level3 = allElements.map(e=>e.symbol);
+
+// スコア
+let correctCount=0, totalCount=0, streak=0;
+let currentLevel = 1;
+let questionElement=null;
+
+// 周期表セル生成
+const ptable = document.getElementById("ptable");
+for(let period=1; period<=7; period++){
+  for(let group=1; group<=18; group++){
+    const cell = document.createElement("div");
+    cell.classList.add("cell");
+    const el = allElements.find(e=>e.period===period && e.group===group);
+    if(el){
+      cell.dataset.symbol = el.symbol;
+      cell.innerHTML = `${el.name}<br>${el.symbol}`;
+      cell.addEventListener("click",()=>checkAnswer(el.symbol,cell));
+    }else{
+      cell.classList.add("empty");
+    }
+    ptable.appendChild(cell);
+  }
+}
+
+// レベル選択
+document.getElementById("level").addEventListener("change", e=>{
+  currentLevel=parseInt(e.target.value);
+  nextQuestion();
+});
+
+// 出題対象取得
+function getLevelSymbols(){
+  if(currentLevel===1) return level1;
+  if(currentLevel===2) return level2;
+  return level3;
+}
+
+// 次の問題
+function nextQuestion(){
+  const candidates = getLevelSymbols();
+  const randomSymbol = candidates[Math.floor(Math.random()*candidates.length)];
+  questionElement = allElements.find(e=>e.symbol===randomSymbol);
+  document.getElementById("question").innerText = `「${questionElement.name} : ${questionElement.symbol}」の場所は？`;
+}
+
+// 判定
+function checkAnswer(symbol, cell){
+  totalCount++;
+  if(symbol===questionElement.symbol){
+    correctCount++;
+    streak++;
+    cell.classList.add("correct");
+    setTimeout(()=>cell.classList.remove("correct"),500);
+  } else {
+    streak = 0;
+    cell.classList.add("wrong");
+    setTimeout(()=>cell.classList.remove("wrong"),500);
+
+    // 間違えた時に正解セルを光らせる
+    const allCells = document.querySelectorAll('.cell');
+    const correctCell = Array.from(allCells).find(c => c.dataset.symbol === questionElement.symbol);
+    if(correctCell){
+      correctCell.classList.add("correct");
+      setTimeout(()=>correctCell.classList.remove("correct"),1000);
+    }
+  }
+  updateScore();
+  setTimeout(nextQuestion,700);
+}
+
+
+// スコア更新
+function updateScore(){
+  const rate = totalCount===0?0:Math.round((correctCount/totalCount)*100);
+  document.getElementById("score").innerText = `正答数: ${correctCount} / ${totalCount} | 連続正解: ${streak} | 正答率: ${rate}%`;
+}
+
+// 初回出題
+nextQuestion();
+</script>
+</body>
+</html>
