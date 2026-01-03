@@ -213,8 +213,18 @@ const allElements = [
     {symbol:"Og", name:"オガネソン", period:7, group:18}
 ];
 
-const level1 = ["H","He","Li","Be","B","C","N","O","F","Ne","Na","Mg","Al","Si","P","S","Cl","Ar","K","Ca","Fe","Cu","Zn","Ag","Au","Hg","Ba"];
-const level2 = level1.concat(["Sc","Ti","V","Cr","Mn","Co","Ni","Br","I","Sn","Pb","Pt"]);
+// レベル1：中学（主要20元素 + 馴染みのある金属）
+const level1 = [
+    "H","He","C","N","O","F","Ne","Na","Mg","Al","Si","P","S","Cl","Ar","K","Ca",
+    "Fe","Cu","Zn","Ag","Au","Hg","Ba","I"
+];
+
+// レベル2：高校（第4周期まで全制覇 + 受験頻出元素）
+const level2 = level1.concat([
+    "Li","Be","B", // 1-20の残り
+    "Sc","Ti","V","Cr","Mn","Co","Ni","Ga","Ge","As","Se","Br","Kr", // 第4周期完成
+    "Sn","Pb","Pt", // 重要な重金属
+]);
 const level3 = allElements.filter(e => e.symbol !== "Lan" && e.symbol !== "Act").map(e=>e.symbol);
 
 let correctCount=0, totalCount=0, streak=0, currentLevel = 1, questionElement=null;
@@ -318,3 +328,4 @@ nextQuestion();
 </script>
 </body>
 </html>
+
