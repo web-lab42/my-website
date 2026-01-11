@@ -1,0 +1,1114 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>英単語バトル v1.4 - Advanced</title>
+    <style>
+        :root {
+            --p1-color: #ff4757;
+            --p2-color: #2e86de;
+            --bg-color: #1e272e;
+            --text-color: #ffffff;
+            --accent-color: #2ecc71;
+        }
+
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #game-container { display: flex; width: 100vw; height: 100vh; }
+
+        @media (orientation: landscape) {
+            #game-container { flex-direction: row; }
+            .player-area { width: 50%; height: 100%; border-right: 2px solid #485460; }
+        }
+        @media (orientation: portrait) {
+            #game-container { flex-direction: column; }
+            .player-area { width: 100%; height: 50%; border-bottom: 2px solid #485460; }
+            .player-area[data-player="1"] { transform: rotate(180deg); }
+        }
+
+        .player-area {
+            display: flex; flex-direction: column; justify-content: center;
+            align-items: center; position: relative; padding: 20px; box-sizing: border-box;
+        }
+
+        .status-bar { position: absolute; top: 20px; font-size: 1.5rem; font-weight: bold; }
+        .timer-display { position: absolute; top: 50px; font-size: 1rem; opacity: 0.8; }
+        
+        .question-text { font-size: 2.2rem; margin-bottom: 30px; font-weight: bold; text-align: center; height: 3.5rem; display: flex; align-items: center; }
+        
+        .choices-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+            width: 100%; max-width: 400px;
+        }
+
+        .choice-btn {
+            padding: 25px 10px; font-size: 1.1rem; border: none; border-radius: 12px;
+            background: #ffffff; color: #2f3542; cursor: pointer; position: relative;
+            font-weight: bold; transition: background 0.1s;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 80px;
+        }
+        
+        .key-guide { position: absolute; bottom: 5px; left: 8px; font-size: 0.7rem; color: #adb5bd; }
+
+        .locked { pointer-events: none; opacity: 0.8; }
+        .correct { background: #2ecc71 !important; color: white !important; }
+        .wrong {
+            background: #fadbd8 !important; /* 背景を薄い赤色に変更 */
+            color: #c0392b !important;     /* 白文字だと見づらいため、文字色を濃い赤に変更 */
+            animation: shake 0.3s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* Setup Screen Styles */
+        #setup-screen, #result-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(30, 39, 46, 0.98);
+            display: flex; flex-direction: column; justify-content: flex-start; align-items: center;
+            z-index: 100; text-align: center; overflow-y: auto; padding: 40px 0;
+        }
+
+        .setup-group {
+            background: #2f3542; padding: 15px; border-radius: 12px; margin: 10px; width: 90%; max-width: 500px;
+        }
+
+        .level-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 8px; max-height: 200px; overflow-y: auto; background: #1e272e; padding: 10px; border-radius: 8px;
+        }
+
+        .level-item { font-size: 0.8rem; background: #3d4852; padding: 5px; border-radius: 4px; cursor: pointer; }
+        .level-item input { margin-right: 4px; }
+
+        select, input[type="number"] { padding: 8px; font-size: 1rem; border-radius: 8px; border: none; }
+        
+        .review-container { display: flex; gap: 20px; width: 90%; max-height: 30vh; overflow-y: auto; margin: 20px 0; }
+        .review-box { flex: 1; background: #2f3542; padding: 15px; border-radius: 10px; text-align: left; }
+        .missed-word { font-size: 0.8rem; margin-bottom: 5px; color: #ffab00; border-bottom: 1px solid #3d4852; }
+
+        .start-btn {
+            padding: 15px 60px; font-size: 1.5rem; background: var(--accent-color);
+            color: white; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; margin: 20px 0;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="setup-screen">
+        <h1 style="margin-bottom: 10px;">English Battle v1.4</h1>
+        
+        <div class="setup-group">
+            <label>1. 出題レベル選択 (複数可)</label>
+            <div style="margin-bottom: 8px;">
+                <button onclick="toggleAllLevels(true)">全選択</button>
+                <button onclick="toggleAllLevels(false)">解除</button>
+            </div>
+            <div id="level-checkboxes" class="level-grid">
+                </div>
+        </div>
+
+        <div class="setup-group">
+            <label>2. 出題モード:</label>
+            <select id="mode-select">
+                <option value="en2jp">英語 → 日本語</option>
+                <option value="jp2en">日本語 → 英語</option>
+                <option value="mix">ミックス</option>
+            </select>
+        </div>
+
+        <div class="setup-group">
+            <label>3. 終了ルール設定:</label><br>
+            <div style="margin-top:10px;">
+                <input type="radio" name="win-rule" value="time" checked id="rule-time">
+                <label for="rule-time">時間制限 (秒):</label>
+                <input type="number" id="val-time" value="60" min="10" max="300" style="width: 60px;">
+            </div>
+            <div style="margin-top:10px;">
+                <input type="radio" name="win-rule" value="score" id="rule-score">
+                <label for="rule-score">目標スコア:</label>
+                <input type="number" id="val-score" value="2000" min="100" max="9999" style="width: 70px;">
+            </div>
+        </div>
+
+        <p style="color: #ff4757; font-size: 0.8rem;">※誤答ペナルティ: スコア -10点</p>
+
+        <button class="start-btn" onclick="startGame()">BATTLE START</button>
+    </div>
+
+    <div id="game-container" class="hidden">
+        <div class="player-area" id="p1-area" data-player="1">
+            <div class="status-bar" id="p1-score">P1: 0</div>
+            <div class="timer-display" id="global-timer-p1">READY</div>
+            <div class="question-text" id="p1-q">---</div>
+            <div class="choices-grid" id="p1-choices">
+                <button class="choice-btn" onclick="handleInput(1,0)"><span class="key-guide">A</span><span class="text">---</span></button>
+                <button class="choice-btn" onclick="handleInput(1,1)"><span class="key-guide">S</span><span class="text">---</span></button>
+                <button class="choice-btn" onclick="handleInput(1,2)"><span class="key-guide">Z</span><span class="text">---</span></button>
+                <button class="choice-btn" onclick="handleInput(1,3)"><span class="key-guide">X</span><span class="text">---</span></button>
+            </div>
+        </div>
+
+        <div class="player-area" id="p2-area" data-player="2">
+            <div class="status-bar" id="p2-score">P2: 0</div>
+            <div class="timer-display" id="global-timer-p2">READY</div>
+            <div class="question-text" id="p2-q">---</div>
+            <div class="choices-grid" id="p2-choices">
+                <button class="choice-btn" onclick="handleInput(2,0)"><span class="key-guide">H</span><span class="text">---</span></button>
+                <button class="choice-btn" onclick="handleInput(2,1)"><span class="key-guide">J</span><span class="text">---</span></button>
+                <button class="choice-btn" onclick="handleInput(2,2)"><span class="key-guide">N</span><span class="text">---</span></button>
+                <button class="choice-btn" onclick="handleInput(2,3)"><span class="key-guide">M</span><span class="text">---</span></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="result-screen" class="hidden">
+        <h1 id="winner-text" style="font-size: 3rem; color: #f1c40f;">WINNER!</h1>
+        <div id="final-scores" style="font-size: 1.5rem; margin-bottom: 10px;"></div>
+        <div class="review-container">
+            <div class="review-box">
+                <h4>P1 復習</h4>
+                <div id="p1-missed-list"></div>
+            </div>
+            <div class="review-box">
+                <h4>P2 復習</h4>
+                <div id="p2-missed-list"></div>
+            </div>
+        </div>
+        <button class="start-btn" onclick="location.reload()">TITLE SCREEN</button>
+    </div>
+
+    <script>
+        // 単語データのサンプル (実際にはここを58まで埋めるか外部ファイル化)
+        const wordLists = {
+  // --- 名詞セクション ---
+  level_01: {
+    name: "☆- - - - L01（最重要）: People & Family (人々・家族) - - - -☆",
+    words: [
+      {en:"people", ja:"人々"}, {en:"person", ja:"1人"}, {en:"friend", ja:"友達"},
+      {en:"man", ja:"男の人"}, {en:"woman", ja:"女の人"}, {en:"boy", ja:"男の子"},
+      {en:"girl", ja:"女の子"}, {en:"family", ja:"家族"}, {en:"mother", ja:"母"},
+      {en:"father", ja:"父"}, {en:"wife", ja:"妻"}, {en:"husband", ja:"夫"},
+      {en:"parent", ja:"親"}, {en:"child", ja:"子供"}, {en:"brother", ja:"兄、弟"},
+      {en:"sister", ja:"姉、妹"}, {en:"grandfather", ja:"祖父"}, {en:"grandmother", ja:"祖母"},
+      {en:"uncle", ja:"おじ"}, {en:"aunt", ja:"おば"}
+    ]
+  }, //
+
+  level_02: {
+    name: "L02: Time & Days (時間・曜日)",
+    words: [
+      {en:"time", ja:"時間、段階"}, {en:"clock", ja:"時計"}, {en:"minute", ja:"分"},
+      {en:"hour", ja:"1時間"}, {en:"day", ja:"日、1日"}, {en:"breakfast", ja:"朝食"},
+      {en:"lunch", ja:"昼食"}, {en:"dinner", ja:"夕食"}, {en:"morning", ja:"朝、午前"},
+      {en:"afternoon", ja:"午後"}, {en:"evening", ja:"夕方"}, {en:"night", ja:"夜"},
+      {en:"week", ja:"週"}, {en:"Sunday", ja:"日曜日"}, {en:"Monday", ja:"月曜日"},
+      {en:"Tuesday", ja:"火曜日"}, {en:"Wednesday", ja:"水曜日"}, {en:"Thursday", ja:"木曜日"},
+      {en:"Friday", ja:"金曜日"}, {en:"Saturday", ja:"土曜日"}
+    ]
+  }, //
+
+  level_03: {
+    name: "L03: Months & Seasons (月・季節)",
+    words: [
+      {en:"month", ja:"月"}, {en:"January", ja:"1月"}, {en:"February", ja:"2月"},
+      {en:"March", ja:"3月"}, {en:"April", ja:"4月"}, {en:"May", ja:"5月"},
+      {en:"June", ja:"6月"}, {en:"July", ja:"7月"}, {en:"August", ja:"8月"},
+      {en:"September", ja:"9月"}, {en:"October", ja:"10月"}, {en:"November", ja:"11月"},
+      {en:"December", ja:"12月"}, {en:"year", ja:"1年"}, {en:"season", ja:"季節"},
+      {en:"spring", ja:"春"}, {en:"summer", ja:"夏"}, {en:"autumn", ja:"秋"},
+      {en:"winter", ja:"冬"}
+    ]
+  }, //
+
+  level_04: {
+    name: "L04: World & Places (世界・場所)",
+    words: [
+      {en:"space", ja:"宇宙"}, {en:"star", ja:"星"}, {en:"earth", ja:"地球"},
+      {en:"world", ja:"世界"}, {en:"country", ja:"国"}, {en:"America", ja:"アメリカ"},
+      {en:"Australia", ja:"オーストラリア"}, {en:"Japan", ja:"日本"}, {en:"Japanese", ja:"日本語、日本人"},
+      {en:"English", ja:"英語"}, {en:"language", ja:"言語"}, {en:"word", ja:"単語、言葉"},
+      {en:"name", ja:"名前"}, {en:"thing", ja:"モノ、コト"}, {en:"house", ja:"家"},
+      {en:"home", ja:"わが家、住んでいる場所"}, {en:"room", ja:"部屋"}, {en:"table", ja:"テーブル"},
+      {en:"bed", ja:"ベッド"}, {en:"building", ja:"建物"}
+    ]
+  }, //
+
+  level_05: {
+    name: "L05: Town & Daily Items (町・日用品)",
+    words: [
+      {en:"town", ja:"町"}, {en:"place", ja:"場所"}, {en:"park", ja:"公園"},
+      {en:"library", ja:"図書館"}, {en:"museum", ja:"博物館、美術館"}, {en:"station", ja:"駅"},
+      {en:"train", ja:"電車"}, {en:"bus", ja:"バス"}, {en:"car", ja:"車"},
+      {en:"trip", ja:"旅行"}, {en:"food", ja:"食べ物"}, {en:"egg", ja:"卵"},
+      {en:"dish", ja:"皿"}, {en:"tea", ja:"紅茶、お茶"}, {en:"restaurant", ja:"レストラン"},
+      {en:"shop", ja:"お店"}, {en:"shopping", ja:"買い物"}, {en:"money", ja:"お金"},
+      {en:"bag", ja:"カバン、袋"}, {en:"box", ja:"箱"}
+    ]
+  }, //
+
+  level_06: {
+    name: "L06: Life & Nature (人生・自然)",
+    words: [
+      {en:"letter", ja:"手紙"}, {en:"activity", ja:"活動"}, {en:"vacation", ja:"休暇"},
+      {en:"way", ja:"方向、方法"}, {en:"course", ja:"進路"}, {en:"dream", ja:"夢"},
+      {en:"future", ja:"未来"}, {en:"plan", ja:"計画"}, {en:"front", ja:"前"},
+      {en:"light", ja:"光、明るい、軽い"}, {en:"nature", ja:"自然"}, {en:"life", ja:"生活、姓名"},
+      {en:"weather", ja:"天気"}, {en:"tree", ja:"木"}, {en:"flower", ja:"花"},
+      {en:"mountain", ja:"山"}, {en:"river", ja:"川"}, {en:"sea", ja:"海"},
+      {en:"sky", ja:"空"}, {en:"plant", ja:"植物"}
+    ]
+  }, //
+
+  level_07: {
+    name: "L07: Animals & Food (動物・食べ物)",
+    words: [
+      {en:"animal", ja:"動物"}, {en:"zoo", ja:"動物園"}, {en:"dog", ja:"犬"},
+      {en:"cat", ja:"猫"}, {en:"bird", ja:"鳥"}, {en:"fish", ja:"魚"},
+      {en:"rice", ja:"米、ご飯"}, {en:"vegetable", ja:"野菜"}, {en:"apple", ja:"リンゴ"},
+      {en:"body", ja:"体"}, {en:"hair", ja:"髪"}, {en:"hand", ja:"手"},
+      {en:"eye", ja:"目"}, {en:"mouth", ja:"口"}, {en:"face", ja:"顔"}
+    ]
+  }, //
+
+  level_08: {
+    name: "L08: School & Study (学校・勉強)",
+    words: [
+      {en:"school", ja:"学校"}, {en:"student", ja:"生徒、学生"}, {en:"teacher", ja:"教師"},
+      {en:"class", ja:"授業、クラス"}, {en:"homework", ja:"宿題"}, {en:"question", ja:"質問"},
+      {en:"problem", ja:"問題"}, {en:"math", ja:"数学"}, {en:"science", ja:"理科、科学"},
+      {en:"junior high school", ja:"中学校"}, {en:"high school", ja:"高校"}, {en:"university", ja:"大学"},
+      {en:"Mr.", ja:"男性の敬称"}, {en:"Ms.", ja:"女性の敬称"}
+    ]
+  }, //
+
+  level_09: {
+    name: "L09: Work & Information (仕事・情報)",
+    words: [
+      {en:"job", ja:"仕事"}, {en:"office", ja:"事務所"}, {en:"idea", ja:"考え"},
+      {en:"speech", ja:"スピーチ"}, {en:"computer", ja:"コンピューター"}, {en:"phone", ja:"電話"},
+      {en:"doctor", ja:"医師"}, {en:"hospital", ja:"病院"}, {en:"traffic", ja:"交通"},
+      {en:"culture", ja:"文化"}, {en:"art", ja:"美術"}, {en:"book", ja:"本"},
+      {en:"story", ja:"物語"}, {en:"movie", ja:"映画"}, {en:"TV", ja:"テレビ"},
+      {en:"music", ja:"音楽"}, {en:"song", ja:"歌"}, {en:"piano", ja:"ピアノ"}
+    ]
+  }, //
+
+  level_10: {
+    name: "L10: Events & Sports (行事・スポーツ)",
+    words: [
+      {en:"birthday", ja:"誕生日"}, {en:"festival", ja:"祭"}, {en:"party", ja:"パーティー"},
+      {en:"cake", ja:"ケーキ"}, {en:"present", ja:"贈り物"}, {en:"picture", ja:"写真、絵"},
+      {en:"sport", ja:"スポーツ"}, {en:"game", ja:"試合"}, {en:"club", ja:"クラブ"},
+      {en:"team", ja:"チーム"}, {en:"group", ja:"集団"}, {en:"member", ja:"メンバー"},
+      {en:"player", ja:"選手"}, {en:"ball", ja:"ボール"}, {en:"soccer", ja:"サッカー"},
+      {en:"baseball", ja:"野球"}, {en:"tennis", ja:"テニス"}, {en:"basketball", ja:"バスケットボール"},
+      {en:"volleyball", ja:"バレーボール"}
+    ]
+  }, //
+
+  level_11: {
+    name: "L11: Numbers & Colors (数・色)",
+    words: [
+      {en:"number", ja:"数、番号"}, {en:"one", ja:"1"}, {en:"two", ja:"2"},
+      {en:"three", ja:"3"}, {en:"four", ja:"4"}, {en:"five", ja:"5"},
+      {en:"six", ja:"6"}, {en:"seven", ja:"7"}, {en:"eight", ja:"8"},
+      {en:"nine", ja:"9"}, {en:"ten", ja:"10"}, {en:"twenty", ja:"20"},
+      {en:"thirty", ja:"30"}, {en:"white", ja:"白"}, {en:"black", ja:"黒"},
+      {en:"red", ja:"赤"}, {en:"blue", ja:"青"}, {en:"yellow", ja:"黄色"},
+      {en:"green", ja:"緑"}
+    ]
+  }, //
+
+  // --- 動詞セクション ---
+  level_12: {
+    name: "L12: Basic Verbs 1 (基本動詞1: 話す・聞く)",
+    words: [
+      {en:"say", ja:"言う"}, {en:"tell", ja:"伝える"}, {en:"talk", ja:"話す(対話)"},
+      {en:"speak", ja:"話す(言語など)"}, {en:"teach", ja:"教える"}, {en:"answer", ja:"答える"},
+      {en:"ask", ja:"質問する、頼む"}, {en:"call", ja:"呼ぶ、電話する"}, {en:"read", ja:"読む"},
+      {en:"eat", ja:"食べる"}, {en:"drink", ja:"飲む"}, {en:"see", ja:"見える"},
+      {en:"look", ja:"見る"}, {en:"watch", ja:"(動くものを)見る"}, {en:"find", ja:"見つける"},
+      {en:"show", ja:"見せる"}, {en:"cry", ja:"泣く、叫ぶ"}, {en:"listen", ja:"聴く"},
+      {en:"hear", ja:"聞こえる"}, {en:"have", ja:"持っている"}
+    ]
+  }, //
+
+  level_13: {
+    name: "L13: Basic Verbs 2 (基本動詞2: 作る・思う)",
+    words: [
+      {en:"bring", ja:"持って来る"}, {en:"hold", ja:"手に持つ、開催する"}, {en:"catch", ja:"捕まえる"},
+      {en:"use", ja:"使う"}, {en:"make", ja:"作る"}, {en:"cook", ja:"料理する"},
+      {en:"write", ja:"書く"}, {en:"cut", ja:"切る"}, {en:"sit", ja:"座る"},
+      {en:"want", ja:"欲しい"}, {en:"hope", ja:"望む、希望する"}, {en:"like", ja:"好きである"},
+      {en:"love", ja:"愛している"}, {en:"thank", ja:"感謝する"}, {en:"smile", ja:"微笑む"},
+      {en:"study", ja:"勉強する"}, {en:"learn", ja:"習う、覚える"}, {en:"know", ja:"知っている"},
+      {en:"understand", ja:"理解する"}, {en:"forget", ja:"忘れる"}
+    ]
+  }, //
+
+  level_14: {
+    name: "L14: Movement & Actions (動き・動作)",
+    words: [
+      {en:"remember", ja:"覚えている"}, {en:"think", ja:"思う、考える"}, {en:"choose", ja:"選ぶ"},
+      {en:"worry", ja:"心配する"}, {en:"believe", ja:"信じる"}, {en:"feel", ja:"感じる"},
+      {en:"enjoy", ja:"楽しむ"}, {en:"go", ja:"行く"}, {en:"come", ja:"来る"},
+      {en:"climb", ja:"登る"}, {en:"visit", ja:"訪れる"}, {en:"leave", ja:"出発する、去る"},
+      {en:"fly", ja:"飛ぶ"}, {en:"move", ja:"動かす、動く"}, {en:"do", ja:"する"},
+      {en:"play", ja:"(楽器を)演奏する、(スポーツを)する"}, {en:"run", ja:"走る"}, {en:"walk", ja:"歩く"},
+      {en:"swim", ja:"泳ぐ"}, {en:"hit", ja:"打つ"}
+    ]
+  }, //
+
+  level_15: {
+    name: "L15: Social & State Verbs (社会・状態の動詞)",
+    words: [
+      {en:"practice", ja:"練習する"}, {en:"dance", ja:"踊る"}, {en:"mean", ja:"意味する"},
+      {en:"get", ja:"手に入れる"}, {en:"give", ja:"与える"}, {en:"take", ja:"取る、連れて行く"},
+      {en:"work", ja:"働く"}, {en:"help", ja:"助ける"}, {en:"join", ja:"加わる"},
+      {en:"live", ja:"住んでいる"}, {en:"stay", ja:"滞在する"}, {en:"clean", ja:"掃除する"},
+      {en:"send", ja:"送る"}, {en:"buy", ja:"買う"}, {en:"sell", ja:"売る"},
+      {en:"need", ja:"必要とする"}, {en:"wear", ja:"身につける"}, {en:"experience", ja:"経験する"},
+      {en:"try", ja:"やってみる"}, {en:"become", ja:"何々になる"}
+    ]
+  }, //
+
+  level_16: {
+    name: "L15: Ending & Changes (終わり・変化の動詞)",
+    words: [
+      {en:"change", ja:"変える"}, {en:"keep", ja:"し続ける"}, {en:"grow", ja:"育てる、成長する"},
+      {en:"happen", ja:"起こる"}, {en:"carry", ja:"運ぶ"}, {en:"wait", ja:"待つ"},
+      {en:"start/begin", ja:"始まる、始める"}, {en:"stop", ja:"止める、止まる"}, {en:"end/finish", ja:"終わる"},
+      {en:"die", ja:"死ぬ"}, {en:"rain", ja:"雨が降る"}, {en:"open", ja:"開く"},
+      {en:"close", ja:"閉める"}, {en:"build", ja:"立てる"}, {en:"break", ja:"壊す"},
+      {en:"agree", ja:"同意する"}
+    ]
+  }, //
+
+  // --- 形容詞セクション ---
+  level_17: {
+    name: "L17: Quantity & Quality (量・性質の形容詞)",
+    words: [
+      {en:"many", ja:"たくさんの(数)"}, {en:"much", ja:"たくさんの(量)"}, {en:"more", ja:"もっと多くの"},
+      {en:"some", ja:"いくつかの"}, {en:"any", ja:"(疑問)いくらかの、(否定)少しも"}, {en:"all", ja:"すべての"},
+      {en:"other", ja:"他の"}, {en:"another", ja:"もう一つの"}, {en:"both", ja:"両方の"},
+      {en:"every", ja:"どの～も"}, {en:"these", ja:"これら"}, {en:"each", ja:"それぞれの"},
+      {en:"such", ja:"そのような"}, {en:"good", ja:"良い"}, {en:"better", ja:"より良い"},
+      {en:"best", ja:"最も良い"}, {en:"bad", ja:"悪い"}, {en:"different", ja:"違った"},
+      {en:"same", ja:"同じ"}, {en:"strong", ja:"強い"}
+    ]
+  }, //
+
+  level_18: {
+    name: "L18: Descriptive Adjectives (描写・感情の形容詞)",
+    words: [
+      {en:"weak", ja:"弱い"}, {en:"difficult", ja:"難しい"}, {en:"easy", ja:"簡単な"},
+      {en:"great", ja:"素晴らしい、偉大な"}, {en:"wonderful", ja:"見事な"}, {en:"popular", ja:"人気のある"},
+      {en:"famous", ja:"有名な"}, {en:"kind", ja:"親切な"}, {en:"nice", ja:"素敵な"},
+      {en:"beautiful", ja:"美しい"}, {en:"favorite", ja:"一番好きな"}, {en:"happy", ja:"幸せな"},
+      {en:"glad", ja:"うれしい"}, {en:"sad", ja:"悲しい"}, {en:"interesting", ja:"面白い"},
+      {en:"interested", ja:"興味がある"}, {en:"exciting", ja:"わくわくさせる"}, {en:"sorry", ja:"すまなく思って"},
+      {en:"surprised", ja:"驚いた"}, {en:"free", ja:"自由な、暇な"}
+    ]
+  }, //
+
+  level_19: {
+    name: "L19: State & Senses (状態・感覚の形容詞)",
+    words: [
+      {en:"busy", ja:"忙しい"}, {en:"tired", ja:"疲れた"}, {en:"hot", ja:"暑い、熱い"},
+      {en:"warm", ja:"温かい"}, {en:"cold", ja:"寒い、冷たい"}, {en:"long", ja:"長い"},
+      {en:"short", ja:"短い、低い"}, {en:"big/large", ja:"大きい"}, {en:"small/little", ja:"小さい"},
+      {en:"enough", ja:"十分な"}, {en:"high", ja:"高い(数値・位置)"}, {en:"tall", ja:"高い(身長・建物)"},
+      {en:"low", ja:"低い"}, {en:"old", ja:"古い、年とった"}, {en:"new", ja:"新しい"},
+      {en:"young", ja:"若い"}, {en:"last", ja:"この前の、最後の"}, {en:"next", ja:"次の"},
+      {en:"first", ja:"最初の"}, {en:"second", ja:"2番目の"}
+    ]
+  }, //
+
+  // --- 副詞・その他セクション ---
+  level_20: {
+    name: "L20: Adverbs & Others (重要副詞・その他)",
+    words: [
+      {en:"important", ja:"重要な"}, {en:"special", ja:"特別の"}, {en:"useful", ja:"役に立つ"},
+      {en:"true", ja:"本当の"}, {en:"sure", ja:"確信して"}, {en:"human", ja:"人間の"},
+      {en:"own", ja:"自身の"}, {en:"foreign", ja:"外国の"}, {en:"welcome", ja:"歓迎される"},
+      {en:"yesterday", ja:"昨日"}, {en:"today", ja:"今日"}, {en:"tomorrow", ja:"明日"},
+      {en:"now", ja:"今"}, {en:"later", ja:"後で"}, {en:"still", ja:"まだ"},
+      {en:"already", ja:"すでに"}, {en:"soon", ja:"すぐに"}, {en:"ago", ja:"～前に"},
+      {en:"before", ja:"～の前に"}, {en:"after", ja:"その後、～の後に"}
+    ]
+  }, //
+
+  level_21: {
+    name: "L21: Frequency & Manner (頻度・程度の副詞)",
+    words: [
+      {en:"then", ja:"その時、それから"}, {en:"when", ja:"～する時"}, {en:"early", ja:"早く"},
+      {en:"late", ja:"遅く"}, {en:"fast", ja:"速く"}, {en:"slowly", ja:"ゆっくりと"},
+      {en:"always", ja:"いつも"}, {en:"sometimes", ja:"時々"}, {en:"often", ja:"よく、しばしば"},
+      {en:"again", ja:"再び"}, {en:"once", ja:"1回、かつて"}, {en:"twice", ja:"2回"},
+      {en:"here", ja:"ここに"}, {en:"there", ja:"そこに"}, {en:"where", ja:"どこに"},
+      {en:"very", ja:"とても"}, {en:"just", ja:"ちょうど"}, {en:"about", ja:"およそ、～について"},
+      {en:"too", ja:"～もまた、～すぎる"}, {en:"also", ja:"～もまた"}, {en:"really", ja:"本当に"},
+      {en:"together", ja:"一緒に"}, {en:"why", ja:"なぜ"}, {en:"how", ja:"どれくらい、どうやって"}
+    ]
+  }, //
+
+  level_22: {
+    name: "☆- - - - L22（高水準）: Stationery & School (文房具・学校生活) - - - -☆",
+    words: [
+      {en:"card", ja:"カード、はがき"}, {en:"stamp", ja:"切手"}, {en:"pencil", ja:"鉛筆"},
+      {en:"pen", ja:"ペン"}, {en:"notebook", ja:"ノート"}, {en:"note", ja:"メモ、覚え書き"},
+      {en:"board", ja:"板、黒板"}, {en:"report", ja:"報告、レポート"}, {en:"test", ja:"テスト、試験"},
+      {en:"elementary school", ja:"小学校"}, {en:"textbook", ja:"教科書"}, {en:"dictionary", ja:"辞書"},
+      {en:"page", ja:"ページ"}, {en:"lesson", ja:"授業、レッスン"}, {en:"subject", ja:"教科、件名"},
+      {en:"classroom", ja:"教室"}, {en:"gym", ja:"体育館、ジム"}, {en:"classmate", ja:"クラスメート"},
+      {en:"uniform", ja:"制服"}, {en:"education", ja:"教育"}
+    ]
+  }, //
+
+  level_23: {
+    name: "L23: Media & Society (メディア・社会問題)",
+    words: [
+      {en:"topic", ja:"話題"}, {en:"news", ja:"ニュース"}, {en:"internet", ja:"インターネット"},
+      {en:"website", ja:"ウェブサイト"}, {en:"radio", ja:"ラジオ"}, {en:"newspaper", ja:"新聞"},
+      {en:"interview", ja:"面接、インタビュー"}, {en:"record", ja:"記録"}, {en:"information", ja:"情報"},
+      {en:"accident", ja:"事故"}, {en:"earthquake", ja:"地震"}, {en:"fire", ja:"火事"},
+      {en:"environment", ja:"環境"}, {en:"pollution", ja:"汚染"}, {en:"research", ja:"調査、研究"},
+      {en:"garbage", ja:"ゴミ、生ゴミ"}, {en:"waste", ja:"無駄、廃棄物"}, {en:"trouble", ja:"困難、困ること"},
+      {en:"situation", ja:"状況、事態"}, {en:"luck", ja:"運"}
+    ]
+  }, //
+
+  level_24: {
+    name: "L24: Science & Nature (科学・宇宙・自然)",
+    words: [
+      {en:"chance", ja:"機会、チャンス"}, {en:"mind", ja:"心、精神"}, {en:"challenge", ja:"挑戦"},
+      {en:"effort", ja:"努力"}, {en:"result", ja:"結果"}, {en:"sun", ja:"太陽"},
+      {en:"planet", ja:"惑星"}, {en:"moon", ja:"月"}, {en:"rocket", ja:"ロケット"},
+      {en:"astronaut", ja:"宇宙飛行士"}, {en:"global warming", ja:"地球温暖化"}, {en:"energy", ja:"エネルギー"},
+      {en:"oil", ja:"油、石油"}, {en:"gas", ja:"ガス、ガソリン"}, {en:"electricity", ja:"電気"},
+      {en:"candle", ja:"ろうそく"}, {en:"temperature", ja:"温度"}, {en:"heat", ja:"熱、温める"},
+      {en:"air", ja:"空気"}, {en:"village", ja:"村"}
+    ]
+  }, //
+
+  level_25: {
+    name: "L25: Places & Countries (場所・世界の国々)",
+    words: [
+      {en:"garden", ja:"庭園"}, {en:"ground", ja:"地面、土地"}, {en:"field", ja:"畑、野原"},
+      {en:"farm", ja:"農場"}, {en:"island", ja:"島"}, {en:"area", ja:"地域、区域"},
+      {en:"community", ja:"地域社会"}, {en:"government", ja:"政府"}, {en:"China", ja:"中国"},
+      {en:"Chinese", ja:"中国人、中国語"}, {en:"Asia", ja:"アジア"}, {en:"India", ja:"インド"},
+      {en:"Singapore", ja:"シンガポール"}, {en:"Europe", ja:"ヨーロッパ"}, {en:"England", ja:"イングランド"},
+      {en:"France", ja:"フランス"}, {en:"Paris", ja:"パリ"}, {en:"Germany", ja:"ドイツ"},
+      {en:"Africa", ja:"アフリカ"}, {en:"Brazil", ja:"ブラジル"}
+    ]
+  }, //
+
+  level_26: {
+    name: "L26: People & Roles (人々・職業・役割)",
+    words: [
+      {en:"New Zealand", ja:"ニュージーランド"}, {en:"Hawaii", ja:"ハワイ"}, {en:"king", ja:"王"},
+      {en:"castle", ja:"城"}, {en:"dad", ja:"お父さん"}, {en:"mom", ja:"お母さん"},
+      {en:"son", ja:"息子"}, {en:"daughter", ja:"娘"}, {en:"baby", ja:"赤ちゃん"},
+      {en:"cousin", ja:"いとこ"}, {en:"neighbor", ja:"隣人、近所の人"}, {en:"age", ja:"年齢"},
+      {en:"company", ja:"会社"}, {en:"president", ja:"大統領、社長"}, {en:"manager", ja:"支配人、経営者"},
+      {en:"leader", ja:"リーダー"}, {en:"owner", ja:"所有者"}, {en:"coach", ja:"コーチ"},
+      {en:"worker", ja:"働く人"}, {en:"engineer", ja:"技師"}
+    ]
+  }, //
+
+  level_27: {
+    name: "L27: Business & Service (仕事・店舗・サービス)",
+    words: [
+      {en:"researcher", ja:"研究者"}, {en:"project", ja:"計画、事業"}, {en:"factory", ja:"工場"},
+      {en:"product", ja:"製品"}, {en:"customer", ja:"客、顧客"}, {en:"guest", ja:"招待客、ゲスト"},
+      {en:"clerk", ja:"店員"}, {en:"menu", ja:"メニュー"}, {en:"order", ja:"注文"},
+      {en:"sale", ja:"販売、セール"}, {en:"supermarket", ja:"スーパーマーケット"}, {en:"service", ja:"サービス"},
+      {en:"communication", ja:"通信、伝達"}, {en:"meeting", ja:"会合、会議"}, {en:"system", ja:"組織、制度"},
+      {en:"officer", ja:"役人、警官"}, {en:"police", ja:"警察"}, {en:"post office", ja:"郵便局"},
+      {en:"adult", ja:"大人"}, {en:"host", ja:"主人、ホスト"}
+    ]
+  }, //
+
+  level_28: {
+    name: "L28: Entertainment & Art (芸能・芸術・音楽)",
+    words: [
+      {en:"lady", ja:"淑女、女性"}, {en:"actor", ja:"俳優"}, {en:"character", ja:"性格、登場人物"},
+      {en:"film", ja:"映画、フィルム"}, {en:"theater", ja:"劇場、映画館"}, {en:"stage", ja:"舞台"},
+      {en:"performance", ja:"演技、演奏"}, {en:"concert", ja:"コンサート"}, {en:"choir", ja:"合唱"},
+      {en:"singer", ja:"歌手"}, {en:"voice", ja:"声"}, {en:"musician", ja:"音楽家"},
+      {en:"band", ja:"バンド"}, {en:"guitar", ja:"ギター"}, {en:"violin", ja:"バイオリン"},
+      {en:"drum", ja:"太鼓、ドラム"}, {en:"contest", ja:"コンテスト"}, {en:"event", ja:"イベント"},
+      {en:"Christmas", ja:"クリスマス"}, {en:"ceremony", ja:"儀式、セレモニー"}
+    ]
+  }, //
+
+  level_29: {
+    name: "L29: Culture & Communication (文化・表現・読み物)",
+    words: [
+      {en:"gift", ja:"贈り物"}, {en:"ticket", ja:"切符、チケット"}, {en:"seat", ja:"座席"},
+      {en:"guide", ja:"案内人、案内する"}, {en:"display", ja:"展示"}, {en:"fireworks", ja:"花火"},
+      {en:"bookstore", ja:"書店"}, {en:"magazine", ja:"雑誌"}, {en:"comic", ja:"漫画"},
+      {en:"anime", ja:"アニメ"}, {en:"painting", ja:"絵画"}, {en:"writer", ja:"作家"},
+      {en:"artist", ja:"芸術家"}, {en:"expression", ja:"表現"}, {en:"gesture", ja:"身振り、ジェスチャー"},
+      {en:"skill", ja:"技能"}, {en:"speaker", ja:"話す人、演説者"}, {en:"conversation", ja:"会話"},
+      {en:"movement", ja:"動き、運動"}, {en:"meal", ja:"食事"}
+    ]
+  }, //
+
+  level_30: {
+    name: "L30: Food & Kitchen 1 (食べ物・料理 1)",
+    words: [
+      {en:"meat", ja:"肉"}, {en:"egg", ja:"卵"}, {en:"cheese", ja:"チーズ"},
+      {en:"bread", ja:"パン"}, {en:"toast", ja:"トースト"}, {en:"hamburger", ja:"ハンバーガー"},
+      {en:"sandwich", ja:"サンドイッチ"}, {en:"pizza", ja:"ピザ"}, {en:"pie", ja:"パイ"},
+      {en:"curry", ja:"カレー"}, {en:"potato", ja:"じゃがいも"}, {en:"onion", ja:"玉ねぎ"},
+      {en:"soup", ja:"スープ"}, {en:"salad", ja:"サラダ"}, {en:"fruit", ja:"果物"},
+      {en:"banana", ja:"バナナ"}, {en:"cherry", ja:"さくらんぼ"}, {en:"chocolate", ja:"チョコレート"},
+      {en:"milk", ja:"牛乳"}, {en:"juice", ja:"ジュース"}
+    ]
+  }, //
+
+  level_31: {
+    name: "L31: Food & Kitchen 2 (飲み物・台所用品)",
+    words: [
+      {en:"coffee", ja:"コーヒー"}, {en:"ice", ja:"氷"}, {en:"salt", ja:"塩"},
+      {en:"kitchen", ja:"台所"}, {en:"dish", ja:"皿、料理"}, {en:"glass", ja:"コップ、ガラス"},
+      {en:"cup", ja:"カップ、茶碗"}, {en:"bowl", ja:"鉢、わん、ボール"}, {en:"case", ja:"場合、容器"},
+      {en:"bottle", ja:"瓶"}, {en:"stick", ja:"棒"}, {en:"living thing", ja:"生物、生き物"},
+      {en:"cow", ja:"牛"}, {en:"horse", ja:"馬"}, {en:"chicken", ja:"鶏、鶏肉"},
+      {en:"lion", ja:"ライオン"}, {en:"tiger", ja:"トラ"}, {en:"elephant", ja:"ゾウ"},
+      {en:"bear", ja:"クマ"}, {en:"koala", ja:"コアラ"}
+    ]
+  }, //
+
+  level_32: {
+    name: "L32: Animals & Fashion (動物・衣服)",
+    words: [
+      {en:"monkey", ja:"猿"}, {en:"whale", ja:"クジラ"}, {en:"dolphin", ja:"イルカ"},
+      {en:"penguin", ja:"ペンギン"}, {en:"mouse", ja:"ネズミ"}, {en:"crane", ja:"つる"},
+      {en:"bat", ja:"コウモリ、(野球の)バット"}, {en:"insect", ja:"昆虫"}, {en:"pet", ja:"ペット"},
+      {en:"toy", ja:"おもちゃ"}, {en:"doll", ja:"人形"}, {en:"thread", ja:"糸"},
+      {en:"cloth", ja:"布"}, {en:"clothes", ja:"衣服"}, {en:"dress", ja:"ドレス"},
+      {en:"coat", ja:"上着、コート"}, {en:"shirt", ja:"シャツ"}, {en:"T-shirt", ja:"Tシャツ"},
+      {en:"sweater", ja:"セーター"}, {en:"hat", ja:"帽子"}
+    ]
+  }, //
+
+  level_33: {
+    name: "L33: Body & Health (身体・健康)",
+    words: [
+      {en:"cap", ja:"縁のない帽子、キャップ"}, {en:"hair", ja:"髪の毛"}, {en:"head", ja:"頭"},
+      {en:"brain", ja:"脳、頭脳"}, {en:"ear", ja:"耳"}, {en:"nose", ja:"鼻"},
+      {en:"mouth", ja:"口"}, {en:"tooth", ja:"歯"}, {en:"arm", ja:"腕"},
+      {en:"finger", ja:"指"}, {en:"heart", ja:"心、心臓"}, {en:"foot", ja:"足(足首から先)"},
+      {en:"leg", ja:"足(足首から上)"}, {en:"blood", ja:"血"}, {en:"nurse", ja:"看護師"},
+      {en:"medicine", ja:"薬"}, {en:"patient", ja:"患者、我慢強い"}, {en:"pain", ja:"痛み"},
+      {en:"health", ja:"健康"}, {en:"wheelchair", ja:"車椅子"}
+    ]
+  }, //
+
+  level_34: {
+    name: "L34: Economy & Geometry (経済・形・位置)",
+    words: [
+      {en:"market", ja:"市場"}, {en:"price", ja:"値段"}, {en:"yen", ja:"円"},
+      {en:"dollar", ja:"ドル"}, {en:"gold", ja:"金"}, {en:"coin", ja:"硬貨"},
+      {en:"amount", ja:"量、額"}, {en:"bank", ja:"銀行"}, {en:"shore", ja:"岸"},
+      {en:"treasure", ja:"宝物"}, {en:"stone", ja:"石"}, {en:"metal", ja:"金属"},
+      {en:"piece", ja:"1つ、かけら"}, {en:"shape", ja:"形"}, {en:"figure", ja:"図、形、数"},
+      {en:"corner", ja:"角"}, {en:"circle", ja:"円"}, {en:"center", ja:"中心"},
+      {en:"middle", ja:"真ん中"}, {en:"side", ja:"側面"}
+    ]
+  }, //
+
+  level_35: {
+    name: "L35: Time & History (時間・歴史・目標)",
+    words: [
+      {en:"cycle", ja:"周期"}, {en:"moment", ja:"瞬間、ちょっとの間"}, {en:"period", ja:"時代、期間"},
+      {en:"memory", ja:"記憶、思い出"}, {en:"past", ja:"過去"}, {en:"beginning", ja:"始め、始まり"},
+      {en:"diary", ja:"日記"}, {en:"date", ja:"日付、デート"}, {en:"noon", ja:"正午"},
+      {en:"century", ja:"世紀"}, {en:"history", ja:"歴史"}, {en:"list", ja:"リスト"},
+      {en:"map", ja:"地図"}, {en:"purpose", ja:"目的"}, {en:"goal", ja:"目標、ゴール"},
+      {en:"step", ja:"歩み"}, {en:"climate", ja:"気候"}, {en:"snow", ja:"雪"},
+      {en:"cloud", ja:"雲"}, {en:"peace", ja:"平和"}
+    ]
+  }, //
+
+  level_36: {
+    name: "L36: Abstract Concepts (概念・意見・感情)",
+    words: [
+      {en:"war", ja:"戦争"}, {en:"mine", ja:"地雷"}, {en:"kill", ja:"殺す"},
+      {en:"death", ja:"死"}, {en:"danger", ja:"危険"}, {en:"soldier", ja:"兵士、軍人"},
+      {en:"race", ja:"競争、人種"}, {en:"power", ja:"力"}, {en:"action", ja:"行動、動作"},
+      {en:"mistake", ja:"誤り、誤解する"}, {en:"advice", ja:"助言"}, {en:"exchange", ja:"交換"},
+      {en:"joy", ja:"喜び"}, {en:"happiness", ja:"幸福"}, {en:"feeling", ja:"気持ち、感情"},
+      {en:"opinion", ja:"意見"}, {en:"reason", ja:"理由"}, {en:"meaning", ja:"意味"},
+      {en:"fact", ja:"事実"}, {en:"law", ja:"法律"}
+    ]
+  }, //
+
+  level_37: {
+    name: "L37: Rules & Nature 2 (規則・信仰・植物)",
+    words: [
+      {en:"rule", ja:"規則"}, {en:"custom", ja:"慣習"}, {en:"proverb", ja:"ことわざ、格言"},
+      {en:"shrine", ja:"神社"}, {en:"temple", ja:"寺"}, {en:"god", ja:"神"},
+      {en:"priest", ja:"司祭、聖職者"}, {en:"forest", ja:"森"}, {en:"grass", ja:"草"},
+      {en:"leaf", ja:"葉"}, {en:"species", ja:"種(分類上の)"}, {en:"seed", ja:"種"},
+      {en:"rose", ja:"バラ"}, {en:"bloom", ja:"開花する"}, {en:"rock", ja:"岩"},
+      {en:"window", ja:"窓"}, {en:"wind", ja:"風"}, {en:"lake", ja:"湖"},
+      {en:"sea", ja:"海"}, {en:"beach", ja:"浜辺"}
+    ]
+  }, //
+
+  level_38: {
+    name: "L38: Town & Home (街・建物・室内)",
+    words: [
+      {en:"wave", ja:"波、手を振る"}, {en:"bridge", ja:"橋"}, {en:"hill", ja:"丘"},
+      {en:"top", ja:"頂上"}, {en:"view", ja:"眺め、見方"}, {en:"hall", ja:"会館、ホール"},
+      {en:"tower", ja:"塔"}, {en:"entrance", ja:"入り口"}, {en:"gate", ja:"門"},
+      {en:"roof", ja:"屋根"}, {en:"wall", ja:"壁"}, {en:"door", ja:"ドア"},
+      {en:"key", ja:"鍵"}, {en:"hole", ja:"穴"}, {en:"floor", ja:"床、階"},
+      {en:"bath", ja:"お風呂、入浴"}, {en:"chair", ja:"椅子"}, {en:"umbrella", ja:"傘"},
+      {en:"holiday", ja:"祝日、休日"}, {en:"weekend", ja:"週末"}
+    ]
+  }, //
+
+  level_39: {
+    name: "L39: Travel & Technology (旅行・交通・技術)",
+    words: [
+      {en:"rest", ja:"休息"}, {en:"hobby", ja:"趣味"}, {en:"camp", ja:"キャンプ"},
+      {en:"fishing", ja:"魚釣り"}, {en:"tourist", ja:"観光客"}, {en:"visitor", ja:"訪問者"},
+      {en:"hotel", ja:"ホテル"}, {en:"tour", ja:"旅行、ツアー"}, {en:"traffic", ja:"交通"},
+      {en:"line", ja:"線、線路"}, {en:"airport", ja:"空港"}, {en:"flight", ja:"飛行、便"},
+      {en:"plane", ja:"飛行機"}, {en:"ship", ja:"船"}, {en:"boat", ja:"ボート"},
+      {en:"driver", ja:"運転手"}, {en:"road", ja:"道路"}, {en:"sign", ja:"標識、看板"},
+      {en:"machine", ja:"機械"}, {en:"robot", ja:"ロボット"}
+    ]
+  }, //
+
+  level_40: {
+    name: "L40: Media & Sports (デジタル・スポーツ競技)",
+    words: [
+      {en:"cell phone", ja:"携帯電話"}, {en:"tone", ja:"電話の音、音調"}, {en:"technology", ja:"科学技術"},
+      {en:"video", ja:"ビデオ"}, {en:"camera", ja:"カメラ"}, {en:"photo", ja:"写真"},
+      {en:"design", ja:"デザイン、設計する"}, {en:"style", ja:"様式、スタイル"}, {en:"type", ja:"型、タイプ"},
+      {en:"model", ja:"模型、型"}, {en:"fan", ja:"ファン、うちわ"}, {en:"stadium", ja:"競技場"},
+      {en:"runner", ja:"走る人"}, {en:"marathon", ja:"マラソン"}, {en:"cycling", ja:"サイクリング"},
+      {en:"bicycle", ja:"自転車"}, {en:"rugby", ja:"ラグビー"}, {en:"match", ja:"試合(個人戦)"},
+      {en:"racket", ja:"ラケット"}, {en:"pool", ja:"プール"}
+    ]
+  }, //
+
+  level_41: {
+    name: "L41: Measurements & Units (大きさ・単位・数)",
+    words: [
+      {en:"size", ja:"大きさ"}, {en:"distance", ja:"距離"}, {en:"meter", ja:"メートル"},
+      {en:"kilometer", ja:"キロメートル"}, {en:"level", ja:"レベル、程度"}, {en:"graph", ja:"グラフ"},
+      {en:"data", ja:"データ"}, {en:"percent", ja:"パーセント"}, {en:"percentage", ja:"割合"},
+      {en:"rate", ja:"割合、率"}, {en:"half", ja:"半分"}, {en:"brown", ja:"茶色"},
+      {en:"orange", ja:"オレンジ"}, {en:"hundred", ja:"100"}, {en:"thousand", ja:"1000"},
+      {en:"million", ja:"100万"}, {en:"north", ja:"北"}, {en:"south", ja:"南"},
+      {en:"east", ja:"東"}, {en:"west", ja:"西"}
+    ]
+  }, //
+
+  // --- 動詞セクション (追加 102語の一部) ---
+  level_42: {
+    name: "L42: Daily Actions 1 (日常の動作 1: 家事・食事)",
+    words: [
+      {en:"prepare", ja:"準備する"}, {en:"wash", ja:"洗う"}, {en:"cut", ja:"切る"},
+      {en:"fry", ja:"揚げる、炒める"}, {en:"burn", ja:"燃やす"}, {en:"mix", ja:"混ぜる"},
+      {en:"roll", ja:"巻く、転がる"}, {en:"set", ja:"置く、沈む"}, {en:"serve", ja:"(食事を)出す"},
+      {en:"smell", ja:"においがする"}, {en:"bite", ja:"噛む、一口"}, {en:"taste", ja:"味がする"},
+      {en:"act", ja:"行動する"}, {en:"travel", ja:"旅行する"}, {en:"ride", ja:"乗る"},
+      {en:"drive", ja:"運転する"}, {en:"arrive", ja:"到着する"}, {en:"reach", ja:"着く、届く"},
+      {en:"pass", ja:"渡す、通り過ぎる"}, {en:"cross", ja:"横切る"}
+    ]
+  }, //
+
+  level_43: {
+    name: "L43: Daily Actions 2 (日常の動作 2: 変化・交流)",
+    words: [
+      {en:"hurry", ja:"急ぐ"}, {en:"disappear", ja:"見えなくなる"}, {en:"hide", ja:"隠す、隠れる"},
+      {en:"appear", ja:"現れる"}, {en:"introduce", ja:"紹介する"}, {en:"marry", ja:"結婚する"},
+      {en:"promise", ja:"約束する"}, {en:"ring", ja:"鳴る"}, {en:"shine", ja:"輝く"},
+      {en:"fit", ja:"ぴったり合う"}, {en:"laugh", ja:"(声を出し)笑う"}, {en:"wish", ja:"願う"},
+      {en:"cheer", ja:"元気づける"}, {en:"relax", ja:"くつろぐ"}, {en:"respect", ja:"尊敬する"},
+      {en:"pardon", ja:"許す"}, {en:"support", ja:"支援する、支持する"}, {en:"follow", ja:"ついていく、従う"},
+      {en:"control", ja:"管理する"}, {en:"wonder", ja:"不思議に思う"}
+    ]
+  }, //
+
+  level_44: {
+    name: "L44: Physical Actions (身体的動作・衝撃)",
+    words: [
+      {en:"drop", ja:"落とす"}, {en:"shoot", ja:"撃つ、シュートする"}, {en:"beat", ja:"打つ、叩く、鼓動する"},
+      {en:"throw", ja:"投げる"}, {en:"shake", ja:"振る"}, {en:"jump", ja:"飛ぶ"},
+      {en:"ski", ja:"スキーをする"}, {en:"climb", ja:"登る"}, {en:"fight", ja:"戦う"},
+      {en:"cause", ja:"引き起こす、原因"}, {en:"spend", ja:"(金・時間を)使う、過ごす"}, {en:"touch", ja:"触る"},
+      {en:"hurt", ja:"傷つける、痛む"}, {en:"injure", ja:"(体を)傷つける"}, {en:"shock", ja:"衝撃を与える"},
+      {en:"shout", ja:"叫ぶ"}, {en:"cover", ja:"覆う"}, {en:"protect", ja:"保護する"},
+      {en:"lie", ja:"横になる、嘘"}, {en:"realize", ja:"悟る、気づく"}
+    ]
+  }, //
+
+  level_45: {
+    name: "L45: Creative & Social Actions (創造・社会的な動作)",
+    words: [
+      {en:"impress", ja:"感銘を与える"}, {en:"encourage", ja:"勇気づける"}, {en:"push", ja:"押す"},
+      {en:"pull", ja:"引く、引っ張る"}, {en:"tie", ja:"結ぶ"}, {en:"perform", ja:"する、演奏する"},
+      {en:"rise", ja:"上がる、登る"}, {en:"raise", ja:"上げる、育てる"}, {en:"draw", ja:"(線を)引く、描く"},
+      {en:"paint", ja:"(絵の具で)描く、塗る"}, {en:"print", ja:"印刷する"}, {en:"miss", ja:"逃す、寂しく思う"},
+      {en:"check", ja:"調べる、確認する"}, {en:"share", ja:"分け合う"}, {en:"borrow", ja:"借りる"},
+      {en:"lend", ja:"貸す"}, {en:"fill", ja:"満たす"}, {en:"collect", ja:"集める"},
+      {en:"reduce", ja:"減らす"}, {en:"receive", ja:"受け取る"}
+    ]
+  }, //
+
+  level_46: {
+    name: "L46: Intellectual Actions (知的動作・論理的動作)",
+    words: [
+      {en:"continue", ja:"続ける"}, {en:"repeat", ja:"繰り返す"}, {en:"recycle", ja:"リサイクルする"},
+      {en:"return", ja:"戻る、返す"}, {en:"produce", ja:"生産する"}, {en:"cost", ja:"費用がかかる"},
+      {en:"pay", ja:"支払う"}, {en:"add", ja:"加える"}, {en:"enter", ja:"入る"},
+      {en:"guess", ja:"推測する、言い当てる"}, {en:"explain", ja:"説明する"}, {en:"develop", ja:"発達させる、発展する"},
+      {en:"discover", ja:"発見する"}, {en:"imagine", ja:"想像する"}, {en:"create", ja:"創造する"},
+      {en:"invent", ja:"発明する"}, {en:"notice", ja:"気づく、通知"}, {en:"lead", ja:"導く"},
+      {en:"solve", ja:"解く、解決する"}, {en:"save", ja:"救う、節約する"}, {en:"graduate", ja:"卒業する"}
+    ]
+  }, //
+
+  // --- 形容詞セクション (追加 78語の一部) ---
+  level_47: {
+    name: "L47: Qualities & States 1 (性質・状態 1)",
+    words: [
+      {en:"fine", ja:"結構な、元気な"}, {en:"active", ja:"活動的な"}, {en:"healthy", ja:"健康な"},
+      {en:"bright", ja:"明るい、輝いている"}, {en:"golden", ja:"金色の"}, {en:"solar", ja:"太陽の"},
+      {en:"clear", ja:"はっきりした、晴れた"}, {en:"cloudy", ja:"曇りの"}, {en:"dark", ja:"暗い"},
+      {en:"dirty", ja:"汚い"}, {en:"serious", ja:"深刻な、真剣な"}, {en:"public", ja:"公共の"},
+      {en:"social", ja:"社会の"}, {en:"international", ja:"国際的な"}, {en:"national", ja:"国の、国民の"},
+      {en:"local", ja:"地元の"}, {en:"be born", ja:"生まれる"}, {en:"proud", ja:"誇りを持っている"},
+      {en:"safe", ja:"安全な"}, {en:"afraid", ja:"恐れて、怖がって"}
+    ]
+  }, //
+
+  level_48: {
+    name: "L48: Qualities & States 2 (性質・状態 2)",
+    words: [
+      {en:"terrible", ja:"ひどい、恐ろしい"}, {en:"dangerous", ja:"危険な"}, {en:"wild", ja:"野生の"},
+      {en:"weak", ja:"弱い"}, {en:"soft", ja:"柔らかい"}, {en:"professional", ja:"プロの、専門的な"},
+      {en:"perfect", ja:"完全な"}, {en:"digital", ja:"デジタルの"}, {en:"possible", ja:"可能な"},
+      {en:"similar", ja:"似ている"}, {en:"wrong", ja:"間違った"}, {en:"necessary", ja:"必要な"},
+      {en:"several", ja:"いくつかの"}, {en:"main", ja:"主な、主要な"}, {en:"whole", ja:"全体の"},
+      {en:"round", ja:"丸い"}, {en:"pretty", ja:"可愛い、綺麗な"}, {en:"cute", ja:"可愛い"},
+      {en:"friendly", ja:"友好的な"}, {en:"shy", ja:"恥ずかしがりの"}
+    ]
+  }, //
+
+  level_49: {
+    name: "L49: Characteristics & Feelings (特徴・感情)",
+    words: [
+      {en:"funny", ja:"おかしい、面白い"}, {en:"strange", ja:"奇妙な"}, {en:"simple", ja:"簡単な、単純な"},
+      {en:"quiet", ja:"静かな"}, {en:"elderly", ja:"年配の"}, {en:"fresh", ja:"新鮮な"},
+      {en:"dry", ja:"乾いた、乾燥した"}, {en:"medium", ja:"中くらいの"}, {en:"wide", ja:"幅が広い"},
+      {en:"loud", ja:"(声が)大きい"}, {en:"heavy", ja:"重い"}, {en:"giant", ja:"巨大な"},
+      {en:"less", ja:"より少ない"}, {en:"rich", ja:"金持ちの、豊かな"}, {en:"poor", ja:"貧しい"},
+      {en:"cheap", ja:"安い"}, {en:"expensive", ja:"高価な"}, {en:"lucky", ja:"幸運な"},
+      {en:"real", ja:"本当の、現実の"}, {en:"ancient", ja:"古代の"}
+    ]
+  }, //
+
+  level_50: {
+    name: "L50: Conditions & Sensations (状況・感覚)",
+    words: [
+      {en:"traditional", ja:"伝統的な"}, {en:"Olympic", ja:"オリンピックの"}, {en:"full", ja:"いっぱいの"},
+      {en:"empty", ja:"空っぽの"}, {en:"sweet", ja:"甘い"}, {en:"delicious", ja:"とても美味しい"},
+      {en:"hungry", ja:"空腹の"}, {en:"dead", ja:"死んでいる"}, {en:"sleepy", ja:"眠い"},
+      {en:"angry", ja:"怒った"}, {en:"excited", ja:"興奮した"}, {en:"nervous", ja:"緊張している"},
+      {en:"cool", ja:"涼しい、かっこいい"}, {en:"deep", ja:"深い"}, {en:"slow", ja:"遅い"},
+      {en:"ready", ja:"準備ができた"}, {en:"dear", ja:"親愛なる"}, {en:"British", ja:"イギリスの"}
+    ]
+  }, //
+
+  // --- 副詞セクション (追加 16語) ---
+  level_51: {
+    name: "L51: Adverbs (副詞・接続の言葉)",
+    words: [
+      {en:"suddenly", ja:"突然"}, {en:"quickly", ja:"素早く"}, {en:"already", ja:"すでに"},
+      {en:"finally", ja:"ついに、最後に"}, {en:"alone", ja:"一人で"}, {en:"tonight", ja:"今夜"},
+      {en:"straight", ja:"まっすぐに"}, {en:"especially", ja:"特に"}, {en:"carefully", ja:"注意深く"},
+      {en:"however", ja:"しかしながら"}, {en:"else", ja:"その他に"}, {en:"actually", ja:"実際には"},
+      {en:"someday", ja:"いつか"}, {en:"probably", ja:"たぶん、おそらく"}, {en:"abroad", ja:"外国に"},
+      {en:"forever", ja:"永遠に"}
+    ]
+  }, //
+
+  level_52: {
+    name: "☆- - - - L52（熟語）: Essential Idioms 1 (be動詞の熟語) - - - -☆",
+    words: [
+      {en:"be able to", ja:"〜することができる"}, {en:"be afraid of", ja:"〜を怖がる"},
+      {en:"be born", ja:"生まれる"}, {en:"be different from", ja:"〜とは違っている"},
+      {en:"be glad to", ja:"〜してうれしい"}, {en:"be going to", ja:"〜するつもりである"},
+      {en:"be good at", ja:"〜が上手である"}, {en:"be happy to", ja:"〜してうれしい"},
+      {en:"be moved by", ja:"〜に感動する"}, {en:"be interested in", ja:"〜に興味がある"},
+      {en:"be kind to", ja:"〜に親切である"}, {en:"be proud of", ja:"〜を誇りに思う"},
+      {en:"be over", ja:"終わる"}
+    ]
+  }, //
+
+  level_53: {
+    name: "L53: Action Phrases 1 (一般動詞の熟語 1)",
+    words: [
+      {en:"agree with", ja:"〜に賛成する"}, {en:"arrive at", ja:"〜に着く"},
+      {en:"give up", ja:"諦める"}, {en:"come from", ja:"〜から来る、出身である"},
+      {en:"depend on", ja:"〜にかかっている、次第である"}, {en:"get to", ja:"〜に着く、到着する"},
+      {en:"hear of", ja:"〜のことを耳にする、噂を聞く"}, {en:"hear from", ja:"〜から連絡がある"},
+      {en:"laugh at", ja:"〜を見て笑う"}, {en:"listen to", ja:"〜を聞く"},
+      {en:"look at", ja:"〜を見る"}, {en:"look for", ja:"〜を探す"},
+      {en:"look like", ja:"〜のように見える"}, {en:"take off", ja:"〜を脱ぐ"},
+      {en:"put on", ja:"〜を身につける、着る"}
+    ]
+  }, //
+
+  level_54: {
+    name: "L54: Action Phrases 2 (一般動詞の熟語 2)",
+    words: [
+      {en:"speak to", ja:"〜と話をする、話しかける"}, {en:"talk to", ja:"〜に話しかける、話す"},
+      {en:"talk about", ja:"〜について話す"}, {en:"think of / about", ja:"〜のことを思い浮かべる、考える"},
+      {en:"wish for", ja:"〜を願う"}, {en:"wait for", ja:"〜を待つ"},
+      {en:"stay at", ja:"〜に滞在する"}, {en:"stay with", ja:"〜のところに滞在する"},
+      {en:"come back to", ja:"〜へ戻ってくる"}, {en:"come home", ja:"帰宅する"},
+      {en:"get up", ja:"起きる、起床する"}, {en:"go back to", ja:"〜へ戻る、帰る"},
+      {en:"go out", ja:"外に出る、外出する"}, {en:"go away", ja:"立ち去る"},
+      {en:"go to bed", ja:"床につく"}
+    ]
+  }, //
+
+  level_55: {
+    name: "L55: Action Phrases 3 (一般動詞の熟語 3)",
+    words: [
+      {en:"sit down", ja:"座る"}, {en:"stand up", ja:"立ち上がる、立つ"},
+      {en:"grow up", ja:"成長する"}, {en:"have to", ja:"〜しなければならない"},
+      {en:"don't have to", ja:"〜しなくて良い"}, {en:"would like to", ja:"〜したい"},
+      {en:"come true", ja:"実現する、叶う"}, {en:"have a good time", ja:"楽しく過ごす"},
+      {en:"take a picture", ja:"写真を撮る"}, {en:"enjoy ~ing", ja:"〜して楽しむ"},
+      {en:"go ~ing", ja:"〜しに行く"}, {en:"stop ~ing", ja:"〜するのを止める"}
+    ]
+  }, //
+
+  level_56: {
+    name: "L56: Quantity & Noun Phrases (数量・名詞の熟語)",
+    words: [
+      {en:"a cup of", ja:"一杯の"}, {en:"a piece of", ja:"一つの"},
+      {en:"a pair of", ja:"一対の、一つの"}, {en:"a few", ja:"少数の、いくらかの"},
+      {en:"a little", ja:"少量の、いくらかの"}, {en:"a lot of", ja:"たくさんの、多数の"},
+      {en:"thousands of", ja:"何千もの、多数の"}, {en:"all right", ja:"大丈夫な"},
+      {en:"as ~ as", ja:"〜と同じくらい〜"}, {en:"as ~ as one can", ja:"できるだけ〜"},
+      {en:"as for", ja:"〜について言えば"}, {en:"because of", ja:"〜のために、〜が原因で"},
+      {en:"between A and B", ja:"AとBの間に"}, {en:"from ~ to", ja:"〜から〜まで"}
+    ]
+  }, //
+
+  level_57: {
+    name: "L57: Adverbial Phrases 1 (副詞的な熟語 1)",
+    words: [
+      {en:"in front of", ja:"〜の前で"}, {en:"instead of", ja:"〜の代わりに"},
+      {en:"next to", ja:"〜の隣に"}, {en:"such as", ja:"〜のような、〜など"},
+      {en:"a lot", ja:"大変、非常に"}, {en:"after school", ja:"放課後"},
+      {en:"all over the world", ja:"世界中"}, {en:"at first", ja:"最初は"},
+      {en:"at home", ja:"家で"}, {en:"at last", ja:"ついに、とうとう"},
+      {en:"at night", ja:"夜に、夜間に"}, {en:"at once", ja:"すぐに、直ちに"},
+      {en:"at that time", ja:"その時"}, {en:"every day", ja:"毎日"},
+      {en:"for a long time", ja:"長い間"}
+    ]
+  }, //
+
+  level_58: {
+    name: "L58: Adverbial Phrases 2 (副詞的な熟語 2)",
+    words: [
+      {en:"for example", ja:"例えば"}, {en:"for the first time", ja:"初めて"},
+      {en:"more than", ja:"〜以上に、〜より多く"}, {en:"of course", ja:"もちろん"},
+      {en:"on one's way to", ja:"〜へ行く途中で"}, {en:"one day", ja:"ある日、いつの日か"},
+      {en:"over there", ja:"あそこ、向こう"}, {en:"on time", ja:"時間通りに"},
+      {en:"all of", ja:"〜のすべて"}, {en:"each other", ja:"お互い"},
+      {en:"how about", ja:"〜はどうですか"}, {en:"how to", ja:"〜の仕方、〜する方法"},
+      {en:"make a wish", ja:"願い事をする"}, {en:"some of", ja:"〜のうちのいくつか"},
+      {en:"take care of", ja:"〜の世話をする、面倒を見る"}, {en:"~ years old", ja:"〜歳"}
+    ]
+  } //
+};
+ 
+        // 初期化：チェックボックス生成
+        const levelContainer = document.getElementById('level-checkboxes');
+        Object.keys(wordLists).forEach(key => {
+            const div = document.createElement('div');
+            div.className = 'level-item';
+            div.innerHTML = `<label><input type="checkbox" value="${key}" class="level-chk"> ${key.replace('level_','L')}</label>`;
+            levelContainer.appendChild(div);
+        });
+
+        function toggleAllLevels(val) {
+            document.querySelectorAll('.level-chk').forEach(c => c.checked = val);
+        }
+
+        let currentDictionary = [];
+        let gameConf = { winType: '', winVal: 0, mode: 'en2jp' };
+        let state = {
+            active: false,
+            timeRemaining: 60,
+            p1: { score: 0, currentAnswers: [], correctIdx: -1, startTime: 0, missed: [], currentWord: null },
+            p2: { score: 0, currentAnswers: [], correctIdx: -1, startTime: 0, missed: [], currentWord: null }
+        };
+
+        const P1_KEYS = ['a', 's', 'z', 'x'];
+        const P2_KEYS = ['h', 'j', 'n', 'm'];
+
+        const shuffle = (array) => [...array].sort(() => Math.random() - 0.5);
+
+        function startGame() {
+            // 選択されたレベルを収集
+            const selectedLevels = Array.from(document.querySelectorAll('.level-chk:checked')).map(c => c.value);
+            if(selectedLevels.length === 0) { alert("レベルを1つ以上選択してください"); return; }
+            
+            currentDictionary = [];
+            selectedLevels.forEach(lv => { currentDictionary = currentDictionary.concat(wordLists[lv].words); });
+
+            gameConf.mode = document.getElementById('mode-select').value;
+            const useTime = document.getElementById('rule-time').checked;
+            gameConf.winType = useTime ? 'time' : 'score';
+            gameConf.winVal = parseInt(document.getElementById(useTime ? 'val-time' : 'val-score').value);
+            
+            if(gameConf.winType === 'time') state.timeRemaining = gameConf.winVal;
+
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('game-container').classList.remove('hidden');
+
+            state.active = true;
+            nextQuestion(1);
+            nextQuestion(2);
+
+            if(gameConf.winType === 'time') {
+                const timerIdx = setInterval(() => {
+                    if(!state.active) { clearInterval(timerIdx); return; }
+                    state.timeRemaining--;
+                    document.getElementById('global-timer-p1').innerText = `TIME: ${state.timeRemaining}`;
+                    document.getElementById('global-timer-p2').innerText = `TIME: ${state.timeRemaining}`;
+                    if(state.timeRemaining <= 0) endGame();
+                }, 1000);
+            } else {
+                document.getElementById('global-timer-p1').innerText = `GOAL: ${gameConf.winVal}`;
+                document.getElementById('global-timer-p2').innerText = `GOAL: ${gameConf.winVal}`;
+            }
+        }
+
+        function nextQuestion(pNum) {
+            if (!state.active) return;
+            const p = state[`p${pNum}`];
+            let mode = gameConf.mode;
+            if(mode === 'mix') mode = Math.random() > 0.5 ? 'en2jp' : 'jp2en';
+
+            const shuffledDict = shuffle(currentDictionary);
+            const correctWord = shuffledDict[0];
+            // 選択肢が足りない場合の補填
+            const distractors = shuffledDict.length >= 4 ? shuffledDict.slice(1, 4) : currentDictionary.slice(0, 4);
+
+            let questionText = (mode === 'en2jp') ? correctWord.en : correctWord.ja;
+            let correctVal = (mode === 'en2jp') ? correctWord.ja : correctWord.en;
+            let rawChoices = shuffle([correctWord, ...distractors.slice(0,3)]).map(w => (mode === 'en2jp' ? w.ja : w.en));
+            
+            // 重複削除と正解の確実な挿入
+            let finalChoices = [...new Set(rawChoices)].slice(0, 4);
+            if(!finalChoices.includes(correctVal)) finalChoices[0] = correctVal;
+            finalChoices = shuffle(finalChoices);
+
+            p.currentAnswers = finalChoices;
+            p.correctIdx = finalChoices.indexOf(correctVal);
+            p.currentWord = correctWord;
+            p.startTime = Date.now();
+
+            const area = document.getElementById(`p${pNum}-area`);
+            area.querySelector('.question-text').innerText = questionText;
+            const btns = area.querySelectorAll('.choice-btn');
+            btns.forEach((btn, i) => {
+                btn.querySelector('.text').innerText = finalChoices[i] || "---";
+                btn.className = 'choice-btn';
+            });
+            area.querySelector('.choices-grid').classList.remove('locked');
+        }
+
+        function handleInput(pNum, idx) {
+            if (!state.active) return;
+            const p = state[`p${pNum}`];
+            const area = document.getElementById(`p${pNum}-area`);
+            const btns = area.querySelectorAll('.choice-btn');
+
+            if (area.querySelector('.choices-grid').classList.contains('locked')) return;
+            area.querySelector('.choices-grid').classList.add('locked');
+
+            const isCorrect = (idx === p.correctIdx);
+
+            if (isCorrect) {
+                btns[idx].classList.add('correct');
+                const elapsed = (Date.now() - p.startTime) / 1000;
+                p.score += Math.max(10, Math.floor(100 - elapsed * 20));
+            } else {
+                btns[idx].classList.add('wrong');
+                btns[p.correctIdx].classList.add('correct');
+                // ペナルティ：-10点 (0点以下にはならない)
+                p.score = Math.max(0, p.score - 10);
+                p.missed.push(`${p.currentWord.en} [${p.currentWord.ja}]`);
+            }
+
+            document.getElementById(`p${pNum}-score`).innerText = `P${pNum}: ${p.score}`;
+
+            if(gameConf.winType === 'score' && p.score >= gameConf.winVal) {
+                endGame();
+            } else {
+                setTimeout(() => nextQuestion(pNum), isCorrect ? 300 : 1000);
+            }
+        }
+
+        function endGame() {
+            if (!state.active) return;
+            state.active = false;
+            document.getElementById('result-screen').classList.remove('hidden');
+            
+            let winText = "";
+            if(state.p1.score > state.p2.score) winText = "PLAYER 1 WIN!";
+            else if(state.p2.score > state.p1.score) winText = "PLAYER 2 WIN!";
+            else winText = "DRAW GAME";
+
+            document.getElementById('winner-text').innerText = winText;
+            document.getElementById('final-scores').innerText = `P1: ${state.p1.score}pts / P2: ${state.p2.score}pts`;
+
+            [1, 2].forEach(n => {
+                const list = document.getElementById(`p${n}-missed-list`);
+                const unique = [...new Set(state[`p${n}`].missed)];
+                list.innerHTML = unique.length ? unique.map(m => `<div class="missed-word">${m}</div>`).join('') : "Perfect!!";
+            });
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if(!state.active) return;
+            const key = e.key.toLowerCase();
+            if (P1_KEYS.includes(key)) handleInput(1, P1_KEYS.indexOf(key));
+            if (P2_KEYS.includes(key)) handleInput(2, P2_KEYS.indexOf(key));
+        });
+    </script>
+</body>
+</html>
