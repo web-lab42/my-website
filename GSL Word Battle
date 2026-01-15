@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>English_Vocabulary_Battle</title>
+    <title>GSL_Word_Battle</title>
     <style>
         :root {
             --p1-color: #ff4757;
@@ -110,7 +110,7 @@
 <body>
 
     <div id="setup-screen">
-        <h1 style="margin-bottom: 10px;">GSL Word Battle</h1> //タイトル
+        <h1 style="margin-bottom: 10px;">GSL Word Battle</h1>
         
         <div class="setup-group">
             <label>1. 出題レベル選択 (複数可)</label>
