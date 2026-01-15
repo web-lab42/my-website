@@ -1,1 +1,3173 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>English_Vocabulary_Battle</title>
+    <style>
+        :root {
+            --p1-color: #ff4757;
+            --p2-color: #2e86de;
+            --bg-color: #1e272e;
+            --text-color: #ffffff;
+            --accent-color: #2ecc71;
+        }
 
+        body, html {
+            margin: 0; padding: 0;
+            width: 100%; height: 100%;
+            font-family: 'Hiragino Kaku Gothic ProN', 'Meiryo', sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            overflow: hidden;
+            user-select: none;
+        }
+
+        #game-container { display: flex; width: 100vw; height: 100vh; }
+
+        @media (orientation: landscape) {
+            #game-container { flex-direction: row; }
+            .player-area { width: 50%; height: 100%; border-right: 2px solid #485460; }
+        }
+        @media (orientation: portrait) {
+            #game-container { flex-direction: column; }
+            .player-area { width: 100%; height: 50%; border-bottom: 2px solid #485460; }
+            .player-area[data-player="1"] { transform: rotate(180deg); }
+        }
+
+        .player-area {
+            display: flex; flex-direction: column; justify-content: center;
+            align-items: center; position: relative; padding: 20px; box-sizing: border-box;
+        }
+
+        .status-bar { position: absolute; top: 20px; font-size: 1.5rem; font-weight: bold; }
+        .timer-display { position: absolute; top: 50px; font-size: 1rem; opacity: 0.8; }
+        
+        .question-text { font-size: 2.2rem; margin-bottom: 30px; font-weight: bold; text-align: center; height: 3.5rem; display: flex; align-items: center; }
+        
+        .choices-grid {
+            display: grid; grid-template-columns: 1fr 1fr; gap: 12px;
+            width: 100%; max-width: 400px;
+        }
+
+        .choice-btn {
+            padding: 25px 10px; font-size: 1.1rem; border: none; border-radius: 12px;
+            background: #ffffff; color: #2f3542; cursor: pointer; position: relative;
+            font-weight: bold; transition: background 0.1s;
+            display: flex; align-items: center; justify-content: center;
+            min-height: 80px;
+        }
+        
+        .key-guide { position: absolute; bottom: 5px; left: 8px; font-size: 0.7rem; color: #adb5bd; }
+
+        .locked { pointer-events: none; opacity: 0.8; }
+        .correct { background: #2ecc71 !important; color: white !important; }
+        .wrong {
+            background: #fadbd8 !important; /* 背景を薄い赤色に変更 */
+            color: #c0392b !important;     /* 白文字だと見づらいため、文字色を濃い赤に変更 */
+            animation: shake 0.3s;
+        }
+
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            25% { transform: translateX(-5px); }
+            75% { transform: translateX(5px); }
+        }
+
+        /* Setup Screen Styles */
+        #setup-screen, #result-screen {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(30, 39, 46, 0.98);
+            display: flex; flex-direction: column; justify-content: flex-start; align-items: center;
+            z-index: 100; text-align: center; overflow-y: auto; padding: 40px 0;
+        }
+
+        .setup-group {
+            background: #2f3542; padding: 15px; border-radius: 12px; margin: 10px; width: 90%; max-width: 500px;
+        }
+
+        .level-grid {
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            gap: 8px; max-height: 200px; overflow-y: auto; background: #1e272e; padding: 10px; border-radius: 8px;
+        }
+
+        .level-item { font-size: 0.8rem; background: #3d4852; padding: 5px; border-radius: 4px; cursor: pointer; }
+        .level-item input { margin-right: 4px; }
+
+        select, input[type="number"] { padding: 8px; font-size: 1rem; border-radius: 8px; border: none; }
+        
+        .review-container { display: flex; gap: 20px; width: 90%; max-height: 30vh; overflow-y: auto; margin: 20px 0; }
+        .review-box { flex: 1; background: #2f3542; padding: 15px; border-radius: 10px; text-align: left; }
+        .missed-word { font-size: 0.8rem; margin-bottom: 5px; color: #ffab00; border-bottom: 1px solid #3d4852; }
+
+        .start-btn {
+            padding: 15px 60px; font-size: 1.5rem; background: var(--accent-color);
+            color: white; border: none; border-radius: 50px; cursor: pointer; font-weight: bold; margin: 20px 0;
+        }
+        .hidden { display: none !important; }
+    </style>
+</head>
+<body>
+
+    <div id="setup-screen">
+        <h1 style="margin-bottom: 10px;">GSL Word Battle</h1> //タイトル
+        
+        <div class="setup-group">
+            <label>1. 出題レベル選択 (複数可)</label>
+            <div style="margin-bottom: 8px;">
+                <button onclick="toggleAllLevels(true)">全選択</button>
+                <button onclick="toggleAllLevels(false)">解除</button>
+            </div>
+            <div id="level-checkboxes" class="level-grid">
+                </div>
+        </div>
+
+        <div class="setup-group">
+            <label>2. 出題モード:</label>
+            <select id="mode-select">
+                <option value="en2jp">英語 → 日本語</option>
+                <option value="jp2en">日本語 → 英語</option>
+                <option value="mix">ミックス</option>
+            </select>
+        </div>
+
+        <div class="setup-group">
+            <label>3. 終了ルール設定:</label><br>
+            <div style="margin-top:10px;">
+                <input type="radio" name="win-rule" value="time" checked id="rule-time">
+                <label for="rule-time">時間制限 (秒):</label>
+                <input type="number" id="val-time" value="60" min="10" max="300" style="width: 60px;">
+            </div>
+            <div style="margin-top:10px;">
+                <input type="radio" name="win-rule" value="score" id="rule-score">
+                <label for="rule-score">目標スコア:</label>
+                <input type="number" id="val-score" value="2000" min="100" max="9999" style="width: 70px;">
+            </div>
+        </div>
+
+        <p style="color: #ff4757; font-size: 0.8rem;">※誤答ペナルティ: スコア -10点</p>
+
+        <button class="start-btn" onclick="startGame()">BATTLE START</button>
+    </div>
+
+    <div id="game-container" class="hidden">
+        <div class="player-area" id="p1-area" data-player="1">
+            <div class="status-bar" id="p1-score">P1: 0</div>
+            <div class="timer-display" id="global-timer-p1">READY</div>
+            <div class="question-text" id="p1-q">---</div>
+            <div class="choices-grid" id="p1-choices">
+                <button class="choice-btn" onclick="handleInput(1,0)"><span class="key-guide">A</span><span class="text">---</span></button>
+                <button class="choice-btn" onclick="handleInput(1,1)"><span class="key-guide">S</span><span class="text">---</span></button>
+                <button class="choice-btn" onclick="handleInput(1,2)"><span class="key-guide">Z</span><span class="text">---</span></button>
+                <button class="choice-btn" onclick="handleInput(1,3)"><span class="key-guide">X</span><span class="text">---</span></button>
+            </div>
+        </div>
+
+        <div class="player-area" id="p2-area" data-player="2">
+            <div class="status-bar" id="p2-score">P2: 0</div>
+            <div class="timer-display" id="global-timer-p2">READY</div>
+            <div class="question-text" id="p2-q">---</div>
+            <div class="choices-grid" id="p2-choices">
+                <button class="choice-btn" onclick="handleInput(2,0)"><span class="key-guide">H</span><span class="text">---</span></button>
+                <button class="choice-btn" onclick="handleInput(2,1)"><span class="key-guide">J</span><span class="text">---</span></button>
+                <button class="choice-btn" onclick="handleInput(2,2)"><span class="key-guide">N</span><span class="text">---</span></button>
+                <button class="choice-btn" onclick="handleInput(2,3)"><span class="key-guide">M</span><span class="text">---</span></button>
+            </div>
+        </div>
+    </div>
+
+    <div id="result-screen" class="hidden">
+        <h1 id="winner-text" style="font-size: 3rem; color: #f1c40f;">WINNER!</h1>
+        <div id="final-scores" style="font-size: 1.5rem; margin-bottom: 10px;"></div>
+        <div class="review-container">
+            <div class="review-box">
+                <h4>P1 復習</h4>
+                <div id="p1-missed-list"></div>
+            </div>
+            <div class="review-box">
+                <h4>P2 復習</h4>
+                <div id="p2-missed-list"></div>
+            </div>
+        </div>
+        <button class="start-btn" onclick="location.reload()">TITLE SCREEN</button>
+    </div>
+
+    <script>
+/* ===== 単語リスト定義 ===== */
+const wordLists = {
+  // GSL 1-30: 最も頻度の高い単語群
+  list_001_030: {
+    name: "GSL 1-30 (最頻出レベル)",
+    words: [
+      {en:"the", ja:"その"},
+      {en:"be", ja:"である"},
+      {en:"of", ja:"の"},
+      {en:"and", ja:"と"},
+      {en:"a", ja:"一つの"},
+      {en:"to", ja:"〜へ"},
+      {en:"in", ja:"〜の中に"},
+      {en:"he", ja:"彼"},
+      {en:"have", ja:"持っている"},
+      {en:"it", ja:"それ"},
+      {en:"that", ja:"あれ/ということ"},
+      {en:"for", ja:"〜のために"},
+      {en:"they", ja:"彼ら"},
+      {en:"I", ja:"私"},
+      {en:"with", ja:"〜と一緒に"},
+      {en:"as", ja:"〜として"},
+      {en:"not", ja:"〜ない"},
+      {en:"on", ja:"〜の上で"},
+      {en:"she", ja:"彼女"},
+      {en:"at", ja:"〜で"},
+      {en:"by", ja:"〜によって"},
+      {en:"this", ja:"これ"},
+      {en:"we", ja:"私たち"},
+      {en:"you", ja:"あなた"},
+      {en:"do", ja:"する"},
+      {en:"but", ja:"しかし"},
+      {en:"from", ja:"〜から"},
+      {en:"or", ja:"または"},
+      {en:"which", ja:"どちら/〜は"},
+      {en:"one", ja:"一つ"}
+    ]
+  }, // 参照ソース: [2]
+
+  // GSL 31-60: 高頻度単語群
+  list_031_060: {
+    name: "GSL 31-60 (高頻度レベル)",
+    words: [
+      {en:"would", ja:"〜だろう (willの過去形)"},
+      {en:"all", ja:"すべて"},
+      {en:"will", ja:"〜だろう"},
+      {en:"there", ja:"そこに"},
+      {en:"say", ja:"言う"},
+      {en:"who", ja:"誰"},
+      {en:"make", ja:"作る"},
+      {en:"when", ja:"いつ"},
+      {en:"can", ja:"できる"},
+      {en:"more", ja:"もっと"},
+      {en:"if", ja:"もし〜ならば"},
+      {en:"no", ja:"ない/いいえ"},
+      {en:"man", ja:"人/男"},
+      {en:"out", ja:"外へ"},
+      {en:"other", ja:"他の"},
+      {en:"so", ja:"とても/それで"},
+      {en:"what", ja:"何"},
+      {en:"time", ja:"時間"},
+      {en:"up", ja:"上へ"},
+      {en:"go", ja:"行く"},
+      {en:"about", ja:"〜について"},
+      {en:"than", ja:"〜よりも"},
+      {en:"into", ja:"〜の中へ"},
+      {en:"could", ja:"〜できた (canの過去形)"},
+      {en:"state", ja:"州/述べる"},
+      {en:"only", ja:"だけ"},
+      {en:"new", ja:"新しい"},
+      {en:"year", ja:"年"},
+      {en:"some", ja:"いくつかの"},
+      {en:"take", ja:"取る"}
+    ]
+  }, // 参照ソース: [2, 3]
+
+  // GSL 61-90
+  list_061_090: {
+    name: "GSL 61-90 (中高頻度レベル)",
+    words: [
+      {en:"come", ja:"来る"},
+      {en:"these", ja:"これら"},
+      {en:"know", ja:"知っている"},
+      {en:"see", ja:"見る"},
+      {en:"use", ja:"使う"},
+      {en:"get", ja:"手に入れる"},
+      {en:"like", ja:"好き/〜のように"},
+      {en:"then", ja:"それから"},
+      {en:"first", ja:"最初"},
+      {en:"any", ja:"いくらかの"},
+      {en:"work", ja:"仕事/働く"},
+      {en:"now", ja:"今"},
+      {en:"may", ja:"〜かもしれない"},
+      {en:"such", ja:"そのような"},
+      {en:"give", ja:"与える"},
+      {en:"over", ja:"越えて"},
+      {en:"think", ja:"考える"},
+      {en:"most", ja:"最も"},
+      {en:"even", ja:"さえ"},
+      {en:"find", ja:"見つける"},
+      {en:"day", ja:"日"},
+      {en:"also", ja:"また"},
+      {en:"after", ja:"後で"},
+      {en:"way", ja:"道/方法"},
+      {en:"many", ja:"多くの"},
+      {en:"must", ja:"〜しなければならない"},
+      {en:"look", ja:"見る"},
+      {en:"before", ja:"前に"},
+      {en:"great", ja:"偉大な/大きい"},
+      {en:"back", ja:"後ろ"}
+    ]
+  }, // 参照ソース: [3]
+
+  // GSL 91-120
+  list_091_120: {
+    name: "GSL 91-120 (基礎語彙レベル)",
+    words: [
+      {en:"through", ja:"〜を通して"},
+      {en:"long", ja:"長い"},
+      {en:"where", ja:"どこ"},
+      {en:"much", ja:"たくさん"},
+      {en:"should", ja:"〜すべき"},
+      {en:"well", ja:"よく"},
+      {en:"people", ja:"人々"},
+      {en:"down", ja:"下へ"},
+      {en:"own", ja:"自分自身の"},
+      {en:"just", ja:"ちょうど"},
+      {en:"because", ja:"なぜなら"},
+      {en:"good", ja:"良い"},
+      {en:"each", ja:"それぞれ"},
+      {en:"those", ja:"それら"},
+      {en:"feel", ja:"感じる"},
+      {en:"seem", ja:"〜のように見える"},
+      {en:"how", ja:"どのように"},
+      {en:"high", ja:"高い"},
+      {en:"too", ja:"あまりにも"},
+      {en:"place", ja:"場所"},
+      {en:"little", ja:"少しの"},
+      {en:"world", ja:"世界"},
+      {en:"very", ja:"とても"},
+      {en:"still", ja:"まだ/静かな"},
+      {en:"nation", ja:"国家"},
+      {en:"hand", ja:"手"},
+      {en:"old", ja:"古い"},
+      {en:"life", ja:"生命/生活"},
+      {en:"tell", ja:"伝える"},
+      {en:"write", ja:"書く"}
+    ]
+  }, // 参照ソース: [3]
+
+  // GSL 121-150
+  list_121_150: {
+    name: "GSL 121-150",
+    words: [
+      {en:"become", ja:"〜になる"},
+      {en:"here", ja:"ここ"},
+      {en:"show", ja:"見せる"},
+      {en:"house", ja:"家"},
+      {en:"both", ja:"両方"},
+      {en:"between", ja:"〜の間で"},
+      {en:"need", ja:"必要とする"},
+      {en:"mean", ja:"意味する"},
+      {en:"call", ja:"呼ぶ"},
+      {en:"develop", ja:"発展させる"},
+      {en:"under", ja:"下に"},
+      {en:"last", ja:"最後/続く"},
+      {en:"right", ja:"正しい/権利"},
+      {en:"move", ja:"動く"},
+      {en:"thing", ja:"もの"},
+      {en:"general", ja:"一般的な"},
+      {en:"school", ja:"学校"},
+      {en:"never", ja:"決して〜ない"},
+      {en:"same", ja:"同じ"},
+      {en:"another", ja:"もう一つの"},
+      {en:"begin", ja:"始める"},
+      {en:"while", ja:"〜の間"},
+      {en:"number", ja:"数"},
+      {en:"part", ja:"部分"},
+      {en:"turn", ja:"回る/曲がる"},
+      {en:"real", ja:"本当の"},
+      {en:"leave", ja:"離れる"},
+      {en:"might", ja:"〜かもしれない"},
+      {en:"want", ja:"欲しい"},
+      {en:"point", ja:"点/要点"}
+    ]
+  }, // 参照ソース: [3]
+
+  // GSL 151-180
+  list_151_180: {
+    name: "GSL 151-180",
+    words: [
+      {en:"form", ja:"形/形成する"},
+      {en:"off", ja:"離れて"},
+      {en:"child", ja:"子供"},
+      {en:"few", ja:"少数の"},
+      {en:"small", ja:"小さい"},
+      {en:"since", ja:"〜以来"},
+      {en:"against", ja:"〜に反対して"},
+      {en:"ask", ja:"尋ねる"},
+      {en:"late", ja:"遅い"},
+      {en:"home", ja:"家"},
+      {en:"interest", ja:"興味/利息"},
+      {en:"large", ja:"大きい"},
+      {en:"person", ja:"人"},
+      {en:"end", ja:"終わり"},
+      {en:"open", ja:"開く"},
+      {en:"public", ja:"公共の"},
+      {en:"follow", ja:"従う"},
+      {en:"during", ja:"〜の間"},
+      {en:"present", ja:"現在/存在する"},
+      {en:"without", ja:"〜なしで"},
+      {en:"again", ja:"再び"},
+      {en:"hold", ja:"持つ"},
+      {en:"govern", ja:"統治する"},
+      {en:"around", ja:"周囲に"},
+      {en:"possible", ja:"可能な"},
+      {en:"head", ja:"頭"},
+      {en:"consider", ja:"考慮する"},
+      {en:"word", ja:"単語"},
+      {en:"program", ja:"プログラム"},
+      {en:"problem", ja:"問題"}
+    ]
+  }, // 参照ソース: [4]
+
+  // GSL 181-210
+  list_181_210: {
+    name: "GSL 181-210",
+    words: [
+      {en:"however", ja:"しかしながら"},
+      {en:"lead", ja:"導く"},
+      {en:"system", ja:"システム"},
+      {en:"set", ja:"置く/一式"},
+      {en:"order", ja:"秩序/命令"},
+      {en:"eye", ja:"目"},
+      {en:"plan", ja:"計画"},
+      {en:"run", ja:"走る/経営する"},
+      {en:"keep", ja:"保つ"},
+      {en:"face", ja:"顔/直面する"},
+      {en:"fact", ja:"事実"},
+      {en:"group", ja:"グループ"},
+      {en:"play", ja:"遊ぶ"},
+      {en:"stand", ja:"立つ"},
+      {en:"increase", ja:"増加"},
+      {en:"early", ja:"早い"},
+      {en:"course", ja:"コース/過程"},
+      {en:"change", ja:"変化/変える"},
+      {en:"help", ja:"助け/助ける"},
+      {en:"line", ja:"線"},
+      {en:"city", ja:"都市"},
+      {en:"put", ja:"置く"},
+      {en:"close", ja:"閉じる"},
+      {en:"case", ja:"場合/事件"},
+      {en:"force", ja:"力/強制する"},
+      {en:"meet", ja:"会う"},
+      {en:"once", ja:"一度"},
+      {en:"water", ja:"水"},
+      {en:"upon", ja:"〜の上に"},
+      {en:"war", ja:"戦争"}
+    ]
+  }, // 参照ソース: [4, 5]
+
+  // GSL 211-240
+  list_211_240: {
+    name: "GSL 211-240",
+    words: [
+      {en:"build", ja:"建てる"},
+      {en:"hear", ja:"聞く"},
+      {en:"light", ja:"光/軽い"},
+      {en:"unite", ja:"団結させる"},
+      {en:"live", ja:"生きる/住む"},
+      {en:"every", ja:"あらゆる"},
+      {en:"country", ja:"国"},
+      {en:"bring", ja:"持ってくる"},
+      {en:"center", ja:"中心"},
+      {en:"let", ja:"〜させる"},
+      {en:"side", ja:"側"},
+      {en:"try", ja:"試す"},
+      {en:"provide", ja:"提供する"},
+      {en:"continue", ja:"続ける"},
+      {en:"name", ja:"名前"},
+      {en:"certain", ja:"確かな"},
+      {en:"power", ja:"力"},
+      {en:"pay", ja:"支払う"},
+      {en:"result", ja:"結果"},
+      {en:"question", ja:"質問"},
+      {en:"study", ja:"研究/勉強"},
+      {en:"woman", ja:"女性"},
+      {en:"member", ja:"メンバー"},
+      {en:"until", ja:"〜まで"},
+      {en:"far", ja:"遠い"},
+      {en:"night", ja:"夜"},
+      {en:"always", ja:"いつも"},
+      {en:"service", ja:"サービス"},
+      {en:"away", ja:"離れて"},
+      {en:"report", ja:"報告"}
+    ]
+  }, // 参照ソース: [5]
+
+  // GSL 241-270
+  list_241_270: {
+    name: "GSL 241-270",
+    words: [
+      {en:"something", ja:"何か"},
+      {en:"company", ja:"会社/仲間"},
+      {en:"week", ja:"週"},
+      {en:"church", ja:"教会"},
+      {en:"toward", ja:"〜の方へ"},
+      {en:"start", ja:"始める"},
+      {en:"social", ja:"社会的な"},
+      {en:"room", ja:"部屋"},
+      {en:"figure", ja:"数字/姿"},
+      {en:"nature", ja:"自然"},
+      {en:"though", ja:"〜だけれども"},
+      {en:"young", ja:"若い"},
+      {en:"less", ja:"より少ない"},
+      {en:"enough", ja:"十分な"},
+      {en:"almost", ja:"ほとんど"},
+      {en:"read", ja:"読む"},
+      {en:"include", ja:"含む"},
+      {en:"president", ja:"大統領"},
+      {en:"nothing", ja:"何も〜ない"},
+      {en:"yet", ja:"まだ"},
+      {en:"better", ja:"より良い"},
+      {en:"big", ja:"大きい"},
+      {en:"boy", ja:"少年"},
+      {en:"cost", ja:"費用/かかる"},
+      {en:"business", ja:"ビジネス"},
+      {en:"value", ja:"価値"},
+      {en:"second", ja:"第二の"},
+      {en:"why", ja:"なぜ"},
+      {en:"clear", ja:"明確な"},
+      {en:"expect", ja:"期待する"}
+    ]
+  }, // 参照ソース: [5, 6]
+
+  // GSL 271-300
+  list_271_300: {
+    name: "GSL 271-300",
+    words: [
+      {en:"family", ja:"家族"},
+      {en:"complete", ja:"完全な"},
+      {en:"act", ja:"行動/演じる"},
+      {en:"sense", ja:"感覚"},
+      {en:"mind", ja:"心/気にする"},
+      {en:"experience", ja:"経験"},
+      {en:"art", ja:"芸術"},
+      {en:"next", ja:"次の"},
+      {en:"near", ja:"近い"},
+      {en:"direct", ja:"直接の/指示する"},
+      {en:"car", ja:"車"},
+      {en:"law", ja:"法律"},
+      {en:"industry", ja:"産業"},
+      {en:"important", ja:"重要な"},
+      {en:"girl", ja:"少女"},
+      {en:"god", ja:"神"},
+      {en:"several", ja:"いくつかの"},
+      {en:"matter", ja:"問題/物質"},
+      {en:"usual", ja:"通常の"},
+      {en:"rather", ja:"むしろ"},
+      {en:"per", ja:"〜につき"},
+      {en:"often", ja:"しばしば"},
+      {en:"kind", ja:"種類/親切な"},
+      {en:"among", ja:"〜の中で"},
+      {en:"white", ja:"白い"},
+      {en:"reason", ja:"理由"},
+      {en:"action", ja:"行動"},
+      {en:"return", ja:"戻る"},
+      {en:"foot", ja:"足"},
+      {en:"care", ja:"世話/気にかける"}
+    ]
+  }, // 参照ソース: [6]
+
+  // GSL 301-330
+  list_301_330: {
+    name: "GSL 301-330",
+    words: [
+      {en:"simple", ja:"簡単な/単純な"},
+      {en:"within", ja:"〜以内に"},
+      {en:"love", ja:"愛/愛する"},
+      {en:"human", ja:"人間の"},
+      {en:"along", ja:"〜に沿って"},
+      {en:"appear", ja:"現れる"},
+      {en:"doctor", ja:"医師"},
+      {en:"believe", ja:"信じる"},
+      {en:"speak", ja:"話す"},
+      {en:"active", ja:"活動的な"},
+      {en:"student", ja:"学生"},
+      {en:"month", ja:"月"},
+      {en:"drive", ja:"運転する/駆り立てる"},
+      {en:"concern", ja:"関心/関係"},
+      {en:"best", ja:"最も良い"},
+      {en:"door", ja:"ドア"},
+      {en:"hope", ja:"希望/望む"},
+      {en:"example", ja:"例"},
+      {en:"inform", ja:"知らせる"},
+      {en:"body", ja:"体"},
+      {en:"ever", ja:"今までに"},
+      {en:"least", ja:"最も少ない"},
+      {en:"probable", ja:"ありそうな"},
+      {en:"understand", ja:"理解する"},
+      {en:"reach", ja:"達する"},
+      {en:"effect", ja:"効果/影響"},
+      {en:"different", ja:"異なる"},
+      {en:"idea", ja:"考え"},
+      {en:"whole", ja:"全体の"},
+      {en:"control", ja:"制御/支配"}
+    ]
+  }, // 参照ソース: [4]
+
+  // GSL 331-360
+  list_331_360: {
+    name: "GSL 331-360",
+    words: [
+      {en:"condition", ja:"状態/条件"},
+      {en:"field", ja:"分野/野原"},
+      {en:"pass", ja:"通過する"},
+      {en:"fall", ja:"落ちる/秋"},
+      {en:"note", ja:"メモ/注目"},
+      {en:"special", ja:"特別な"},
+      {en:"talk", ja:"話す/話"},
+      {en:"particular", ja:"特定の"},
+      {en:"today", ja:"今日"},
+      {en:"measure", ja:"測定/手段"},
+      {en:"walk", ja:"歩く"},
+      {en:"teach", ja:"教える"},
+      {en:"low", ja:"低い"},
+      {en:"hour", ja:"時間 (60分)"},
+      {en:"type", ja:"型/タイプ"},
+      {en:"carry", ja:"運ぶ"},
+      {en:"rate", ja:"割合/率"},
+      {en:"remain", ja:"残る"},
+      {en:"full", ja:"満腹の/いっぱいの"},
+      {en:"street", ja:"通り"},
+      {en:"easy", ja:"簡単な"},
+      {en:"although", ja:"〜にもかかわらず"},
+      {en:"record", ja:"記録"},
+      {en:"sit", ja:"座る"},
+      {en:"determine", ja:"決定する"},
+      {en:"level", ja:"水準/レベル"},
+      {en:"local", ja:"地元の"},
+      {en:"sure", ja:"確かな"},
+      {en:"receive", ja:"受け取る"},
+      {en:"thus", ja:"このようにして"}
+    ]
+  }, // 参照ソース: [4], [5]
+
+  // GSL 361-390
+  list_361_390: {
+    name: "GSL 361-390",
+    words: [
+      {en:"moment", ja:"瞬間"},
+      {en:"spirit", ja:"精神"},
+      {en:"train", ja:"列車/訓練する"},
+      {en:"college", ja:"大学"},
+      {en:"religion", ja:"宗教"},
+      {en:"perhaps", ja:"もしかすると"},
+      {en:"music", ja:"音楽"},
+      {en:"grow", ja:"育つ"},
+      {en:"free", ja:"自由な"},
+      {en:"cause", ja:"原因/引き起こす"},
+      {en:"serve", ja:"仕える/提供する"},
+      {en:"age", ja:"年齢/時代"},
+      {en:"book", ja:"本"},
+      {en:"board", ja:"板/乗り込む"},
+      {en:"recent", ja:"最近の"},
+      {en:"sound", ja:"音/健全な"},
+      {en:"office", ja:"事務所"},
+      {en:"cut", ja:"切る"},
+      {en:"step", ja:"一歩/段階"},
+      {en:"class", ja:"授業/階級"},
+      {en:"true", ja:"本当の"},
+      {en:"history", ja:"歴史"},
+      {en:"position", ja:"位置/地位"},
+      {en:"above", ja:"〜の上に"},
+      {en:"strong", ja:"強い"},
+      {en:"friend", ja:"友達"},
+      {en:"necessary", ja:"必要な"},
+      {en:"add", ja:"加える"},
+      {en:"court", ja:"裁判所"},
+      {en:"deal", ja:"扱う/取引"}
+    ]
+  }, // 参照ソース: [5]
+
+  // GSL 391-420
+  list_391_420: {
+    name: "GSL 391-420",
+    words: [
+      {en:"tax", ja:"税金"},
+      {en:"support", ja:"支持/支援する"},
+      {en:"party", ja:"政党/パーティー"},
+      {en:"whether", ja:"〜かどうか"},
+      {en:"either", ja:"どちらか"},
+      {en:"land", ja:"土地/着陸する"},
+      {en:"material", ja:"材料/物質的な"},
+      {en:"happen", ja:"起こる"},
+      {en:"education", ja:"教育"},
+      {en:"death", ja:"死"},
+      {en:"agree", ja:"同意する"},
+      {en:"arm", ja:"腕/武器"},
+      {en:"mother", ja:"母親"},
+      {en:"across", ja:"〜を横切って"},
+      {en:"quite", ja:"全く"},
+      {en:"anything", ja:"何か"},
+      {en:"town", ja:"町"},
+      {en:"past", ja:"過去/通り過ぎて"},
+      {en:"view", ja:"眺め/見解"},
+      {en:"society", ja:"社会"},
+      {en:"manage", ja:"管理する/何とかする"},
+      {en:"answer", ja:"答え/答える"},
+      {en:"break", ja:"壊す/休憩"},
+      {en:"organize", ja:"組織する"},
+      {en:"half", ja:"半分"},
+      {en:"fire", ja:"火"},
+      {en:"lose", ja:"失う"},
+      {en:"money", ja:"お金"},
+      {en:"stop", ja:"止まる/止める"},
+      {en:"actual", ja:"実際の"}
+    ]
+  }, // 参照ソース: [5], [6]
+
+  // GSL 421-450
+  list_421_450: {
+    name: "GSL 421-450",
+    words: [
+      {en:"already", ja:"すでに"},
+      {en:"effort", ja:"努力"},
+      {en:"wait", ja:"待つ"},
+      {en:"department", ja:"部門"},
+      {en:"able", ja:"できる"},
+      {en:"political", ja:"政治的な"},
+      {en:"learn", ja:"学ぶ"},
+      {en:"voice", ja:"声"},
+      {en:"air", ja:"空気/空"},
+      {en:"together", ja:"一緒に"},
+      {en:"shall", ja:"〜でしょう (古)"},
+      {en:"cover", ja:"覆う/カバー"},
+      {en:"common", ja:"共通の/普通の"},
+      {en:"subject", ja:"主題/科目"},
+      {en:"draw", ja:"描く/引く"},
+      {en:"short", ja:"短い"},
+      {en:"wife", ja:"妻"},
+      {en:"treat", ja:"扱う/治療する"},
+      {en:"limit", ja:"限界/制限する"},
+      {en:"road", ja:"道路"},
+      {en:"letter", ja:"手紙/文字"},
+      {en:"color", ja:"色"},
+      {en:"behind", ja:"〜の後ろに"},
+      {en:"produce", ja:"生産する/農産物"},
+      {en:"send", ja:"送る"},
+      {en:"term", ja:"期間/用語"},
+      {en:"total", ja:"合計"},
+      {en:"university", ja:"大学"},
+      {en:"rise", ja:"上がる"},
+      {en:"century", ja:"世紀"}
+    ]
+  }, // 参照ソース: [6]
+
+  // GSL 451-480
+  list_451_480: {
+    name: "GSL 451-480",
+    words: [
+      {en:"success", ja:"成功"},
+      {en:"minute", ja:"分/微小な"},
+      {en:"remember", ja:"覚えている"},
+      {en:"purpose", ja:"目的"},
+      {en:"test", ja:"試験/試す"},
+      {en:"fight", ja:"戦う"},
+      {en:"watch", ja:"見る/時計"},
+      {en:"situation", ja:"状況"},
+      {en:"south", ja:"南"},
+      {en:"ago", ja:"〜前に"},
+      {en:"difference", ja:"違い"},
+      {en:"stage", ja:"段階/舞台"},
+      {en:"father", ja:"父親"},
+      {en:"table", ja:"テーブル"},
+      {en:"rest", ja:"休憩/残り"},
+      {en:"bear", ja:"耐える/クマ"},
+      {en:"entire", ja:"全体の"},
+      {en:"market", ja:"市場"},
+      {en:"prepare", ja:"準備する"},
+      {en:"explain", ja:"説明する"},
+      {en:"offer", ja:"提供する"},
+      {en:"plant", ja:"植物/植える"},
+      {en:"charge", ja:"料金/責任"},
+      {en:"ground", ja:"地面"},
+      {en:"west", ja:"西"},
+      {en:"picture", ja:"絵/写真"},
+      {en:"hard", ja:"難しい/硬い"},
+      {en:"front", ja:"前部"},
+      {en:"lie", ja:"横たわる/嘘"},
+      {en:"modern", ja:"現代の"}
+    ]
+  }, // 参照ソース: [7]
+
+  // GSL 481-510
+  list_481_510: {
+    name: "GSL 481-510",
+    words: [
+      {en:"dark", ja:"暗い"},
+      {en:"surface", ja:"表面"},
+      {en:"rule", ja:"規則/支配する"},
+      {en:"regard", ja:"みなす/配慮"},
+      {en:"dance", ja:"踊り/踊る"},
+      {en:"peace", ja:"平和"},
+      {en:"observe", ja:"観察する"},
+      {en:"future", ja:"未来"},
+      {en:"wall", ja:"壁"},
+      {en:"farm", ja:"農場"},
+      {en:"claim", ja:"主張する"},
+      {en:"firm", ja:"堅い/会社"},
+      {en:"operation", ja:"操作/手術"},
+      {en:"further", ja:"さらに"},
+      {en:"pressure", ja:"圧力"},
+      {en:"property", ja:"財産"},
+      {en:"morning", ja:"朝"},
+      {en:"amount", ja:"量/合計"},
+      {en:"top", ja:"頂上"},
+      {en:"outside", ja:"外側"},
+      {en:"piece", ja:"破片/一切れ"},
+      {en:"sometimes", ja:"時々"},
+      {en:"beauty", ja:"美しさ"},
+      {en:"trade", ja:"貿易/取引"},
+      {en:"fear", ja:"恐れ/恐れる"},
+      {en:"demand", ja:"要求"},
+      {en:"wonder", ja:"驚き/不思議に思う"},
+      {en:"list", ja:"リスト"},
+      {en:"accept", ja:"受け入れる"},
+      {en:"judge", ja:"判断する/裁判官"}
+    ]
+  }, // 参照ソース: [7], [8]
+
+  // GSL 511-540
+  list_511_540: {
+    name: "GSL 511-540",
+    words: [
+      {en:"paint", ja:"塗る/ペンキ"},
+      {en:"mile", ja:"マイル"},
+      {en:"soon", ja:"すぐに"},
+      {en:"responsible", ja:"責任がある"},
+      {en:"allow", ja:"許可する"},
+      {en:"secretary", ja:"秘書/長官"},
+      {en:"heart", ja:"心臓/心"},
+      {en:"union", ja:"組合/連合"},
+      {en:"slow", ja:"遅い"},
+      {en:"island", ja:"島"},
+      {en:"enter", ja:"入る"},
+      {en:"drink", ja:"飲む/飲み物"},
+      {en:"story", ja:"物語"},
+      {en:"experiment", ja:"実験"},
+      {en:"stay", ja:"滞在する"},
+      {en:"paper", ja:"紙/新聞"},
+      {en:"space", ja:"空間/宇宙"},
+      {en:"apply", ja:"適用する/申し込む"},
+      {en:"decide", ja:"決定する"},
+      {en:"share", ja:"共有する/株"},
+      {en:"desire", ja:"願望/望む"},
+      {en:"spend", ja:"費やす"},
+      {en:"sign", ja:"署名/印"},
+      {en:"therefore", ja:"したがって"},
+      {en:"various", ja:"様々な"},
+      {en:"visit", ja:"訪問する"},
+      {en:"supply", ja:"供給する"},
+      {en:"officer", ja:"役人/警官"},
+      {en:"doubt", ja:"疑い"},
+      {en:"private", ja:"私的な"}
+    ]
+  }, // 参照ソース: [8]
+
+  // GSL 541-570
+  list_541_570: {
+    name: "GSL 541-570",
+    words: [
+      {en:"immediate", ja:"即座の"},
+      {en:"wish", ja:"願う/願い"},
+      {en:"contain", ja:"含む"},
+      {en:"feed", ja:"餌を与える"},
+      {en:"raise", ja:"上げる/育てる"},
+      {en:"describe", ja:"記述する"},
+      {en:"ready", ja:"準備ができた"},
+      {en:"horse", ja:"馬"},
+      {en:"son", ja:"息子"},
+      {en:"exist", ja:"存在する"},
+      {en:"north", ja:"北"},
+      {en:"suggest", ja:"提案する"},
+      {en:"station", ja:"駅/局"},
+      {en:"effective", ja:"効果的な"},
+      {en:"food", ja:"食べ物"},
+      {en:"deep", ja:"深い"},
+      {en:"wide", ja:"広い"},
+      {en:"alone", ja:"一人で"},
+      {en:"character", ja:"性格/登場人物"},
+      {en:"English", ja:"英語/イギリス人"},
+      {en:"happy", ja:"幸せな"},
+      {en:"critic", ja:"批評家"},
+      {en:"unit", ja:"単位/部隊"},
+      {en:"product", ja:"製品"},
+      {en:"respect", ja:"尊敬/尊重する"},
+      {en:"drop", ja:"落ちる/一滴"},
+      {en:"nor", ja:"〜もまた〜ない"},
+      {en:"fill", ja:"満たす"},
+      {en:"cold", ja:"寒い/冷たい"},
+      {en:"represent", ja:"代表する"}
+    ]
+  }, // 参照ソース: [8], [9]
+
+  // GSL 571-600
+  list_571_600: {
+    name: "GSL 571-600",
+    words: [
+      {en:"sudden", ja:"突然の"},
+      {en:"basic", ja:"基本的な"},
+      {en:"kill", ja:"殺す"},
+      {en:"fine", ja:"素晴らしい/罰金"},
+      {en:"trouble", ja:"問題/困らせる"},
+      {en:"mark", ja:"印/点数"},
+      {en:"single", ja:"単独の"},
+      {en:"press", ja:"押す/報道機関"},
+      {en:"heavy", ja:"重い"},
+      {en:"attempt", ja:"試み/試みる"},
+      {en:"origin", ja:"起源"},
+      {en:"standard", ja:"基準/標準"},
+      {en:"everything", ja:"すべて"},
+      {en:"committee", ja:"委員会"},
+      {en:"moral", ja:"道徳的な"},
+      {en:"black", ja:"黒い"},
+      {en:"red", ja:"赤い"},
+      {en:"bad", ja:"悪い"},
+      {en:"earth", ja:"地球/土"},
+      {en:"accord", ja:"一致/調和"},
+      {en:"else", ja:"他に"},
+      {en:"mere", ja:"単なる"},
+      {en:"die", ja:"死ぬ"},
+      {en:"remark", ja:"発言/気づく"},
+      {en:"basis", ja:"根拠/基礎"},
+      {en:"except", ja:"〜を除いて"},
+      {en:"equal", ja:"等しい"},
+      {en:"east", ja:"東"},
+      {en:"event", ja:"出来事"},
+      {en:"employ", ja:"雇う"}
+    ]
+  }, // 参照ソース: [9]
+
+  // GSL 601-630
+  list_601_630: {
+    name: "GSL 601-630",
+    words: [
+      {en:"defense", ja:"防御"},
+      {en:"smile", ja:"微笑み/微笑む"},
+      {en:"river", ja:"川"},
+      {en:"improve", ja:"改善する"},
+      {en:"game", ja:"ゲーム"},
+      {en:"detail", ja:"詳細"},
+      {en:"account", ja:"説明/口座"},
+      {en:"cent", ja:"セント"},
+      {en:"sort", ja:"種類/分類する"},
+      {en:"reduce", ja:"減らす"},
+      {en:"club", ja:"クラブ"},
+      {en:"buy", ja:"買う"},
+      {en:"attention", ja:"注意"},
+      {en:"ship", ja:"船"},
+      {en:"decision", ja:"決定"},
+      {en:"wear", ja:"着る/すり減る"},
+      {en:"inside", ja:"内側"},
+      {en:"win", ja:"勝つ"},
+      {en:"suppose", ja:"〜だと思う/仮定する"},
+      {en:"ride", ja:"乗る"},
+      {en:"operate", ja:"操作する/運営する"},
+      {en:"realize", ja:"悟る/実現する"},
+      {en:"sale", ja:"販売"},
+      {en:"choose", ja:"選ぶ"},
+      {en:"park", ja:"公園/駐車する"},
+      {en:"square", ja:"正方形/広場"},
+      {en:"vote", ja:"投票"},
+      {en:"price", ja:"価格"},
+      {en:"district", ja:"地区"},
+      {en:"dead", ja:"死んだ"}
+    ]
+  }, // 参照ソース: [10]
+
+  // GSL 631-660
+  list_631_660: {
+    name: "GSL 631-660",
+    words: [
+      {en:"foreign", ja:"外国の"},
+      {en:"window", ja:"窓"},
+      {en:"beyond", ja:"〜を越えて"},
+      {en:"direction", ja:"方向/指示"},
+      {en:"strike", ja:"打つ/ストライキ"},
+      {en:"instead", ja:"代わりに"},
+      {en:"trial", ja:"試み/裁判"},
+      {en:"practice", ja:"練習/習慣"},
+      {en:"catch", ja:"捕まえる"},
+      {en:"opportunity", ja:"機会"},
+      {en:"likely", ja:"〜しそうな"},
+      {en:"recognize", ja:"認識する"},
+      {en:"permit", ja:"許可する"},
+      {en:"serious", ja:"真剣な/重大な"},
+      {en:"attack", ja:"攻撃"},
+      {en:"floor", ja:"床/階"},
+      {en:"association", ja:"協会/関係"},
+      {en:"spring", ja:"春/泉"},
+      {en:"lot", ja:"多く/くじ"},
+      {en:"stock", ja:"在庫/株"},
+      {en:"lack", ja:"不足"},
+      {en:"hair", ja:"髪/毛"},
+      {en:"science", ja:"科学"},
+      {en:"relation", ja:"関係"},
+      {en:"profession", ja:"職業"},
+      {en:"pattern", ja:"模様/型"},
+      {en:"quick", ja:"速い"},
+      {en:"medical", ja:"医学の"},
+      {en:"influence", ja:"影響"},
+      {en:"occasion", ja:"機会/場合"}
+    ]
+  }, // 参照ソース: [10], [11]
+
+  // GSL 661-690
+  list_661_690: {
+    name: "GSL 661-690",
+    words: [
+      {en:"machine", ja:"機械"},
+      {en:"compare", ja:"比較する"},
+      {en:"husband", ja:"夫"},
+      {en:"blue", ja:"青い"},
+      {en:"international", ja:"国際的な"},
+      {en:"fair", ja:"公平な/美しい"},
+      {en:"especially", ja:"特に"},
+      {en:"indeed", ja:"本当に"},
+      {en:"imagine", ja:"想像する"},
+      {en:"surprise", ja:"驚き"},
+      {en:"average", ja:"平均"},
+      {en:"official", ja:"公式の/役人"},
+      {en:"temperature", ja:"温度"},
+      {en:"difficult", ja:"難しい"},
+      {en:"sing", ja:"歌う"},
+      {en:"hit", ja:"打つ"},
+      {en:"tree", ja:"木"},
+      {en:"race", ja:"競争/人種"},
+      {en:"police", ja:"警察"},
+      {en:"touch", ja:"触れる"},
+      {en:"relative", ja:"相対的な/親戚"},
+      {en:"throw", ja:"投げる"},
+      {en:"quality", ja:"質"},
+      {en:"former", ja:"以前の"},
+      {en:"pull", ja:"引く"},
+      {en:"chance", ja:"機会/偶然"},
+      {en:"prove", ja:"証明する"},
+      {en:"argue", ja:"議論する"},
+      {en:"settle", ja:"解決する/定住する"},
+      {en:"growth", ja:"成長"}
+    ]
+  }, // 参照ソース: [11]
+
+  // GSL 691-720
+  list_691_720: {
+    name: "GSL 691-720",
+    words: [
+      {en:"date", ja:"日付/ナツメヤシ"},
+      {en:"heat", ja:"熱"},
+      {en:"save", ja:"救う/貯金する"},
+      {en:"performance", ja:"実行/公演"},
+      {en:"count", ja:"数える"},
+      {en:"production", ja:"生産"},
+      {en:"listen", ja:"聞く"},
+      {en:"main", ja:"主要な"},
+      {en:"pick", ja:"選ぶ/摘む"},
+      {en:"size", ja:"大きさ"},
+      {en:"cool", ja:"涼しい/かっこいい"},
+      {en:"army", ja:"軍隊"},
+      {en:"patient", ja:"患者/忍耐強い"},
+      {en:"combine", ja:"結合する"},
+      {en:"summer", ja:"夏"},
+      {en:"hall", ja:"ホール/会館"},
+      {en:"slight", ja:"わずかな"},
+      {en:"command", ja:"命令/指揮する"},
+      {en:"enjoy", ja:"楽しむ"},
+      {en:"length", ja:"長さ"},
+      {en:"proper", ja:"適切な"},
+      {en:"express", ja:"表現する/急行の"},
+      {en:"health", ja:"健康"},
+      {en:"chief", ja:"主要な/長"},
+      {en:"evening", ja:"夕方"},
+      {en:"store", ja:"店/蓄える"},
+      {en:"language", ja:"言語"},
+      {en:"degree", ja:"程度/度"},
+      {en:"lay", ja:"横たえる"},
+      {en:"current", ja:"現在の/流れ"}
+    ]
+  }, // 参照ソース: [11], [12]
+
+  // GSL 721-750
+  list_721_750: {
+    name: "GSL 721-750",
+    words: [
+      {en:"gun", ja:"銃"},
+      {en:"dog", ja:"犬"},
+      {en:"hotel", ja:"ホテル"},
+      {en:"strange", ja:"奇妙な/見知らぬ"},
+      {en:"separate", ja:"分離する"},
+      {en:"boat", ja:"ボート"},
+      {en:"fail", ja:"失敗する"},
+      {en:"clean", ja:"きれいな/掃除する"},
+      {en:"dress", ja:"服/服を着せる"},
+      {en:"anyone", ja:"誰でも"},
+      {en:"gain", ja:"得る/利益"},
+      {en:"pain", ja:"痛み"},
+      {en:"object", ja:"物体/反対する"},
+      {en:"knowledge", ja:"知識"},
+      {en:"depend", ja:"頼る"},
+      {en:"relate", ja:"関連づける"},
+      {en:"below", ja:"下に"},
+      {en:"dollar", ja:"ドル"},
+      {en:"advance", ja:"前進/進歩"},
+      {en:"shape", ja:"形"},
+      {en:"arrange", ja:"手配する"},
+      {en:"population", ja:"人口"},
+      {en:"yes", ja:"はい"},
+      {en:"sell", ja:"売る"},
+      {en:"mention", ja:"言及する"},
+      {en:"dry", ja:"乾いた"},
+      {en:"check", ja:"確認する/小切手"},
+      {en:"poet", ja:"詩人"},
+      {en:"sleep", ja:"眠り/眠る"},
+      {en:"join", ja:"参加する/結合する"}
+    ]
+  }, // 参照ソース: [12]
+
+  // GSL 751-780
+  list_751_780: {
+    name: "GSL 751-780",
+    words: [
+      {en:"hot", ja:"熱い"},
+      {en:"bed", ja:"ベッド"},
+      {en:"electric", ja:"電気の"},
+      {en:"dream", ja:"夢/夢を見る"},
+      {en:"due", ja:"期限の/〜のせいで"},
+      {en:"season", ja:"季節"},
+      {en:"manner", ja:"方法/作法"},
+      {en:"fit", ja:"適合する/健康な"},
+      {en:"left", ja:"左/去った"},
+      {en:"progress", ja:"進歩"},
+      {en:"neither", ja:"どちらも〜ない"},
+      {en:"strength", ja:"力/強さ"},
+      {en:"notice", ja:"気づく/通知"},
+      {en:"finish", ja:"終える"},
+      {en:"opinion", ja:"意見"},
+      {en:"bill", ja:"請求書/法案"},
+      {en:"western", ja:"西の"},
+      {en:"truth", ja:"真実"},
+      {en:"wrong", ja:"間違った"},
+      {en:"travel", ja:"旅行"},
+      {en:"suit", ja:"適合する/訴訟"},
+      {en:"bank", ja:"銀行/土手"},
+      {en:"exact", ja:"正確な"},
+      {en:"honor", ja:"名誉"},
+      {en:"brother", ja:"兄弟"},
+      {en:"quiet", ja:"静かな"},
+      {en:"marry", ja:"結婚する"},
+      {en:"corner", ja:"角"},
+      {en:"handle", ja:"扱う/取っ手"},
+      {en:"danger", ja:"危険"}
+    ]
+  }, // 参照ソース: [13]
+
+  // GSL 781-810
+  list_781_810: {
+    name: "GSL 781-810",
+    words: [
+      {en:"hospital", ja:"病院"},
+      {en:"pool", ja:"水たまり/共同資金"},
+      {en:"promise", ja:"約束"},
+      {en:"blood", ja:"血"},
+      {en:"shoot", ja:"撃つ"},
+      {en:"scene", ja:"場面/景色"},
+      {en:"literature", ja:"文学"},
+      {en:"arrive", ja:"到着する"},
+      {en:"film", ja:"映画/フィルム"},
+      {en:"base", ja:"基盤/拠点"},
+      {en:"freedom", ja:"自由"},
+      {en:"bar", ja:"棒/酒場"},
+      {en:"maybe", ja:"たぶん"},
+      {en:"hang", ja:"掛ける/ぶら下がる"},
+      {en:"suffer", ja:"苦しむ"},
+      {en:"manufacture", ja:"製造する"},
+      {en:"frequent", ja:"頻繁な"},
+      {en:"rock", ja:"岩"},
+      {en:"loss", ja:"損失"},
+      {en:"burn", ja:"燃やす"},
+      {en:"sun", ja:"太陽"},
+      {en:"audience", ja:"聴衆"},
+      {en:"essential", ja:"不可欠な"},
+      {en:"glass", ja:"ガラス/コップ"},
+      {en:"prevent", ja:"妨げる"},
+      {en:"poem", ja:"詩"},
+      {en:"poor", ja:"貧しい/かわいそうな"},
+      {en:"inch", ja:"インチ"},
+      {en:"song", ja:"歌"},
+      {en:"skill", ja:"技能"}
+    ]
+  }, // 参照ソース: [13], [14]
+
+  // GSL 811-840
+  list_811_840: {
+    name: "GSL 811-840",
+    words: [
+      {en:"post", ja:"郵便/地位"},
+      {en:"popular", ja:"人気のある"},
+      {en:"radio", ja:"ラジオ"},
+      {en:"animal", ja:"動物"},
+      {en:"conscious", ja:"意識している"},
+      {en:"worth", ja:"価値がある"},
+      {en:"eat", ja:"食べる"},
+      {en:"election", ja:"選挙"},
+      {en:"faith", ja:"信頼/信仰"},
+      {en:"wave", ja:"波/手を振る"},
+      {en:"murder", ja:"殺人"},
+      {en:"model", ja:"模範/模型"},
+      {en:"forget", ja:"忘れる"},
+      {en:"extend", ja:"広げる/延長する"},
+      {en:"edge", ja:"端"},
+      {en:"distance", ja:"距離"},
+      {en:"memory", ja:"記憶"},
+      {en:"recommend", ja:"推薦する"},
+      {en:"division", ja:"分割/部門"},
+      {en:"staff", ja:"職員"},
+      {en:"leg", ja:"脚"},
+      {en:"discussion", ja:"議論"},
+      {en:"address", ja:"住所/演説する"},
+      {en:"fly", ja:"飛ぶ"},
+      {en:"dependent", ja:"依存している"},
+      {en:"ball", ja:"ボール/舞踏会"},
+      {en:"shake", ja:"振る"},
+      {en:"frame", ja:"枠"},
+      {en:"extreme", ja:"極端な"},
+      {en:"engineer", ja:"エンジニア"}
+    ]
+  }, // 参照ソース: [14]
+
+  // GSL 841-870
+  list_841_870: {
+    name: "GSL 841-870",
+    words: [
+      {en:"thick", ja:"厚い"},
+      {en:"comfort", ja:"快適さ/慰める"},
+      {en:"latter", ja:"後者の"},
+      {en:"camp", ja:"キャンプ"},
+      {en:"oil", ja:"油"},
+      {en:"discover", ja:"発見する"},
+      {en:"examine", ja:"調査する/試験する"},
+      {en:"difficulty", ja:"困難"},
+      {en:"tooth", ja:"歯"},
+      {en:"middle", ja:"中央"},
+      {en:"choice", ja:"選択"},
+      {en:"refer", ja:"言及する/参照する"},
+      {en:"enemy", ja:"敵"},
+      {en:"practical", ja:"実用的な"},
+      {en:"marriage", ja:"結婚"},
+      {en:"bridge", ja:"橋"},
+      {en:"declare", ja:"宣言する"},
+      {en:"lady", ja:"女性/淑女"},
+      {en:"cross", ja:"横切る/十字架"},
+      {en:"daily", ja:"毎日の"},
+      {en:"afternoon", ja:"午後"},
+      {en:"attend", ja:"出席する"},
+      {en:"director", ja:"監督/取締役"},
+      {en:"balance", ja:"均衡/バランスをとる"},
+      {en:"wash", ja:"洗う"},
+      {en:"capital", ja:"首都/資本"},
+      {en:"speed", ja:"速度"},
+      {en:"block", ja:"塊/妨害する"},
+      {en:"citizen", ja:"市民"},
+      {en:"mouth", ja:"口"}
+    ]
+  }, // 参照ソース: [14], [15]
+
+  // GSL 871-900
+  list_871_900: {
+    name: "GSL 871-900",
+    words: [
+      {en:"hill", ja:"丘"},
+      {en:"green", ja:"緑の"},
+      {en:"please", ja:"喜ばせる/どうぞ"},
+      {en:"motor", ja:"モーター"},
+      {en:"agency", ja:"機関/代理店"},
+      {en:"encourage", ja:"励ます"},
+      {en:"governor", ja:"知事/総督"},
+      {en:"worry", ja:"心配する"},
+      {en:"affair", ja:"事柄/情勢"},
+      {en:"shoulder", ja:"肩"},
+      {en:"bright", ja:"明るい"},
+      {en:"mass", ja:"集団/大量"},
+      {en:"sample", ja:"見本"},
+      {en:"pretty", ja:"可愛らしい/かなり"},
+      {en:"repeat", ja:"繰り返す"},
+      {en:"roll", ja:"転がる/巻く"},
+      {en:"push", ja:"押す"},
+      {en:"trip", ja:"旅行/つまずく"},
+      {en:"council", ja:"会議/議会"},
+      {en:"clothe", ja:"服を着せる"},
+      {en:"parent", ja:"親"},
+      {en:"forward", ja:"前方に"},
+      {en:"sharp", ja:"鋭い"},
+      {en:"straight", ja:"まっすぐな"},
+      {en:"gas", ja:"ガス/ガソリン"},
+      {en:"weight", ja:"重さ"},
+      {en:"discuss", ja:"議論する"},
+      {en:"fix", ja:"固定する/修理する"},
+      {en:"load", ja:"荷物/積む"},
+      {en:"master", ja:"主人/習得する"}
+    ]
+  }, // 参照ソース: [15]
+
+  // GSL 901-930
+  list_901_930: {
+    name: "GSL 901-930",
+    words: [
+      {en:"whatever", ja:"〜であろうと何でも"},
+      {en:"round", ja:"丸い/周りに"},
+      {en:"rapid", ja:"速い"},
+      {en:"laugh", ja:"笑う"},
+      {en:"finger", ja:"指"},
+      {en:"spot", ja:"点/場所"},
+      {en:"propose", ja:"提案する"},
+      {en:"shop", ja:"店"},
+      {en:"broad", ja:"幅の広い"},
+      {en:"replace", ja:"置き換える"},
+      {en:"reply", ja:"返事/答える"},
+      {en:"extent", ja:"程度/範囲"},
+      {en:"lock", ja:"錠/錠をかける"},
+      {en:"employee", ja:"従業員"},
+      {en:"ahead", ja:"前方に"},
+      {en:"sight", ja:"視力/光景"},
+      {en:"spread", ja:"広げる"},
+      {en:"wind", ja:"風/巻く"},
+      {en:"approve", ja:"承認する"},
+      {en:"destroy", ja:"破壊する"},
+      {en:"none", ja:"誰も〜ない"},
+      {en:"pound", ja:"ポンド"},
+      {en:"fame", ja:"名声"},
+      {en:"importance", ja:"重要性"},
+      {en:"reflect", ja:"反射する/熟考する"},
+      {en:"advantage", ja:"利点"},
+      {en:"match", ja:"一致する/試合"},
+      {en:"regular", ja:"規則的な"},
+      {en:"wage", ja:"賃金"},
+      {en:"refuse", ja:"拒否する"}
+    ]
+  }, // 参照ソース: [16]
+
+  // GSL 931-960
+  list_931_960: {
+    name: "GSL 931-960",
+    words: [
+      {en:"existence", ja:"存在"},
+      {en:"hardly", ja:"ほとんど〜ない"},
+      {en:"perform", ja:"実行する/演じる"},
+      {en:"title", ja:"題名/資格"},
+      {en:"tend", ja:"〜する傾向がある"},
+      {en:"exercise", ja:"運動/行使"},
+      {en:"thin", ja:"薄い/痩せた"},
+      {en:"coat", ja:"コート"},
+      {en:"bit", ja:"少し/かけら"},
+      {en:"mountain", ja:"山"},
+      {en:"youth", ja:"若者/青春"},
+      {en:"behavior", ja:"ふるまい"},
+      {en:"newspaper", ja:"新聞"},
+      {en:"secret", ja:"秘密"},
+      {en:"ability", ja:"能力"},
+      {en:"sea", ja:"海"},
+      {en:"soft", ja:"柔らかい"},
+      {en:"justice", ja:"正義"},
+      {en:"reasonable", ja:"合理的な/手頃な"},
+      {en:"circle", ja:"円/輪"},
+      {en:"solid", ja:"固体の/確かな"},
+      {en:"page", ja:"ページ"},
+      {en:"weapon", ja:"武器"},
+      {en:"fast", ja:"速い/断食する"},
+      {en:"representative", ja:"代表者"},
+      {en:"search", ja:"捜索する"},
+      {en:"pure", ja:"純粋な"},
+      {en:"escape", ja:"逃げる"},
+      {en:"crowd", ja:"群衆"},
+      {en:"stick", ja:"棒/くっつく"}
+    ]
+  }, // 参照ソース: [16], [17]
+
+  // GSL 961-990
+  list_961_990: {
+    name: "GSL 961-990",
+    words: [
+      {en:"telephone", ja:"電話"},
+      {en:"avoid", ja:"避ける"},
+      {en:"garden", ja:"庭"},
+      {en:"favor", ja:"好意/支持する"},
+      {en:"news", ja:"ニュース"},
+      {en:"unless", ja:"〜しない限り"},
+      {en:"dinner", ja:"夕食"},
+      {en:"someone", ja:"誰か"},
+      {en:"signal", ja:"信号/合図"},
+      {en:"yard", ja:"庭/ヤード"},
+      {en:"ideal", ja:"理想的な"},
+      {en:"warm", ja:"暖かい"},
+      {en:"miss", ja:"逃す/恋しい"},
+      {en:"shelter", ja:"避難所"},
+      {en:"soldier", ja:"兵士"},
+      {en:"article", ja:"記事/品物"},
+      {en:"cry", ja:"叫ぶ/泣く"},
+      {en:"captain", ja:"船長/キャプテン"},
+      {en:"familiar", ja:"よく知っている"},
+      {en:"seat", ja:"座席"},
+      {en:"guest", ja:"客"},
+      {en:"weak", ja:"弱い"},
+      {en:" excite", ja:"興奮させる"},
+      {en:"king", ja:"王"},
+      {en:"everyone", ja:"全員"},
+      {en:"wine", ja:"ワイン"},
+      {en:"hole", ja:"穴"},
+      {en:"duty", ja:"義務"},
+      {en:"beat", ja:"打つ/打ち負かす"},
+      {en:"perfect", ja:"完璧な"}
+    ]
+  }, // 参照ソース: [17]
+
+  // GSL 991-1020
+  list_991_1020: {
+    name: "GSL 991-1020",
+    words: [
+      {en:"bottom", ja:"底"},
+      {en:"compose", ja:"構成する/作曲する"},
+      {en:"battle", ja:"戦い"},
+      {en:"expense", ja:"費用"},
+      {en:"cattle", ja:"牛"},
+      {en:"flow", ja:"流れる"},
+      {en:"kitchen", ja:"台所"},
+      {en:"dust", ja:"ほこり"},
+      {en:"bottle", ja:"瓶"},
+      {en:"admit", ja:"認める/入場を許可する"},
+      {en:"tear", ja:"涙/引き裂く"},
+      {en:"tire", ja:"疲れさせる/タイヤ"},
+      {en:"expression", ja:"表現"},
+      {en:"exception", ja:"例外"},
+      {en:"application", ja:"申し込み/応用"},
+      {en:"belong", ja:"属する"},
+      {en:"rich", ja:"裕福な"},
+      {en:"failure", ja:"失敗"},
+      {en:"struggle", ja:"もがく/努力"},
+      {en:"instrument", ja:"道具/楽器"},
+      {en:"variety", ja:"多様性"},
+      {en:"narrow", ja:"狭い"},
+      {en:"theater", ja:"劇場"},
+      {en:"collection", ja:"コレクション"},
+      {en:"rain", ja:"雨"},
+      {en:"review", ja:"再検討/評論"},
+      {en:"preserve", ja:"保存する"},
+      {en:"leadership", ja:"指導力"},
+      {en:"clay", ja:"粘土"},
+      {en:"daughter", ja:"娘"}
+    ]
+  }, // 参照ソース: [17], [18]
+
+  // GSL 1021-1050
+  list_1021_1050: {
+    name: "GSL 1021-1050",
+    words: [
+      {en:"fellow", ja:"仲間/男"},
+      {en:"swing", ja:"揺れる/ブランコ"},
+      {en:"thank", ja:"感謝する"},
+      {en:"library", ja:"図書館"},
+      {en:"fat", ja:"太った/脂肪"},
+      {en:"reserve", ja:"予約する/蓄え"},
+      {en:"tour", ja:"旅行/ツアー"},
+      {en:"nice", ja:"素敵な"},
+      {en:"warn", ja:"警告する"},
+      {en:"ring", ja:"指輪/鳴る"},
+      {en:"bitter", ja:"苦い/辛辣な"},
+      {en:"chair", ja:"椅子"},
+      {en:"yesterday", ja:"昨日"},
+      {en:"scientific", ja:"科学的な"},
+      {en:"flower", ja:"花"},
+      {en:"wheel", ja:"車輪"},
+      {en:"solution", ja:"解決策/溶液"},
+      {en:"aim", ja:"目的/狙う"},
+      {en:"gather", ja:"集める"},
+      {en:"invite", ja:"招待する"},
+      {en:"moreover", ja:"さらに"},
+      {en:"fresh", ja:"新鮮な"},
+      {en:"forest", ja:"森"},
+      {en:"winter", ja:"冬"},
+      {en:"box", ja:"箱"},
+      {en:"belief", ja:"信念"},
+      {en:"ordinary", ja:"普通の"},
+      {en:"impossible", ja:"不可能な"},
+      {en:"print", ja:"印刷する"},
+      {en:"gray", ja:"灰色の"}
+    ]
+  }, // 参照ソース: [18]
+
+  // GSL 1051-1080
+  list_1051_1080: {
+    name: "GSL 1051-1080",
+    words: [
+      {en:"taste", ja:"味/味がする"},
+      {en:"lip", ja:"唇"},
+      {en:"speech", ja:"演説/話し方"},
+      {en:"reference", ja:"参照/言及"},
+      {en:"stain", ja:"しみ/汚す"},
+      {en:"connection", ja:"繋がり"},
+      {en:"otherwise", ja:"さもなければ/その他の点では"},
+      {en:"stretch", ja:"伸ばす"},
+      {en:"knife", ja:"ナイフ"},
+      {en:"village", ja:"村"},
+      {en:"blow", ja:"吹く/打撃"},
+      {en:"mistake", ja:"間違い"},
+      {en:"sweet", ja:"甘い"},
+      {en:"shout", ja:"叫ぶ"},
+      {en:"divide", ja:"分ける"},
+      {en:"guard", ja:"守衛/守る"},
+      {en:"worse", ja:"より悪い"},
+      {en:"exchange", ja:"交換"},
+      {en:"rare", ja:"珍しい"},
+      {en:"commercial", ja:"商業の"},
+      {en:"request", ja:"要求"},
+      {en:"appoint", ja:"任命する"},
+      {en:"agent", ja:"代理人"},
+      {en:"dependence", ja:"依存"},
+      {en:"bird", ja:"鳥"},
+      {en:"wild", ja:"野生の/荒れた"},
+      {en:"motion", ja:"動き"},
+      {en:"guess", ja:"推測する"},
+      {en:"neighbor", ja:"隣人"},
+      {en:"seed", ja:"種"}
+    ]
+  }, // 参照ソース: [19]
+
+  // GSL 1081-1110
+  list_1081_1110: {
+    name: "GSL 1081-1110",
+    words: [
+      {en:"fashion", ja:"流行/方法"},
+      {en:"loan", ja:"ローン/貸し付け"},
+      {en:"correct", ja:"正しい/訂正する"},
+      {en:"plain", ja:"平易な/平野"},
+      {en:"mail", ja:"郵便"},
+      {en:"retire", ja:"引退する"},
+      {en:"opposite", ja:"反対の"},
+      {en:"prefer", ja:"好む"},
+      {en:"safe", ja:"安全な/金庫"},
+      {en:"evil", ja:"悪/邪悪な"},
+      {en:"double", ja:"二重の"},
+      {en:"wood", ja:"木材/森"},
+      {en:"empty", ja:"空の"},
+      {en:"baby", ja:"赤ちゃん"},
+      {en:"advise", ja:"助言する"},
+      {en:"content", ja:"内容/満足して"},
+      {en:"sport", ja:"スポーツ"},
+      {en:"lift", ja:"持ち上げる/エレベーター"},
+      {en:"literary", ja:"文学の"},
+      {en:"curious", ja:"好奇心の強い"},
+      {en:"tie", ja:"結ぶ/ネクタイ"},
+      {en:"flat", ja:"平らな/アパート"},
+      {en:"message", ja:"伝言"},
+      {en:"neck", ja:"首"},
+      {en:"hate", ja:"憎む"},
+      {en:"dirt", ja:"汚れ"},
+      {en:"delight", ja:"喜び/喜ばせる"},
+      {en:"trust", ja:"信頼"},
+      {en:"nobody", ja:"誰も〜ない"},
+      {en:"valley", ja:"谷"}
+    ]
+  }, // 参照ソース: [19], [20]
+
+  // GSL 1111-1140
+  list_1111_1140: {
+    name: "GSL 1111-1140",
+    words: [
+      {en:"tool", ja:"道具"},
+      {en:"presence", ja:"存在/出席"},
+      {en:"cook", ja:"料理人/料理する"},
+      {en:"railroad", ja:"鉄道"},
+      {en:"minister", ja:"大臣/牧師"},
+      {en:"coffee", ja:"コーヒー"},
+      {en:"brush", ja:"ブラシ/磨く"},
+      {en:"beside", ja:"〜のそばに"},
+      {en:"collect", ja:"集める"},
+      {en:"guide", ja:"案内人/案内する"},
+      {en:"luck", ja:"運"},
+      {en:"profit", ja:"利益"},
+      {en:"lord", ja:"主人/卿"},
+      {en:"everybody", ja:"みんな"},
+      {en:"prison", ja:"刑務所"},
+      {en:"cloud", ja:"雲"},
+      {en:"slave", ja:"奴隷"},
+      {en:"chairman", ja:"議長"},
+      {en:"soil", ja:"土壌"},
+      {en:"distinguish", ja:"区別する"},
+      {en:"introduce", ja:"紹介する"},
+      {en:"urge", ja:"促す/衝動"},
+      {en:"blind", ja:"目の見えない"},
+      {en:"arise", ja:"起こる"},
+      {en:"upper", ja:"上の"},
+      {en:"curve", ja:"曲線"},
+      {en:"membership", ja:"会員資格"},
+      {en:"key", ja:"鍵/重要な"},
+      {en:"entertain", ja:"楽しませる"},
+      {en:"soul", ja:"魂"}
+    ]
+  }, // 参照ソース: [20]
+
+  // GSL 1141-1170
+  list_1141_1170: {
+    name: "GSL 1141-1170",
+    words: [
+      {en:"neighborhood", ja:"近所"},
+      {en:"friendly", ja:"友好的な"},
+      {en:"pair", ja:"一対"},
+      {en:"stone", ja:"石"},
+      {en:"lean", ja:"寄りかかる/傾く"},
+      {en:"protect", ja:"守る"},
+      {en:"advertise", ja:"宣伝する"},
+      {en:"mystery", ja:"神秘/謎"},
+      {en:"welcome", ja:"歓迎/歓迎する"},
+      {en:"knee", ja:"膝"},
+      {en:"jump", ja:"跳ぶ"},
+      {en:"snake", ja:"ヘビ"},
+      {en:"stream", ja:"小川/流れ"},
+      {en:"avenue", ja:"大通り"},
+      {en:"brown", ja:"茶色の"},
+      {en:"disease", ja:"病気"},
+      {en:"hat", ja:"帽子"},
+      {en:"excellent", ja:"優れた"},
+      {en:"formal", ja:"正式な"},
+      {en:"snow", ja:"雪"},
+      {en:"sheet", ja:"シーツ/一枚"},
+      {en:"somehow", ja:"どういうわけか"},
+      {en:"unity", ja:"統一"},
+      {en:"sky", ja:"空"},
+      {en:"rough", ja:"ざらざらした/荒い"},
+      {en:"smooth", ja:"なめらかな"},
+      {en:"weather", ja:"天気"},
+      {en:"steady", ja:"着実な"},
+      {en:"threaten", ja:"脅す"},
+      {en:"depth", ja:"深さ"}
+    ]
+  }, // 参照ソース: [20], [21]
+
+  // GSL 1171-1200
+  list_1171_1200: {
+    name: "GSL 1171-1200",
+    words: [
+      {en:"oppose", ja:"反対する"},
+      {en:"deliver", ja:"配達する/引き渡す"},
+      {en:"ancient", ja:"古代の"},
+      {en:"pray", ja:"祈る"},
+      {en:"adopt", ja:"採用する/養子にする"},
+      {en:"birth", ja:"誕生"},
+      {en:"appearance", ja:"外見/出現"},
+      {en:"universe", ja:"宇宙"},
+      {en:"busy", ja:"忙しい"},
+      {en:"hurry", ja:"急ぐ"},
+      {en:"coast", ja:"海岸"},
+      {en:"forth", ja:"前方へ"},
+      {en:"smell", ja:"匂い/匂いを嗅ぐ"},
+      {en:"furnish", ja:"家具を備え付ける"},
+      {en:"female", ja:"女性の"},
+      {en:"hide", ja:"隠す"},
+      {en:"wire", ja:"針金/電線"},
+      {en:"proposal", ja:"提案"},
+      {en:"ought", ja:"〜すべきである"},
+      {en:"victory", ja:"勝利"},
+      {en:"quarter", ja:"四分の一/地域"},
+      {en:"engine", ja:"エンジン"},
+      {en:"customer", ja:"顧客"},
+      {en:"waste", ja:"浪費/廃棄物"},
+      {en:"fool", ja:"愚か者/だます"},
+      {en:"intend", ja:"意図する"},
+      {en:"intention", ja:"意図"},
+      {en:"desk", ja:"机"},
+      {en:"politics", ja:"政治"},
+      {en:"passage", ja:"通路/一節"}
+    ]
+  }, // 参照ソース: [21]
+
+  // GSL 1201-1230
+  list_1201_1230: {
+    name: "GSL 1201-1230",
+    words: [
+      {en:"lawyer", ja:"弁護士"},
+      {en:"root", ja:"根"},
+      {en:"climb", ja:"登る"},
+      {en:"metal", ja:"金属"},
+      {en:"gradual", ja:"徐々の"},
+      {en:"hunt", ja:"狩り"},
+      {en:"protection", ja:"保護"},
+      {en:"satisfy", ja:"満足させる"},
+      {en:"roof", ja:"屋根"},
+      {en:"branch", ja:"枝/支店"},
+      {en:"pleasure", ja:"喜び"},
+      {en:"witness", ja:"証人/目撃する"},
+      {en:"loose", ja:"ゆるい"},
+      {en:"nose", ja:"鼻"},
+      {en:"mine", ja:"私のもの/鉱山"},
+      {en:"band", ja:"バンド/帯"},
+      {en:"aside", ja:"脇に"},
+      {en:"risk", ja:"危険/危険を冒す"},
+      {en:"tomorrow", ja:"明日"},
+      {en:"remind", ja:"思い出させる"},
+      {en:"ear", ja:"耳"},
+      {en:"fish", ja:"魚/釣りをする"},
+      {en:"shore", ja:"岸"},
+      {en:"operator", ja:"オペレーター/操作者"},
+      {en:"civilize", ja:"文明化する"},
+      {en:"being", ja:"存在/いること"},
+      {en:"silent", ja:"静かな"},
+      {en:"screen", ja:"画面/覆い隠す"},
+      {en:"bind", ja:"縛る"},
+      {en:"earn", ja:"稼ぐ"}
+    ]
+  }, // 参照ソース: [22]
+
+  // GSL 1231-1260
+  list_1231_1260: {
+    name: "GSL 1231-1260",
+    words: [
+      {en:"pack", ja:"包む/一束"},
+      {en:"colony", ja:"植民地"},
+      {en:"besides", ja:"〜に加えて/その上"},
+      {en:"slip", ja:"滑る/滑り"},
+      {en:"cousin", ja:"いとこ"},
+      {en:"scale", ja:"規模/はかり"},
+      {en:"relief", ja:"安心/救済"},
+      {en:"explore", ja:"探検する"},
+      {en:"stem", ja:"茎/由来する"},
+      {en:"brain", ja:"脳"},
+      {en:"musician", ja:"音楽家"},
+      {en:"defend", ja:"守る"},
+      {en:"bend", ja:"曲げる"},
+      {en:"somebody", ja:"誰か"},
+      {en:"shadow", ja:"影"},
+      {en:"mix", ja:"混ぜる"},
+      {en:"smoke", ja:"煙/喫煙する"},
+      {en:"description", ja:"記述"},
+      {en:"fruit", ja:"果物"},
+      {en:"guilt", ja:"罪悪感"},
+      {en:"yield", ja:"産出する/譲る"},
+      {en:"sensitive", ja:"敏感な"},
+      {en:"salt", ja:"塩"},
+      {en:"pale", ja:"青白い"},
+      {en:"sweep", ja:"掃く"},
+      {en:"completion", ja:"完了"},
+      {en:"throat", ja:"喉"},
+      {en:"agriculture", ja:"農業"},
+      {en:"admire", ja:"賞賛する"},
+      {en:"gentle", ja:"優しい"}
+    ]
+  }, // 参照ソース: [22], [23]
+
+  // GSL 1261-1290
+  list_1261_1290: {
+    name: "GSL 1261-1290",
+    words: [
+      {en:"dozen", ja:"ダース (12個)"},
+      {en:"particle", ja:"粒子"},
+      {en:"pleasant", ja:"楽しい"},
+      {en:"bay", ja:"湾"},
+      {en:"cup", ja:"カップ"},
+      {en:"competition", ja:"競争"},
+      {en:"moon", ja:"月"},
+      {en:"terrible", ja:"恐ろしい"},
+      {en:"strip", ja:"細長い一片/剥ぎ取る"},
+      {en:"mechanic", ja:"整備士"},
+      {en:"shock", ja:"衝撃"},
+      {en:"conversation", ja:"会話"},
+      {en:"angle", ja:"角度"},
+      {en:"tall", ja:"背が高い"},
+      {en:"plenty", ja:"たくさん"},
+      {en:"star", ja:"星/主演する"},
+      {en:"yellow", ja:"黄色い"},
+      {en:"sick", ja:"病気の"},
+      {en:"thorough", ja:"徹底的な"},
+      {en:"absolute", ja:"絶対的な"},
+      {en:"succeed", ja:"成功する"},
+      {en:"surround", ja:"囲む"},
+      {en:"proud", ja:"誇りに思う"},
+      {en:"dear", ja:"親愛なる/高価な"},
+      {en:"card", ja:"カード"},
+      {en:"lake", ja:"湖"},
+      {en:"breath", ja:"息"},
+      {en:"afraid", ja:"恐れて"},
+      {en:"silence", ja:"沈黙"},
+      {en:"onto", ja:"〜の上へ"}
+    ]
+  }, // 参照ソース: [23]
+
+  // GSL 1291-1320
+  list_1291_1320: {
+    name: "GSL 1291-1320",
+    words: [
+      {en:"shoe", ja:"靴"},
+      {en:"somewhere", ja:"どこかへ"},
+      {en:"chain", ja:"鎖/連鎖"},
+      {en:"slide", ja:"滑る"},
+      {en:"copy", ja:"コピー/写し"},
+      {en:"machinery", ja:"機械類"},
+      {en:"wake", ja:"目覚める"},
+      {en:"severe", ja:"厳しい"},
+      {en:"pocket", ja:"ポケット"},
+      {en:"bone", ja:"骨"},
+      {en:"honest", ja:"正直な"},
+      {en:"freeze", ja:"凍る"},
+      {en:"dictionary", ja:"辞書"},
+      {en:"calm", ja:"穏やかな"},
+      {en:"swim", ja:"泳ぐ"},
+      {en:"ice", ja:"氷"},
+      {en:"male", ja:"男性の"},
+      {en:"skin", ja:"皮膚"},
+      {en:"crack", ja:"ひび/割れる"},
+      {en:"rush", ja:"急ぐ/突進"},
+      {en:"wet", ja:"濡れた"},
+      {en:"meat", ja:"肉"},
+      {en:"commerce", ja:"商業"},
+      {en:"joint", ja:"関節/共同の"},
+      {en:"gift", ja:"贈り物"},
+      {en:"host", ja:"主人/主催者"},
+      {en:"suspect", ja:"疑う/容疑者"},
+      {en:"path", ja:"小道"},
+      {en:"uncle", ja:"叔父"},
+      {en:"afford", ja:"〜する余裕がある"}
+    ]
+  }, // 参照ソース: [23], [24]
+
+  // GSL 1321-1350
+  list_1321_1350: {
+    name: "GSL 1321-1350",
+    words: [
+      {en:"instant", ja:"即座の/瞬間"},
+      {en:"satisfactory", ja:"満足のいく"},
+      {en:"height", ja:"高さ"},
+      {en:"track", ja:"足跡/線路"},
+      {en:"confidence", ja:"信頼/自信"},
+      {en:"grass", ja:"草"},
+      {en:"suggestion", ja:"提案"},
+      {en:"favorite", ja:"お気に入りの"},
+      {en:"breakfast", ja:"朝食"},
+      {en:"apart", ja:"離れて"},
+      {en:"chest", ja:"胸/箱"},
+      {en:"entrance", ja:"入り口"},
+      {en:"march", ja:"行進/3月"},
+      {en:"sink", ja:"沈む/流し台"},
+      {en:"northern", ja:"北部の"},
+      {en:"iron", ja:"鉄/アイロン"},
+      {en:"alive", ja:"生きた"},
+      {en:"ill", ja:"病気の"},
+      {en:"bag", ja:"袋"},
+      {en:"disturb", ja:"邪魔する"},
+      {en:"native", ja:"母国の/生まれつきの"},
+      {en:"bedroom", ja:"寝室"},
+      {en:"violent", ja:"暴力的な"},
+      {en:"beneath", ja:"〜の下に"},
+      {en:"pause", ja:"一時停止"},
+      {en:"tough", ja:"頑丈な/難しい"},
+      {en:"substance", ja:"物質"},
+      {en:"threat", ja:"脅威"},
+      {en:"charm", ja:"魅力/魅了する"},
+      {en:"absence", ja:"不在"}
+    ]
+  }, // 参照ソース: [24]
+
+  // GSL 1351-1380
+  list_1351_1380: {
+    name: "GSL 1351-1380",
+    words: [
+      {en:"factory", ja:"工場"},
+      {en:"spite", ja:"悪意"},
+      {en:"meal", ja:"食事"},
+      {en:"universal", ja:"普遍的な"},
+      {en:"accident", ja:"事故"},
+      {en:"highway", ja:"幹線道路"},
+      {en:"sentence", ja:"文/判決"},
+      {en:"liberty", ja:"自由"},
+      {en:"wise", ja:"賢い"},
+      {en:"noise", ja:"騒音"},
+      {en:"discovery", ja:"発見"},
+      {en:"tube", ja:"管/チューブ"},
+      {en:"flash", ja:"閃光"},
+      {en:"twist", ja:"ひねる"},
+      {en:"fence", ja:"フェンス"},
+      {en:"childhood", ja:"子供時代"},
+      {en:"joy", ja:"喜び"},
+      {en:"sister", ja:"姉妹"},
+      {en:"sad", ja:"悲しい"},
+      {en:"efficiency", ja:"効率"},
+      {en:"disappear", ja:"消える"},
+      {en:"defeat", ja:"敗北/打ち負かす"},
+      {en:"extensive", ja:"広範囲の"},
+      {en:"rent", ja:"賃貸料/借りる"},
+      {en:"comparison", ja:"比較"},
+      {en:"possess", ja:"所有する"},
+      {en:"grace", ja:"優雅さ/恩寵"},
+      {en:"flesh", ja:"肉/肉体"},
+      {en:"liquid", ja:"液体"},
+      {en:"scientist", ja:"科学者"}
+    ]
+  }, // 参照ソース: [25]
+
+  // GSL 1381-1410
+  list_1381_1410: {
+    name: "GSL 1381-1410",
+    words: [
+      {en:"ease", ja:"容易さ/楽にする"},
+      {en:"heaven", ja:"天国"},
+      {en:"milk", ja:"牛乳"},
+      {en:"sympathy", ja:"同情"},
+      {en:"rank", ja:"地位/等級"},
+      {en:"restaurant", ja:"レストラン"},
+      {en:"frequency", ja:"頻度"},
+      {en:"angry", ja:"怒った"},
+      {en:"shade", ja:"陰/日よけ"},
+      {en:"accuse", ja:"告発する"},
+      {en:"necessity", ja:"必要性"},
+      {en:"knock", ja:"ノックする"},
+      {en:"loud", ja:"大きな声の"},
+      {en:"permanent", ja:"永久的な"},
+      {en:"row", ja:"列/漕ぐ"},
+      {en:"lovely", ja:"美しい/素敵な"},
+      {en:"confuse", ja:"混乱させる"},
+      {en:"gold", ja:"金"},
+      {en:"frighten", ja:"怖がらせる"},
+      {en:"solve", ja:"解決する"},
+      {en:"grave", ja:"墓/重大な"},
+      {en:"salary", ja:"給料"},
+      {en:"photograph", ja:"写真"},
+      {en:"advice", ja:"助言"},
+      {en:"abroad", ja:"海外へ"},
+      {en:"wound", ja:"傷/負傷させる"},
+      {en:"virtue", ja:"美徳"},
+      {en:"dare", ja:"敢えて〜する"},
+      {en:"queen", ja:"女王"},
+      {en:"extra", ja:"余分な"}
+    ]
+  }, // 参照ソース: [25], [26]
+
+  // GSL 1411-1440
+  list_1411_1440: {
+    name: "GSL 1411-1440",
+    words: [
+      {en:"attract", ja:"引き付ける"},
+      {en:"numerous", ja:"多数の"},
+      {en:"pink", ja:"ピンクの"},
+      {en:"gate", ja:"門"},
+      {en:"expensive", ja:"高価な"},
+      {en:"shut", ja:"閉める"},
+      {en:"chicken", ja:"鶏肉"},
+      {en:"forgive", ja:"許す"},
+      {en:"holy", ja:"神聖な"},
+      {en:"wooden", ja:"木製の"},
+      {en:"prompt", ja:"迅速な/促す"},
+      {en:"crime", ja:"犯罪"},
+      {en:"sorry", ja:"気の毒に思う"},
+      {en:"republic", ja:"共和国"},
+      {en:"anger", ja:"怒り"},
+      {en:"visitor", ja:"訪問者"},
+      {en:"pile", ja:"積み重ね/山"},
+      {en:"violence", ja:"暴力"},
+      {en:"steel", ja:"鋼鉄"},
+      {en:"wing", ja:"翼"},
+      {en:"stair", ja:"階段"},
+      {en:"partner", ja:"パートナー"},
+      {en:"delay", ja:"遅延/遅らせる"},
+      {en:"gentleman", ja:"紳士"},
+      {en:"pour", ja:"注ぐ"},
+      {en:"confusion", ja:"混乱"},
+      {en:"damage", ja:"損害"},
+      {en:"kick", ja:"蹴る"},
+      {en:"safety", ja:"安全"},
+      {en:"burst", ja:"破裂する"}
+    ]
+  }, // 参照ソース: [26]
+
+  // GSL 1441-1470
+  list_1441_1470: {
+    name: "GSL 1441-1470",
+    words: [
+      {en:"network", ja:"ネットワーク"},
+      {en:"resistance", ja:"抵抗"},
+      {en:"screw", ja:"ねじ"},
+      {en:"pride", ja:"誇り"},
+      {en:"till", ja:"〜まで"},
+      {en:"hire", ja:"雇う"},
+      {en:"verb", ja:"動詞"},
+      {en:"preach", ja:"説教する"},
+      {en:"clerk", ja:"店員/事務員"},
+      {en:"everywhere", ja:"どこでも"},
+      {en:"anyway", ja:"とにかく"},
+      {en:"fan", ja:"扇風機/ファン"},
+      {en:"connect", ja:"繋ぐ"},
+      {en:"egg", ja:"卵"},
+      {en:"efficient", ja:"効率的な"},
+      {en:"grain", ja:"穀物/粒"},
+      {en:"calculate", ja:"計算する"},
+      {en:"drag", ja:"引きずる"},
+      {en:"opposition", ja:"反対"},
+      {en:"worship", ja:"崇拝する"},
+      {en:"arrest", ja:"逮捕する"},
+      {en:"discipline", ja:"しつけ/規律"},
+      {en:"string", ja:"ひも"},
+      {en:"harbor", ja:"港"},
+      {en:"camera", ja:"カメラ"},
+      {en:"mechanism", ja:"仕組み"},
+      {en:"cow", ja:"雌牛"},
+      {en:"grand", ja:"壮大な"},
+      {en:"funny", ja:"おかしな"},
+      {en:"insurance", ja:"保険"}
+    ]
+  }, // 参照ソース: [26], [27]
+
+  // GSL 1471-1500
+  list_1471_1500: {
+    name: "GSL 1471-1500",
+    words: [
+      {en:"reduction", ja:"削減"},
+      {en:"strict", ja:"厳しい"},
+      {en:"lesson", ja:"教訓/授業"},
+      {en:"tight", ja:"きつい"},
+      {en:"sand", ja:"砂"},
+      {en:"plate", ja:"皿/板"},
+      {en:"qualify", ja:"資格を与える"},
+      {en:"elsewhere", ja:"どこか別の所で"},
+      {en:"mad", ja:"気が狂った/熱狂した"},
+      {en:"interference", ja:"干渉"},
+      {en:"pupil", ja:"生徒/瞳"},
+      {en:"fold", ja:"折る/ひだ"},
+      {en:"royal", ja:"王室の"},
+      {en:"valuable", ja:"価値のある"},
+      {en:"whisper", ja:"ささやく"},
+      {en:"anybody", ja:"誰でも"},
+      {en:"hurt", ja:"傷つける"},
+      {en:"excess", ja:"過剰"},
+      {en:"quantity", ja:"量"},
+      {en:"fun", ja:"楽しみ"},
+      {en:"mud", ja:"泥"},
+      {en:"extension", ja:"延長/内線"},
+      {en:"recognition", ja:"認識"},
+      {en:"kiss", ja:"キス"},
+      {en:"crop", ja:"作物"},
+      {en:"sail", ja:"航海する/帆"},
+      {en:"attractive", ja:"魅力的な"},
+      {en:"habit", ja:"習慣"},
+      {en:"relieve", ja:"和らげる"},
+      {en:"wisdom", ja:"知恵"}
+    ]
+  }, // 参照ソース: [27]
+
+  // GSL 1501-1530
+  list_1501_1530: {
+    name: "GSL 1501-1530",
+    words: [
+      {en:"persuade", ja:"説得する"},
+      {en:"certainty", ja:"確実性"},
+      {en:"cloth", ja:"布"},
+      {en:"eager", ja:"熱望している"},
+      {en:"deserve", ja:"〜に値する"},
+      {en:"sympathetic", ja:"同情的な"},
+      {en:"cure", ja:"治療/治す"},
+      {en:"trap", ja:"罠"},
+      {en:"puzzle", ja:"パズル/困らせる"},
+      {en:"powder", ja:"粉"},
+      {en:"raw", ja:"生の"},
+      {en:"mankind", ja:"人類"},
+      {en:"glad", ja:"嬉しい"},
+      {en:"blame", ja:"非難する"},
+      {en:"whenever", ja:"〜するときはいつでも"},
+      {en:"anxiety", ja:"不安"},
+      {en:"bus", ja:"バス"},
+      {en:"tremble", ja:"震える"},
+      {en:"sacred", ja:"神聖な"},
+      {en:"fortunate", ja:"幸運な"},
+      {en:"glory", ja:"栄光"},
+      {en:"golden", ja:"黄金の"},
+      {en:"neat", ja:"きちんとした"},
+      {en:"weekend", ja:"週末"},
+      {en:"treasury", ja:"財務省/宝庫"},
+      {en:"overcome", ja:"克服する"},
+      {en:"cat", ja:"猫"},
+      {en:"sacrifice", ja:"犠牲"},
+      {en:"complain", ja:"不平を言う"},
+      {en:"elect", ja:"選出する"}
+    ]
+  }, // 参照ソース: [28]
+
+  // GSL 1531-1560
+  list_1531_1560: {
+    name: "GSL 1531-1560",
+    words: [
+      {en:"roar", ja:"吠える/うなる"},
+      {en:"sake", ja:"目的/利益"},
+      {en:"temple", ja:"寺/神殿"},
+      {en:"self", ja:"自己"},
+      {en:"compete", ja:"競争する"},
+      {en:"nurse", ja:"看護師/世話をする"},
+      {en:"stuff", ja:"物/詰め込む"},
+      {en:"stomach", ja:"胃"},
+      {en:"peculiar", ja:"独特の/変な"},
+      {en:"repair", ja:"修理する"},
+      {en:"storm", ja:"嵐"},
+      {en:"ton", ja:"トン"},
+      {en:"desert", ja:"砂漠/見捨てる"},
+      {en:"allowance", ja:"手当/小遣い"},
+      {en:"servant", ja:"使用人"},
+      {en:"hunger", ja:"空腹"},
+      {en:"conscience", ja:"良心"},
+      {en:"bread", ja:"パン"},
+      {en:"crash", ja:"衝突/墜落"},
+      {en:"tip", ja:"先端/チップ"},
+      {en:"strengthen", ja:"強化する"},
+      {en:"proof", ja:"証拠"},
+      {en:"generous", ja:"寛大な"},
+      {en:"sir", ja:"様/殿"},
+      {en:"tonight", ja:"今夜"},
+      {en:"whip", ja:"鞭/鞭打つ"},
+      {en:"tongue", ja:"舌/言語"},
+      {en:"mill", ja:"工場/製粉所"},
+      {en:"merchant", ja:"商人"},
+      {en:"coal", ja:"石炭"}
+    ]
+  }, // 参照ソース: [28], [29]
+
+  // GSL 1561-1590
+  list_1561_1590: {
+    name: "GSL 1561-1590",
+    words: [
+      {en:"ruin", ja:"破滅/台無しにする"},
+      {en:"introduction", ja:"紹介/導入"},
+      {en:"courage", ja:"勇気"},
+      {en:"actor", ja:"俳優"},
+      {en:"belt", ja:"ベルト/帯"},
+      {en:"stir", ja:"かき混ぜる/騒動"},
+      {en:"package", ja:"荷物/包み"},
+      {en:"punish", ja:"罰する"},
+      {en:"reflection", ja:"反射/熟考"},
+      {en:"breathe", ja:"呼吸する"},
+      {en:"anywhere", ja:"どこでも"},
+      {en:"amuse", ja:"楽しませる"},
+      {en:"dull", ja:"退屈な/鈍い"},
+      {en:"fate", ja:"運命"},
+      {en:"net", ja:"網/ネット"},
+      {en:"fellowship", ja:"仲間意識/奨学金"},
+      {en:"fault", ja:"欠点/責任"},
+      {en:"furniture", ja:"家具"},
+      {en:"beam", ja:"梁/光線"},
+      {en:"pencil", ja:"鉛筆"},
+      {en:"border", ja:"国境/縁"},
+      {en:"disappoint", ja:"がっかりさせる"},
+      {en:"flame", ja:"炎"},
+      {en:"joke", ja:"冗談"},
+      {en:"bless", ja:"祝福する"},
+      {en:"corn", ja:"トウモロコシ/穀物"},
+      {en:"shell", ja:"殻/貝殻"},
+      {en:"tempt", ja:"誘惑する"},
+      {en:"supper", ja:"夕食"},
+      {en:"destruction", ja:"破壊"}
+    ]
+  }, // 参照ソース: [29]
+
+  // GSL 1591-1620
+  list_1591_1620: {
+    name: "GSL 1591-1620",
+    words: [
+      {en:"dive", ja:"飛び込む"},
+      {en:"anxious", ja:"不安な/切望して"},
+      {en:"shine", ja:"輝く"},
+      {en:"cheap", ja:"安い"},
+      {en:"dish", ja:"皿/料理"},
+      {en:"distant", ja:"遠い"},
+      {en:"greet", ja:"挨拶する"},
+      {en:"flood", ja:"洪水"},
+      {en:"excuse", ja:"言い訳/許す"},
+      {en:"insect", ja:"昆虫"},
+      {en:"ocean", ja:"大洋"},
+      {en:"ceremony", ja:"式典"},
+      {en:"decrease", ja:"減少/減少する"},
+      {en:"prize", ja:"賞"},
+      {en:"harm", ja:"害/害する"},
+      {en:"insure", ja:"保険をかける"},
+      {en:"verse", ja:"詩/節"},
+      {en:"pot", ja:"鍋/壺"},
+      {en:"sincere", ja:"誠実な"},
+      {en:"cotton", ja:"綿"},
+      {en:"leaf", ja:"葉"},
+      {en:"rub", ja:"こする"},
+      {en:"medicine", ja:"薬"},
+      {en:"stroke", ja:"一撃/脳卒中"},
+      {en:"bite", ja:"噛む"},
+      {en:"lung", ja:"肺"},
+      {en:"lonely", ja:"寂しい"},
+      {en:"admission", ja:"入場/許可"},
+      {en:"stupid", ja:"愚かな"},
+      {en:"scratch", ja:"ひっかく/傷"}
+    ]
+  }, // 参照ソース: [29], [30]
+
+  // GSL 1621-1650
+  list_1621_1650: {
+    name: "GSL 1621-1650",
+    words: [
+      {en:"composition", ja:"作文/構成"},
+      {en:"broadcast", ja:"放送する"},
+      {en:"drum", ja:"ドラム"},
+      {en:"resist", ja:"抵抗する"},
+      {en:"neglect", ja:"無視/怠慢"},
+      {en:"absent", ja:"欠席の"},
+      {en:"passenger", ja:"乗客"},
+      {en:"adventure", ja:"冒険"},
+      {en:"beg", ja:"請い求める"},
+      {en:"pipe", ja:"パイプ"},
+      {en:"beard", ja:"あごひげ"},
+      {en:"bold", ja:"大胆な/太字の"},
+      {en:"meanwhile", ja:"その間に"},
+      {en:"devil", ja:"悪魔"},
+      {en:"cheer", ja:"歓声/応援する"},
+      {en:"nut", ja:"木の実/変人"},
+      {en:"split", ja:"割る/分裂"},
+      {en:"melt", ja:"溶ける"},
+      {en:"swear", ja:"誓う/ののしる"},
+      {en:"sugar", ja:"砂糖"},
+      {en:"bury", ja:"埋める"},
+      {en:"wipe", ja:"拭く"},
+      {en:"faint", ja:"かすかな/気絶する"},
+      {en:"creature", ja:"生き物"},
+      {en:"tail", ja:"しっぽ"},
+      {en:"wealth", ja:"富"},
+      {en:"earnest", ja:"真剣な"},
+      {en:"translate", ja:"翻訳する"},
+      {en:"suspicion", ja:"疑い"},
+      {en:"noble", ja:"高貴な"}
+    ]
+  }, // 参照ソース: [30]
+
+  // GSL 1651-1680
+  list_1651_1680: {
+    name: "GSL 1651-1680",
+    words: [
+      {en:"inquiry", ja:"問い合わせ"},
+      {en:"journey", ja:"旅"},
+      {en:"hesitate", ja:"ためらう"},
+      {en:"extraordinary", ja:"並外れた"},
+      {en:"borrow", ja:"借りる"},
+      {en:"owe", ja:"借りがある"},
+      {en:"funeral", ja:"葬式"},
+      {en:"ambition", ja:"野心"},
+      {en:"mixture", ja:"混合物"},
+      {en:"slope", ja:"傾斜/坂"},
+      {en:"criminal", ja:"犯罪者/犯罪の"},
+      {en:"seldom", ja:"めったに〜ない"},
+      {en:"map", ja:"地図"},
+      {en:"spin", ja:"回る/紡ぐ"},
+      {en:"praise", ja:"褒める"},
+      {en:"spare", ja:"予備の/割く"},
+      {en:"plow", ja:"鋤/耕す"},
+      {en:"telegraph", ja:"電報"},
+      {en:"barrel", ja:"樽"},
+      {en:"straighten", ja:"まっすぐにする"},
+      {en:"scarce", ja:"乏しい"},
+      {en:"lunch", ja:"昼食"},
+      {en:"slavery", ja:"奴隷制度"},
+      {en:"creep", ja:"這う"},
+      {en:"sweat", ja:"汗/汗をかく"},
+      {en:"gay", ja:"陽気な/同性愛の"},
+      {en:"stiff", ja:"堅い"},
+      {en:"brave", ja:"勇敢な"},
+      {en:"seize", ja:"つかむ"},
+      {en:"convenient", ja:"便利な"}
+    ]
+  }, // 参照ソース: [31]
+
+  // GSL 1681-1710
+  list_1681_1710: {
+    name: "GSL 1681-1710",
+    words: [
+      {en:"horizon", ja:"地平線/水平線"},
+      {en:"moderate", ja:"適度な"},
+      {en:"complicate", ja:"複雑にする"},
+      {en:"dig", ja:"掘る"},
+      {en:"curse", ja:"呪い/のろう"},
+      {en:"weigh", ja:"重さを量る"},
+      {en:"priest", ja:"聖職者/司祭"},
+      {en:"excessive", ja:"過度の"},
+      {en:"quarrel", ja:"口論"},
+      {en:"widow", ja:"未亡人"},
+      {en:"modest", ja:"謙虚な/適度な"},
+      {en:"dine", ja:"食事をする"},
+      {en:"politician", ja:"政治家"},
+      {en:"custom", ja:"習慣/税関"},
+      {en:"educate", ja:"教育する"},
+      {en:"salesman", ja:"セールスマン"},
+      {en:"nail", ja:"爪/釘"},
+      {en:"tap", ja:"軽くたたく/蛇口"},
+      {en:"eastern", ja:"東の"},
+      {en:"possession", ja:"所有物"},
+      {en:"satisfaction", ja:"満足"},
+      {en:"behave", ja:"ふるまう"},
+      {en:"mercy", ja:"慈悲"},
+      {en:"scatter", ja:"撒き散らす"},
+      {en:"objection", ja:"異議"},
+      {en:"silver", ja:"銀/銀色の"},
+      {en:"tent", ja:"テント"},
+      {en:"saddle", ja:"鞍"},
+      {en:"wrap", ja:"包む"},
+      {en:"nest", ja:"巣"}
+    ]
+  }, // 参照ソース: [31], [32]
+
+  // GSL 1711-1740
+  list_1711_1740: {
+    name: "GSL 1711-1740",
+    words: [
+      {en:"grind", ja:"挽く/研ぐ"},
+      {en:"spell", ja:"綴る/呪文"},
+      {en:"plaster", ja:"石膏/絆創膏"},
+      {en:"arch", ja:"アーチ"},
+      {en:"swell", ja:"膨らむ"},
+      {en:"friendship", ja:"友情"},
+      {en:"bath", ja:"風呂"},
+      {en:"bundle", ja:"束"},
+      {en:"grateful", ja:"感謝している"},
+      {en:"crown", ja:"王冠"},
+      {en:"boundary", ja:"境界"},
+      {en:"nowhere", ja:"どこにも〜ない"},
+      {en:"asleep", ja:"眠って"},
+      {en:"clock", ja:"時計"},
+      {en:"boil", ja:"沸騰させる"},
+      {en:"altogether", ja:"完全に/全体で"},
+      {en:"lend", ja:"貸す"},
+      {en:"holiday", ja:"休日"},
+      {en:"precious", ja:"貴重な"},
+      {en:"wander", ja:"さまよう"},
+      {en:"ugly", ja:"醜い"},
+      {en:"reputation", ja:"評判"},
+      {en:"ticket", ja:"切符/チケット"},
+      {en:"pretend", ja:"〜のふりをする"},
+      {en:"dismiss", ja:"解散させる/解雇する"},
+      {en:"delicate", ja:"繊細な"},
+      {en:"despair", ja:"絶望"},
+      {en:"awake", ja:"目を覚ます"},
+      {en:"tea", ja:"茶"},
+      {en:"false", ja:"偽りの/誤った"}
+    ]
+  }, // 参照ソース: [32]
+
+  // GSL 1741-1770
+  list_1741_1770: {
+    name: "GSL 1741-1770",
+    words: [
+      {en:"fortune", ja:"運/財産"},
+      {en:"cap", ja:"帽子/蓋"},
+      {en:"thread", ja:"糸"},
+      {en:"haste", ja:"急ぎ"},
+      {en:"bare", ja:"裸の/むき出しの"},
+      {en:"shirt", ja:"シャツ"},
+      {en:"bargain", ja:"取引/特売品"},
+      {en:"leather", ja:"革"},
+      {en:"rail", ja:"手すり/鉄道"},
+      {en:"butter", ja:"バター"},
+      {en:"dot", ja:"点"},
+      {en:"inquire", ja:"尋ねる"},
+      {en:"warmth", ja:"暖かさ"},
+      {en:"decisive", ja:"決定的な"},
+      {en:"vessel", ja:"船/容器"},
+      {en:"pity", ja:"哀れみ"},
+      {en:"steam", ja:"蒸気"},
+      {en:"pin", ja:"ピン"},
+      {en:"bound", ja:"縛られた/跳ねる"},
+      {en:"companion", ja:"仲間"},
+      {en:"toe", ja:"つま先"},
+      {en:"reward", ja:"報酬"},
+      {en:"forbid", ja:"禁じる"},
+      {en:"wherever", ja:"どこで〜しようとも"},
+      {en:"tower", ja:"塔"},
+      {en:"bathe", ja:"入浴する"},
+      {en:"lodge", ja:"小屋/宿泊する"},
+      {en:"swallow", ja:"飲み込む/ツバメ"},
+      {en:"multiply", ja:"掛ける/増殖する"},
+      {en:"bow", ja:"おじぎ/弓"}
+    ]
+  }, // 参照ソース: [32], [33]
+
+  // GSL 1771-1800
+  list_1771_1800: {
+    name: "GSL 1771-1800",
+    words: [
+      {en:"kingdom", ja:"王国"},
+      {en:"garage", ja:"ガレージ"},
+      {en:"permission", ja:"許可"},
+      {en:"pump", ja:"ポンプ/汲み上げる"},
+      {en:"prevention", ja:"予防"},
+      {en:"urgent", ja:"緊急の"},
+      {en:"aunt", ja:"叔母"},
+      {en:"zero", ja:"ゼロ"},
+      {en:"idle", ja:"怠惰な/何もしていない"},
+      {en:"fever", ja:"熱"},
+      {en:"Christmas", ja:"クリスマス"},
+      {en:"regret", ja:"後悔"},
+      {en:"jaw", ja:"顎"},
+      {en:"soap", ja:"石鹸"},
+      {en:"pronounce", ja:"発音する/宣言する"},
+      {en:"empire", ja:"帝国"},
+      {en:"bowl", ja:"ボウル"},
+      {en:"outline", ja:"概要"},
+      {en:"organ", ja:"臓器/機関"},
+      {en:"imitation", ja:"模倣"},
+      {en:"caution", ja:"用心"},
+      {en:"mineral", ja:"鉱物"},
+      {en:"disagree", ja:"意見が合わない"},
+      {en:"blade", ja:"刃"},
+      {en:"trick", ja:"トリック/だます"},
+      {en:"treasure", ja:"宝物"},
+      {en:"immense", ja:"計り知れないほど大きい"},
+      {en:"convenience", ja:"利便性"},
+      {en:"disapprove", ja:"不賛成である"},
+      {en:"destructive", ja:"破壊的な"}
+    ]
+  }, // 参照ソース: [33]
+
+  // GSL 1801-1830
+  list_1801_1830: {
+    name: "GSL 1801-1830",
+    words: [
+      {en:"fork", ja:"フォーク"},
+      {en:"noon", ja:"正午"},
+      {en:"ownership", ja:"所有権"},
+      {en:"tune", ja:"曲/調子を合わせる"},
+      {en:"polish", ja:"磨く"},
+      {en:"poison", ja:"毒"},
+      {en:"shame", ja:"恥"},
+      {en:"loyalty", ja:"忠誠心"},
+      {en:"cottage", ja:"コテージ"},
+      {en:"astonish", ja:"驚かせる"},
+      {en:"shave", ja:"ひげを剃る"},
+      {en:"feather", ja:"羽"},
+      {en:"sauce", ja:"ソース"},
+      {en:"lid", ja:"蓋"},
+      {en:"debt", ja:"借金"},
+      {en:"fade", ja:"色あせる"},
+      {en:"confess", ja:"告白する"},
+      {en:"classification", ja:"分類"},
+      {en:"descend", ja:"降りる"},
+      {en:"cape", ja:"岬/マント"},
+      {en:"mild", ja:"穏やかな"},
+      {en:"clever", ja:"賢い"},
+      {en:"envelope", ja:"封筒"},
+      {en:"invention", ja:"発明"},
+      {en:"sheep", ja:"羊"},
+      {en:"splendid", ja:"素晴らしい"},
+      {en:"stamp", ja:"切手/踏みつける"},
+      {en:"float", ja:"浮かぶ"},
+      {en:"brick", ja:"レンガ"},
+      {en:"rice", ja:"米/ご飯"}
+    ]
+  }, // 参照ソース: [34]
+
+  // GSL 1831-1860
+  list_1831_1860: {
+    name: "GSL 1831-1860",
+    words: [
+      {en:"businessman", ja:"実業家"},
+      {en:"backward", ja:"後方へ/遅れた"},
+      {en:"qualification", ja:"資格"},
+      {en:"artificial", ja:"人工の"},
+      {en:"attraction", ja:"魅力"},
+      {en:"lamp", ja:"ランプ"},
+      {en:"curl", ja:"巻き毛/巻く"},
+      {en:"shower", ja:"シャワー/にわか雨"},
+      {en:"elder", ja:"年長の"},
+      {en:"bunch", ja:"房/束"},
+      {en:"bell", ja:"鐘"},
+      {en:"steer", ja:"操縦する"},
+      {en:"flavor", ja:"風味"},
+      {en:"spit", ja:"唾を吐く"},
+      {en:"rob", ja:"奪う/強盗する"},
+      {en:"cream", ja:"クリーム"},
+      {en:"interrupt", ja:"中断する"},
+      {en:"pen", ja:"ペン/囲い"},
+      {en:"weave", ja:"織る"},
+      {en:"orange", ja:"オレンジ"},
+      {en:"rescue", ja:"救助"},
+      {en:"crush", ja:"押しつぶす"},
+      {en:"humble", ja:"謙虚な/粗末な"},
+      {en:"fancy", ja:"空想/高級な"},
+      {en:"decay", ja:"腐敗"},
+      {en:"polite", ja:"丁寧な"},
+      {en:"tribe", ja:"部族"},
+      {en:"bleed", ja:"出血する"},
+      {en:"coin", ja:"硬貨"},
+      {en:"fond", ja:"好んで"}
+    ]
+  }, // 参照ソース: [34], [35]
+
+  // GSL 1861-1890
+  list_1861_1890: {
+    name: "GSL 1861-1890",
+    words: [
+      {en:"autumn", ja:"秋"},
+      {en:"classify", ja:"分類する"},
+      {en:"omit", ja:"省略する"},
+      {en:"loyal", ja:"忠実な"},
+      {en:"needle", ja:"針"},
+      {en:"lessen", ja:"減らす"},
+      {en:"complaint", ja:"不平"},
+      {en:"pad", ja:"詰め物/パッド"},
+      {en:"steep", ja:"急な"},
+      {en:"skirt", ja:"スカート"},
+      {en:"curtain", ja:"カーテン"},
+      {en:"calculation", ja:"計算"},
+      {en:"laughter", ja:"笑い"},
+      {en:"solemn", ja:"厳粛な"},
+      {en:"grease", ja:"油/脂"},
+      {en:"interfere", ja:"干渉する"},
+      {en:"explode", ja:"爆発する"},
+      {en:"fasten", ja:"締める"},
+      {en:"flag", ja:"旗"},
+      {en:"resign", ja:"辞任する"},
+      {en:"postpone", ja:"延期する"},
+      {en:"patience", ja:"忍耐"},
+      {en:"boast", ja:"自慢する"},
+      {en:"rope", ja:"ロープ"},
+      {en:"envy", ja:"羨望/羨む"},
+      {en:"airplane", ja:"飛行機"},
+      {en:"rid", ja:"取り除く"},
+      {en:"shield", ja:"盾"},
+      {en:"veil", ja:"ベール"},
+      {en:"kneel", ja:"ひざまずく"}
+    ]
+  }, // 参照ソース: [35]
+
+  // GSL 1891-1920
+  list_1891_1920: {
+    name: "GSL 1891-1920",
+    words: [
+      {en:"tray", ja:"盆/トレイ"},
+      {en:"explosive", ja:"爆発物/爆発性の"},
+      {en:"brass", ja:"真鍮"},
+      {en:"taxi", ja:"タクシー"},
+      {en:"wax", ja:"ワックス/蝋"},
+      {en:"duck", ja:"アヒル/かわす"},
+      {en:"button", ja:"ボタン"},
+      {en:"invent", ja:"発明する"},
+      {en:"remedy", ja:"治療法/救済策"},
+      {en:"bush", ja:"茂み"},
+      {en:"thunder", ja:"雷"},
+      {en:"weaken", ja:"弱める"},
+      {en:"poverty", ja:"貧困"},
+      {en:"scrape", ja:"こする/削る"},
+      {en:"arrow", ja:"矢"},
+      {en:"tender", ja:"柔らかい/優しい"},
+      {en:"cruel", ja:"残酷な"},
+      {en:"soften", ja:"柔らかくする"},
+      {en:"mouse", ja:"ネズミ"},
+      {en:"hay", ja:"干し草"},
+      {en:"anyhow", ja:"とにかく"},
+      {en:"alike", ja:"似ている"},
+      {en:"circular", ja:"円形の/回覧"},
+      {en:"juice", ja:"ジュース"},
+      {en:"shelf", ja:"棚"},
+      {en:"bake", ja:"焼く"},
+      {en:"hatred", ja:"憎しみ"},
+      {en:"cautious", ja:"用心深い"},
+      {en:"basket", ja:"かご"},
+      {en:"wreck", ja:"難破船/台無しにする"}
+    ]
+  }, // 参照ソース: [35], [36]
+
+  // GSL 1921-1950
+  list_1921_1950: {
+    name: "GSL 1921-1950",
+    words: [
+      {en:"width", ja:"幅"},
+      {en:"confident", ja:"自信のある"},
+      {en:"log", ja:"丸太"},
+      {en:"heap", ja:"山/積み重ねる"},
+      {en:"suck", ja:"吸う"},
+      {en:"ladder", ja:"はしご"},
+      {en:"gap", ja:"隙間"},
+      {en:"obey", ja:"従う"},
+      {en:"hut", ja:"小屋"},
+      {en:"axe", ja:"斧"},
+      {en:"translation", ja:"翻訳"},
+      {en:"collar", ja:"襟"},
+      {en:"delivery", ja:"配達"},
+      {en:"reproduce", ja:"再生する/繁殖させる"},
+      {en:"confession", ja:"告白"},
+      {en:"pan", ja:"平鍋"},
+      {en:"prejudice", ja:"偏見"},
+      {en:"voyage", ja:"航海"},
+      {en:"tobacco", ja:"タバコ"},
+      {en:"simplicity", ja:"単純さ"},
+      {en:"paste", ja:"のり/ペースト"},
+      {en:"cake", ja:"ケーキ"},
+      {en:"elephant", ja:"象"},
+      {en:"ribbon", ja:"リボン"},
+      {en:"harvest", ja:"収穫"},
+      {en:"ashamed", ja:"恥ずかしい"},
+      {en:"cave", ja:"洞窟"},
+      {en:"customary", ja:"慣習的な"},
+      {en:"thief", ja:"泥棒"},
+      {en:"damp", ja:"湿った"}
+    ]
+  }, // 参照ソース: [36]
+
+  // GSL 1951-1980
+  list_1951_1980: {
+    name: "GSL 1951-1980",
+    words: [
+      {en:"sew", ja:"縫う"},
+      {en:"rust", ja:"錆"},
+      {en:"separation", ja:"分離"},
+      {en:"waiter", ja:"ウェイター"},
+      {en:"pet", ja:"ペット"},
+      {en:"straw", ja:"わら/ストロー"},
+      {en:"upset", ja:"動揺させる/ひっくり返す"},
+      {en:"towel", ja:"タオル"},
+      {en:"refresh", ja:"さわやかにする"},
+      {en:"essence", ja:"本質/エッセンス"},
+      {en:"fur", ja:"毛皮"},
+      {en:"ambitious", ja:"野心的な"},
+      {en:"defendant", ja:"被告"},
+      {en:"daylight", ja:"日光"},
+      {en:"dip", ja:"浸す/少し下がる"},
+      {en:"suspicious", ja:"疑わしい"},
+      {en:"imaginary", ja:"想像上の"},
+      {en:"ash", ja:"灰"},
+      {en:"carriage", ja:"馬車/客車"},
+      {en:"educator", ja:"教育者"},
+      {en:"saw", ja:"のこぎり/見た (seeの過去)"},
+      {en:"stove", ja:"ストーブ/コンロ"},
+      {en:"rubber", ja:"ゴム"},
+      {en:"rug", ja:"敷物"},
+      {en:"misery", ja:"悲惨さ"},
+      {en:"awkward", ja:"不器用な/気まずい"},
+      {en:"rival", ja:"ライバル"},
+      {en:"roast", ja:"焼く"},
+      {en:"deed", ja:"行為"},
+      {en:"preference", ja:"好み"}
+    ]
+  }, // 参照ソース: [37]
+
+  // GSL 1981-2010
+  list_1981_2010: {
+    name: "GSL 1981-2010",
+    words: [
+      {en:"explosion", ja:"爆発"},
+      {en:"theatrical", ja:"劇場的な/芝居がかった"},
+      {en:"cultivate", ja:"耕す/養う"},
+      {en:"collector", ja:"収集家"},
+      {en:"miserable", ja:"みじめな"},
+      {en:"wrist", ja:"手首"},
+      {en:"rabbit", ja:"ウサギ"},
+      {en:"accustom", ja:"慣れさせる"},
+      {en:"tide", ja:"潮"},
+      {en:"insult", ja:"侮辱"},
+      {en:"thumb", ja:"親指"},
+      {en:"lump", ja:"塊"},
+      {en:"annoy", ja:"いらだたせる"},
+      {en:"toy", ja:"おもちゃ"},
+      {en:"heal", ja:"治す"},
+      {en:"shallow", ja:"浅い"},
+      {en:"repetition", ja:"繰り返し"},
+      {en:"soup", ja:"スープ"},
+      {en:"whistle", ja:"口笛/笛"},
+      {en:"scenery", ja:"景色"},
+      {en:"apple", ja:"りんご"},
+      {en:"offense", ja:"違反/攻撃"},
+      {en:"cork", ja:"コルク"},
+      {en:"ripe", ja:"熟した"},
+      {en:"temper", ja:"気質/機嫌"},
+      {en:"sore", ja:"痛い/腫れた"},
+      {en:"pinch", ja:"つまむ/少量"},
+      {en:"diamond", ja:"ダイヤモンド"},
+      {en:"razor", ja:"かみそり"},
+      {en:"imaginative", ja:"想像力豊かな"}
+    ]
+  }, // 参照ソース: [37], [38]
+
+  // GSL 2011-2040
+  list_2011_2040: {
+    name: "GSL 2011-2040",
+    words: [
+      {en:"hook", ja:"フック/引っ掛ける"},
+      {en:"copper", ja:"銅"},
+      {en:"landlord", ja:"家主"},
+      {en:"influential", ja:"影響力のある"},
+      {en:"rot", ja:"腐る"},
+      {en:"hollow", ja:"中空の"},
+      {en:"enclose", ja:"囲む/同封する"},
+      {en:"harden", ja:"硬くする"},
+      {en:"wicked", ja:"邪悪な"},
+      {en:"stiffen", ja:"硬直させる"},
+      {en:"silk", ja:"絹"},
+      {en:"upright", ja:"直立した/正直な"},
+      {en:"selfish", ja:"利己的な"},
+      {en:"stripe", ja:"縞模様"},
+      {en:"pig", ja:"豚"},
+      {en:"inward", ja:"内側へ"},
+      {en:"excellence", ja:"優秀さ"},
+      {en:"rake", ja:"熊手"},
+      {en:"purple", ja:"紫の"},
+      {en:"hasten", ja:"急がせる"},
+      {en:"shorten", ja:"短くする"},
+      {en:"applause", ja:"拍手"},
+      {en:"ache", ja:"痛み/痛む"},
+      {en:"apology", ja:"謝罪"},
+      {en:"knot", ja:"結び目"},
+      {en:"nephew", ja:"甥"},
+      {en:"cushion", ja:"クッション"},
+      {en:"drown", ja:"溺れる/沈める"},
+      {en:"nursery", ja:"子供部屋/保育園"},
+      {en:"pint", ja:"パイント (容量単位)"}
+    ]
+  }, // 参照ソース: [38]
+
+  // GSL 2041-2070
+  list_2041_2070: {
+    name: "GSL 2041-2070",
+    words: [
+      {en:"fierce", ja:"猛烈な"},
+      {en:"imitate", ja:"模倣する"},
+      {en:"aloud", ja:"声に出して"},
+      {en:"gaiety", ja:"陽気さ"},
+      {en:"robbery", ja:"強盗"},
+      {en:"tighten", ja:"引き締める"},
+      {en:"perfection", ja:"完璧"},
+      {en:"scorn", ja:"軽蔑"},
+      {en:"whoever", ja:"誰でも"},
+      {en:"trunk", ja:"幹/トランク"},
+      {en:"wool", ja:"羊毛"},
+      {en:"sailor", ja:"船員"},
+      {en:"competitor", ja:"競争相手"},
+      {en:"moonlight", ja:"月光"},
+      {en:"deer", ja:"鹿"},
+      {en:"bean", ja:"豆"},
+      {en:"everyday", ja:"毎日の"},
+      {en:"drawer", ja:"引き出し"},
+      {en:"disregard", ja:"無視する"},
+      {en:"nowadays", ja:"今日では"},
+      {en:"patriotic", ja:"愛国的な"},
+      {en:"tin", ja:"缶/スズ"},
+      {en:"penny", ja:"ペニー (硬貨)"},
+      {en:"cage", ja:"かご"},
+      {en:"pardon", ja:"許し/容赦"},
+      {en:"lately", ja:"最近"},
+      {en:"offend", ja:"感情を害する"},
+      {en:"coarse", ja:"粗い/下品な"},
+      {en:"spoil", ja:"台無しにする/甘やかす"},
+      {en:"horizontal", ja:"水平の"}
+    ]
+  }, // 参照ソース: [39]
+
+  // GSL 2071-2100
+  list_2071_2100: {
+    name: "GSL 2071-2100",
+    words: [
+      {en:"sting", ja:"刺す/痛み"},
+      {en:"ditch", ja:"溝"},
+      {en:"librarian", ja:"図書館員"},
+      {en:"meantime", ja:"その間"},
+      {en:"cough", ja:"咳"},
+      {en:"deaf", ja:"耳が聞こえない"},
+      {en:"sword", ja:"剣"},
+      {en:"messenger", ja:"使者"},
+      {en:"vain", ja:"無駄な/うぬぼれた"},
+      {en:"castle", ja:"城"},
+      {en:"elastic", ja:"弾力性のある"},
+      {en:"comb", ja:"櫛"},
+      {en:"rod", ja:"棒"},
+      {en:"widen", ja:"広げる"},
+      {en:"sorrow", ja:"悲しみ"},
+      {en:"inventor", ja:"発明家"},
+      {en:"cliff", ja:"崖"},
+      {en:"umbrella", ja:"傘"},
+      {en:"interruption", ja:"中断"},
+      {en:"merry", ja:"陽気な"},
+      {en:"gallon", ja:"ガロン (容量単位)"},
+      {en:"conquest", ja:"征服"},
+      {en:"headache", ja:"頭痛"},
+      {en:"tailor", ja:"仕立て屋"},
+      {en:"bucket", ja:"バケツ"},
+      {en:"scent", ja:"香り"},
+      {en:"signature", ja:"署名"},
+      {en:"cart", ja:"荷車"},
+      {en:"darken", ja:"暗くする"},
+      {en:"sometime", ja:"いつか"}
+    ]
+  }, // 参照ソース: [39]
+
+  // GSL 2101-2130
+  list_2101_2130: {
+    name: "GSL 2101-2130",
+    words: [
+      {en:"applaud", ja:"拍手喝采する"},
+      {en:"underneath", ja:"〜の下に"},
+      {en:"hello", ja:"こんにちは"},
+      {en:"pretense", ja:"見せかけ/ふり"},
+      {en:"descent", ja:"下降/血統"},
+      {en:"conquer", ja:"征服する"},
+      {en:"framework", ja:"骨組み"},
+      {en:"confidential", ja:"機密の"},
+      {en:"adoption", ja:"採用/養子縁組"},
+      {en:"disgust", ja:"嫌悪"},
+      {en:"waist", ja:"腰"},
+      {en:"momentary", ja:"瞬間的な"},
+      {en:"receipt", ja:"領収書"},
+      {en:"pearl", ja:"真珠"},
+      {en:"ray", ja:"光線"},
+      {en:"lazy", ja:"怠惰な"},
+      {en:"limb", ja:"手足/大枝"},
+      {en:"grammatical", ja:"文法の"},
+      {en:"beast", ja:"獣"},
+      {en:"monkey", ja:"猿"},
+      {en:"jewel", ja:"宝石"},
+      {en:"persuasion", ja:"説得"},
+      {en:"obedience", ja:"服従"},
+      {en:"sock", ja:"靴下"},
+      {en:"vowel", ja:"母音"},
+      {en:"hammer", ja:"ハンマー/叩く"},
+      {en:"inn", ja:"宿屋"},
+      {en:"chimney", ja:"煙突"},
+      {en:"dissatisfaction", ja:"不満"},
+      {en:"annoyance", ja:"迷惑/いらだち"}
+    ]
+  }, // 参照ソース: [40]
+
+  // GSL 2131-2160
+  list_2131_2160: {
+    name: "GSL 2131-2160",
+    words: [
+      {en:"ornament", ja:"装飾品"},
+      {en:"honesty", ja:"正直さ"},
+      {en:"outward", ja:"外側の"},
+      {en:"sharpen", ja:"研ぐ/鋭くする"},
+      {en:"handkerchief", ja:"ハンカチ"},
+      {en:"greed", ja:"貪欲"},
+      {en:"heavenly", ja:"天国の/素晴らしい"},
+      {en:"thirst", ja:"喉の渇き"},
+      {en:"niece", ja:"姪"},
+      {en:"spill", ja:"こぼす"},
+      {en:"loaf", ja:"パン一塊"},
+      {en:"wheat", ja:"小麦"},
+      {en:"worm", ja:"虫"},
+      {en:"secrecy", ja:"秘密"},
+      {en:"rude", ja:"失礼な"},
+      {en:"heighten", ja:"高める"},
+      {en:"flatten", ja:"平らにする"},
+      {en:"loosen", ja:"緩める"},
+      {en:"cheese", ja:"チーズ"},
+      {en:"rivalry", ja:"競争/ライバル関係"},
+      {en:"royalty", ja:"王族/印税"},
+      {en:"discontent", ja:"不満"},
+      {en:"complication", ja:"複雑化/合併症"},
+      {en:"fright", ja:"恐怖"},
+      {en:"indoor", ja:"屋内の"},
+      {en:"flour", ja:"小麦粉"},
+      {en:"actress", ja:"女優"},
+      {en:"congratulation", ja:"お祝い"},
+      {en:"ounce", ja:"オンス (重さの単位)"},
+      {en:"fry", ja:"揚げる/炒める"}
+    ]
+  }, // 参照ソース: [40], [41]
+
+  // GSL 2161-2190
+  list_2161_2190: {
+    name: "GSL 2161-2190",
+    words: [
+      {en:"everlasting", ja:"永遠の"},
+      {en:"goat", ja:"ヤギ"},
+      {en:"ink", ja:"インク"},
+      {en:"disappearance", ja:"消失"},
+      {en:"reproduction", ja:"複製/生殖"},
+      {en:"thicken", ja:"濃くする/厚くする"},
+      {en:"avoidance", ja:"回避"},
+      {en:"spoon", ja:"スプーン"},
+      {en:"strap", ja:"ひも/ストラップ"},
+      {en:"deceive", ja:"だます"},
+      {en:"lengthen", ja:"長くする"},
+      {en:"revenge", ja:"復讐"},
+      {en:"correction", ja:"訂正"},
+      {en:"descendant", ja:"子孫"},
+      {en:"hesitation", ja:"ためらい"},
+      {en:"spade", ja:"スペード/シャベル"},
+      {en:"basin", ja:"盆地/洗面器"},
+      {en:"weed", ja:"雑草"},
+      {en:"omission", ja:"省略"},
+      {en:"old-fashioned", ja:"時代遅れの"},
+      {en:"bicycle", ja:"自転車"},
+      {en:"breadth", ja:"幅"},
+      {en:"photography", ja:"写真撮影"},
+      {en:"coward", ja:"臆病者"},
+      {en:"mat", ja:"マット/敷物"},
+      {en:"rejoice", ja:"喜ぶ"},
+      {en:"cheat", ja:"だます/カンニング"},
+      {en:"congratulate", ja:"祝う"},
+      {en:"discomfort", ja:"不快"},
+      {en:"enclosure", ja:"囲い/同封物"}
+    ]
+  }, // 参照ソース: [41]
+
+  // GSL 2191-2220
+  list_2191_2220: {
+    name: "GSL 2191-2220",
+    words: [
+      {en:"attentive", ja:"注意深い"},
+      {en:"paw", ja:"足(動物の)/手で触る"},
+      {en:"overflow", ja:"あふれる"},
+      {en:"dissatisfy", ja:"不満にさせる"},
+      {en:"multiplication", ja:"乗算"},
+      {en:"whichever", ja:"どちらでも"},
+      {en:"tidy", ja:"整頓された"},
+      {en:"bribe", ja:"賄賂"},
+      {en:"mend", ja:"修繕する"},
+      {en:"stocking", ja:"ストッキング"},
+      {en:"feast", ja:"祝宴"},
+      {en:"nuisance", ja:"迷惑"},
+      {en:"thorn", ja:"とげ"},
+      {en:"tame", ja:"飼いならす/おとなしい"},
+      {en:"inclusive", ja:"全てを含んだ"},
+      {en:"homemade", ja:"自家製の"},
+      {en:"handwriting", ja:"筆跡"},
+      {en:"chalk", ja:"チョーク"},
+      {en:"sour", ja:"酸っぱい"},
+      {en:"slippery", ja:"滑りやすい"},
+      {en:"procession", ja:"行列"},
+      {en:"ripen", ja:"熟す"},
+      {en:"jealous", ja:"嫉妬深い"},
+      {en:"jealousy", ja:"嫉妬"},
+      {en:"liar", ja:"嘘つき"},
+      {en:"homecoming", ja:"帰省/帰郷"},
+      {en:"barber", ja:"理髪師"},
+      {en:"whiten", ja:"白くする"},
+      {en:"berry", ja:"ベリー"},
+      {en:"lighten", ja:"明るくする/軽くする"}
+    ]
+  }, // 参照ソース: [41], [42]
+
+  // GSL 2221-2250
+  list_2221_2250: {
+    name: "GSL 2221-2250",
+    words: [
+      {en:"pigeon", ja:"ハト"},
+      {en:"hinder", ja:"妨げる"},
+      {en:"bravery", ja:"勇敢さ"},
+      {en:"baggage", ja:"手荷物"},
+      {en:"noun", ja:"名詞"},
+      {en:"amongst", ja:"〜の中で (amongの古形)"},
+      {en:"grammar", ja:"文法"},
+      {en:"cultivation", ja:"耕作/育成"},
+      {en:"companionship", ja:"交友"},
+      {en:"rubbish", ja:"ごみ"},
+      {en:"modesty", ja:"謙虚さ"},
+      {en:"woolen", ja:"ウールの"},
+      {en:"deepen", ja:"深める"},
+      {en:"pastry", ja:"ペイストリー/パイ生地"},
+      {en:"cupboard", ja:"食器棚"},
+      {en:"quart", ja:"クォート (容量単位)"},
+      {en:"canal", ja:"運河"},
+      {en:"notebook", ja:"ノート"},
+      {en:"deceit", ja:"欺瞞"},
+      {en:"parcel", ja:"小包"},
+      {en:"brighten", ja:"明るくする"},
+      {en:"moderation", ja:"適度"},
+      {en:"punctual", ja:"時間を守る"},
+      {en:"hurrah", ja:"万歳"},
+      {en:"lipstick", ja:"口紅"},
+      {en:"uppermost", ja:"最も上の"},
+      {en:"fatten", ja:"太らせる"},
+      {en:"conqueror", ja:"征服者"},
+      {en:"hindrance", ja:"妨害物"},
+      {en:"cowardice", ja:"臆病"}
+    ]
+  }, // 参照ソース: [42]
+
+  // GSL 2251-2284 (最終リスト)
+  list_2251_2284: {
+    name: "GSL 2251-2284 (最終レベル)",
+    words: [
+      {en:"obedient", ja:"従順な"},
+      {en:"saucer", ja:"ソーサー (受け皿)"},
+      {en:"madden", ja:"怒らせる"},
+      {en:"scold", ja:"叱る"},
+      {en:"weekday", ja:"平日"},
+      {en:"rotten", ja:"腐った"},
+      {en:"disrespect", ja:"無礼"},
+      {en:"widower", ja:"男やもめ"},
+      {en:"deafen", ja:"耳を聞こえなくする"},
+      {en:"donkey", ja:"ロバ"},
+      {en:"businesslike", ja:"実務的な"},
+      {en:"motherhood", ja:"母性"},
+      {en:"sadden", ja:"悲しませる"},
+      {en:"handshake", ja:"握手"},
+      {en:"calculator", ja:"計算機"},
+      {en:"headdress", ja:"頭飾り"},
+      {en:"scissors", ja:"ハサミ"},
+      {en:"translator", ja:"翻訳者"},
+      {en:"possessor", ja:"所有者"},
+      {en:"shilling", ja:"シリング (貨幣単位)"},
+      {en:"redden", ja:"赤くする"},
+      {en:"motherly", ja:"母親らしい"},
+      {en:"whose", ja:"誰の"},
+      {en:"cultivator", ja:"耕作者/耕運機"},
+      {en:"whom", ja:"誰を (whoの目的格)"},
+      {en:"homework", ja:"宿題"},
+      {en:"electrician", ja:"電気技師"},
+      {en:"oar", ja:"オール/櫓"},
+      {en:"bribery", ja:"贈収賄"},
+      {en:"sweeten", ja:"甘くする"},
+      {en:"sow", ja:"種をまく"},
+      {en:"pronunciation", ja:"発音"},
+      {en:"beak", ja:"くちばし"},
+      {en:"plural", ja:"複数の"}
+    ]
+  } // 参照ソース: [3]
+};
+ 
+        // 初期化：チェックボックス生成
+        const levelContainer = document.getElementById('level-checkboxes');
+        Object.keys(wordLists).forEach(key => {
+            const div = document.createElement('div');
+            div.className = 'level-item';
+            div.innerHTML = `<label><input type="checkbox" value="${key}" class="level-chk"> ${key.replace('level_','L')}</label>`;
+            levelContainer.appendChild(div);
+        });
+
+        function toggleAllLevels(val) {
+            document.querySelectorAll('.level-chk').forEach(c => c.checked = val);
+        }
+
+        let currentDictionary = [];
+        let gameConf = { winType: '', winVal: 0, mode: 'en2jp' };
+        let state = {
+            active: false,
+            timeRemaining: 60,
+            p1: { score: 0, currentAnswers: [], correctIdx: -1, startTime: 0, missed: [], currentWord: null },
+            p2: { score: 0, currentAnswers: [], correctIdx: -1, startTime: 0, missed: [], currentWord: null }
+        };
+
+        const P1_KEYS = ['a', 's', 'z', 'x'];
+        const P2_KEYS = ['h', 'j', 'n', 'm'];
+
+        const shuffle = (array) => [...array].sort(() => Math.random() - 0.5);
+
+        function startGame() {
+            // 選択されたレベルを収集
+            const selectedLevels = Array.from(document.querySelectorAll('.level-chk:checked')).map(c => c.value);
+            if(selectedLevels.length === 0) { alert("レベルを1つ以上選択してください"); return; }
+            
+            currentDictionary = [];
+            selectedLevels.forEach(lv => { currentDictionary = currentDictionary.concat(wordLists[lv].words); });
+
+            gameConf.mode = document.getElementById('mode-select').value;
+            const useTime = document.getElementById('rule-time').checked;
+            gameConf.winType = useTime ? 'time' : 'score';
+            gameConf.winVal = parseInt(document.getElementById(useTime ? 'val-time' : 'val-score').value);
+            
+            if(gameConf.winType === 'time') state.timeRemaining = gameConf.winVal;
+
+            document.getElementById('setup-screen').classList.add('hidden');
+            document.getElementById('game-container').classList.remove('hidden');
+
+            state.active = true;
+            nextQuestion(1);
+            nextQuestion(2);
+
+            if(gameConf.winType === 'time') {
+                const timerIdx = setInterval(() => {
+                    if(!state.active) { clearInterval(timerIdx); return; }
+                    state.timeRemaining--;
+                    document.getElementById('global-timer-p1').innerText = `TIME: ${state.timeRemaining}`;
+                    document.getElementById('global-timer-p2').innerText = `TIME: ${state.timeRemaining}`;
+                    if(state.timeRemaining <= 0) endGame();
+                }, 1000);
+            } else {
+                document.getElementById('global-timer-p1').innerText = `GOAL: ${gameConf.winVal}`;
+                document.getElementById('global-timer-p2').innerText = `GOAL: ${gameConf.winVal}`;
+            }
+        }
+
+        function nextQuestion(pNum) {
+            if (!state.active) return;
+            const p = state[`p${pNum}`];
+            let mode = gameConf.mode;
+            if(mode === 'mix') mode = Math.random() > 0.5 ? 'en2jp' : 'jp2en';
+
+            const shuffledDict = shuffle(currentDictionary);
+            const correctWord = shuffledDict[0];
+            // 選択肢が足りない場合の補填
+            const distractors = shuffledDict.length >= 4 ? shuffledDict.slice(1, 4) : currentDictionary.slice(0, 4);
+
+            let questionText = (mode === 'en2jp') ? correctWord.en : correctWord.ja;
+            let correctVal = (mode === 'en2jp') ? correctWord.ja : correctWord.en;
+            let rawChoices = shuffle([correctWord, ...distractors.slice(0,3)]).map(w => (mode === 'en2jp' ? w.ja : w.en));
+            
+            // 重複削除と正解の確実な挿入
+            let finalChoices = [...new Set(rawChoices)].slice(0, 4);
+            if(!finalChoices.includes(correctVal)) finalChoices[0] = correctVal;
+            finalChoices = shuffle(finalChoices);
+
+            p.currentAnswers = finalChoices;
+            p.correctIdx = finalChoices.indexOf(correctVal);
+            p.currentWord = correctWord;
+            p.startTime = Date.now();
+
+            const area = document.getElementById(`p${pNum}-area`);
+            area.querySelector('.question-text').innerText = questionText;
+            const btns = area.querySelectorAll('.choice-btn');
+            btns.forEach((btn, i) => {
+                btn.querySelector('.text').innerText = finalChoices[i] || "---";
+                btn.className = 'choice-btn';
+            });
+            area.querySelector('.choices-grid').classList.remove('locked');
+        }
+
+        function handleInput(pNum, idx) {
+            if (!state.active) return;
+            const p = state[`p${pNum}`];
+            const area = document.getElementById(`p${pNum}-area`);
+            const btns = area.querySelectorAll('.choice-btn');
+
+            if (area.querySelector('.choices-grid').classList.contains('locked')) return;
+            area.querySelector('.choices-grid').classList.add('locked');
+
+            const isCorrect = (idx === p.correctIdx);
+
+            if (isCorrect) {
+                btns[idx].classList.add('correct');
+                const elapsed = (Date.now() - p.startTime) / 1000;
+                p.score += Math.max(10, Math.floor(100 - elapsed * 20));
+            } else {
+                btns[idx].classList.add('wrong');
+                btns[p.correctIdx].classList.add('correct');
+                // ペナルティ：-10点 (0点以下にはならない)
+                p.score = Math.max(0, p.score - 10);
+                p.missed.push(`${p.currentWord.en} [${p.currentWord.ja}]`);
+            }
+
+            document.getElementById(`p${pNum}-score`).innerText = `P${pNum}: ${p.score}`;
+
+            if(gameConf.winType === 'score' && p.score >= gameConf.winVal) {
+                endGame();
+            } else {
+                setTimeout(() => nextQuestion(pNum), isCorrect ? 300 : 1000);
+            }
+        }
+
+        function endGame() {
+            if (!state.active) return;
+            state.active = false;
+            document.getElementById('result-screen').classList.remove('hidden');
+            
+            let winText = "";
+            if(state.p1.score > state.p2.score) winText = "PLAYER 1 WIN!";
+            else if(state.p2.score > state.p1.score) winText = "PLAYER 2 WIN!";
+            else winText = "DRAW GAME";
+
+            document.getElementById('winner-text').innerText = winText;
+            document.getElementById('final-scores').innerText = `P1: ${state.p1.score}pts / P2: ${state.p2.score}pts`;
+
+            [1, 2].forEach(n => {
+                const list = document.getElementById(`p${n}-missed-list`);
+                const unique = [...new Set(state[`p${n}`].missed)];
+                list.innerHTML = unique.length ? unique.map(m => `<div class="missed-word">${m}</div>`).join('') : "Perfect!!";
+            });
+        }
+
+        window.addEventListener('keydown', (e) => {
+            if(!state.active) return;
+            const key = e.key.toLowerCase();
+            if (P1_KEYS.includes(key)) handleInput(1, P1_KEYS.indexOf(key));
+            if (P2_KEYS.includes(key)) handleInput(2, P2_KEYS.indexOf(key));
+        });
+    </script>
+</body>
+</html>
