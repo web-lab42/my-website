@@ -1,0 +1,275 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>二次関数</title>
+<style>
+:root {
+  --bg-color: #f8f9fa;
+  --panel-bg: #ffffff;
+  --accent-color: #3b82f6;
+}
+body {
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+  background: var(--bg-color);
+  margin: 0;
+  display: flex;
+  height: 100vh;
+  overflow: hidden;
+}
+.controls {
+  width: 320px;
+  background: var(--panel-bg);
+  padding: 20px;
+  box-shadow: 2px 0 10px rgba(0,0,0,0.1);
+  overflow-y: auto;
+  z-index: 10;
+}
+h2 { font-size: 1.2rem; margin-top: 0; color: #333; }
+/* 修正箇所：text-transform: uppercase; を削除 */
+h3 { font-size: 0.9rem; margin: 15px 0 8px; color: #666; }
+
+.input-group { margin-bottom: 12px; }
+label { display: flex; align-items: center; justify-content: space-between; font-size: 0.9rem; }
+
+/* 追加：パラメータを小文字・斜体にするスタイル */
+.param-text {
+  font-family: serif;
+  font-style: italic;
+  font-size: 1.1rem;
+}
+
+input[type="number"] {
+  width: 80px;
+  padding: 4px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
+textarea {
+  width: 100%;
+  height: 60px;
+  font-family: monospace;
+  font-size: 0.85rem;
+  padding: 8px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+  box-sizing: border-box;
+}
+.btn {
+  width: 100%;
+  padding: 10px;
+  background: var(--accent-color);
+  color: white;
+  border: none;
+  border-radius: 4px;
+  cursor: pointer;
+  margin-top: 10px;
+}
+.btn:hover { opacity: 0.9; }
+.canvas-container {
+  flex-grow: 1;
+  position: relative;
+  background: #fff;
+}
+canvas { display: block; cursor: grab; }
+canvas:active { cursor: grabbing; }
+.info-overlay {
+  position: absolute;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(255,255,255,0.8);
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
+  pointer-events: none;
+  font-family: serif; /* 数式っぽく */
+}
+</style>
+</head>
+<body>
+
+<div class="controls">
+  <h2>二次関数</h2>
+  
+  <h3>f(x) = ax² + bx + c</h3>
+  <div class="input-group">
+    <label><span class="param-text">a</span> <input type="number" id="a" value="1" step="0.1"></label>
+  </div>
+  <div class="input-group">
+    <label><span class="param-text">b</span> <input type="number" id="b" value="0" step="0.1"></label>
+  </div>
+  <div class="input-group">
+    <label><span class="param-text">c</span> <input type="number" id="c" value="0" step="0.1"></label>
+  </div>
+
+  <h3>パラメータ拘束</h3>
+  <textarea id="relation" placeholder="例: b = 2 * a;">// b = 2 * a;</textarea>
+  <small style="color:#888">例: b = 2 * a</small><br>
+  <small style="color:#888">例: a = b + c</small>
+
+  <hr style="border:0; border-top:1px solid #eee; margin:20px 0;">
+
+  <h3>表示設定</h3>
+  <label><input type="checkbox" id="showGrid" checked> グリッドを表示</label>
+  <label><input type="checkbox" id="showVertex" checked> 頂点を強調</label>
+  
+  <button class="btn" onclick="resetView()">視点をリセット</button>
+</div>
+
+<div class="canvas-container" id="container">
+  <canvas id="canvas"></canvas>
+  <div class="info-overlay" id="info"></div>
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const container = document.getElementById("container");
+const info = document.getElementById("info");
+
+const inputs = {
+  a: document.getElementById("a"),
+  b: document.getElementById("b"),
+  c: document.getElementById("c"),
+  relation: document.getElementById("relation"),
+  showGrid: document.getElementById("showGrid"),
+  showVertex: document.getElementById("showVertex")
+};
+
+let scale = 50; 
+let centerX = 0; 
+let centerY = 0;
+let dragging = false;
+let lastX, lastY;
+
+function resize() {
+  canvas.width = container.clientWidth;
+  canvas.height = container.clientHeight;
+  draw();
+}
+
+window.addEventListener('resize', resize);
+setTimeout(resize, 0);
+
+canvas.addEventListener("mousedown", e => { dragging = true; lastX = e.offsetX; lastY = e.offsetY; });
+window.addEventListener("mouseup", () => dragging = false);
+canvas.addEventListener("mousemove", e => {
+  if (!dragging) return;
+  centerX -= (e.offsetX - lastX) / scale;
+  centerY += (e.offsetY - lastY) / scale;
+  lastX = e.offsetX; lastY = e.offsetY;
+  draw();
+});
+
+canvas.addEventListener("wheel", e => {
+  e.preventDefault();
+  const zoom = e.deltaY < 0 ? 1.1 : 0.9;
+  scale = Math.min(Math.max(scale * zoom, 5), 500);
+  draw();
+}, { passive: false });
+
+function resetView() {
+  centerX = 0; centerY = 0; scale = 50;
+  draw();
+}
+
+function getParams() {
+  let a = parseFloat(inputs.a.value) || 0;
+  let b = parseFloat(inputs.b.value) || 0;
+  let c = parseFloat(inputs.c.value) || 0;
+
+  const code = inputs.relation.value;
+  try {
+    const fn = new Function("a", "b", "c", `${code}; return {a,b,c};`);
+    const res = fn(a, b, c);
+    if (res.a !== a) inputs.a.value = res.a.toFixed(2);
+    if (res.b !== b) inputs.b.value = res.b.toFixed(2);
+    if (res.c !== c) inputs.c.value = res.c.toFixed(2);
+    return res;
+  } catch (e) {
+    return { a, b, c };
+  }
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const { a, b, c } = getParams();
+
+  const ox = canvas.width / 2 - centerX * scale;
+  const oy = canvas.height / 2 + centerY * scale;
+
+  if (inputs.showGrid.checked) {
+    const step = scale > 100 ? 0.5 : (scale < 30 ? 5 : 1);
+    ctx.strokeStyle = "#eee";
+    ctx.lineWidth = 1;
+    const startX = Math.floor((-ox) / (scale * step)) * step;
+    const endX = Math.ceil((canvas.width - ox) / (scale * step)) * step;
+    for (let x = startX; x <= endX; x += step) {
+      const px = ox + x * scale;
+      ctx.beginPath(); ctx.moveTo(px, 0); ctx.lineTo(px, canvas.height); ctx.stroke();
+      if (Math.abs(x) > 0.1) {
+        ctx.fillStyle = "#aaa";
+        ctx.fillText(x.toString(), px + 2, oy - 2);
+      }
+    }
+    const startY = Math.floor((oy - canvas.height) / (scale * step)) * step;
+    const endY = Math.ceil(oy / (scale * step)) * step;
+    for (let y = startY; y <= endY; y += step) {
+      const py = oy - y * scale;
+      ctx.beginPath(); ctx.moveTo(0, py); ctx.lineTo(canvas.width, py); ctx.stroke();
+      if (Math.abs(y) > 0.1) {
+        ctx.fillStyle = "#aaa";
+        ctx.fillText(y.toString(), ox + 2, py - 2);
+      }
+    }
+  }
+
+  ctx.strokeStyle = "#333";
+  ctx.lineWidth = 2;
+  ctx.beginPath();
+  ctx.moveTo(0, oy); ctx.lineTo(canvas.width, oy);
+  ctx.moveTo(ox, 0); ctx.lineTo(ox, canvas.height);
+  ctx.stroke();
+
+  if (a !== 0) {
+    ctx.strokeStyle = "#3b82f6";
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    for (let px = 0; px <= canvas.width; px++) {
+      const x = (px - ox) / scale;
+      const y = a * x * x + b * x + c;
+      const py = oy - y * scale;
+      if (px === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+
+    const vx = -b / (2 * a);
+    const vy = c - (b * b) / (4 * a);
+    if (inputs.showVertex.checked) {
+      ctx.fillStyle = "#ef4444";
+      ctx.beginPath();
+      ctx.arc(ox + vx * scale, oy - vy * scale, 5, 0, Math.PI * 2);
+      ctx.fill();
+      // 修正：y = ax²... を小文字に
+      info.innerHTML = `頂点: (${vx.toFixed(2)}, ${vy.toFixed(2)})<br>式: f(x) = ${a}x² + ${b}x + ${c}`;
+    }
+  } else {
+    ctx.strokeStyle = "#10b981";
+    ctx.beginPath();
+    const x1 = -ox/scale, x2 = (canvas.width-ox)/scale;
+    ctx.moveTo(0, oy - (b*x1+c)*scale);
+    ctx.lineTo(canvas.width, oy - (b*x2+c)*scale);
+    ctx.stroke();
+    info.innerHTML = `直線: f(x) = ${b}x + ${c}`;
+  }
+}
+
+[inputs.a, inputs.b, inputs.c, inputs.relation, inputs.showGrid, inputs.showVertex].forEach(el => {
+  el.addEventListener("input", draw);
+});
+
+draw();
+</script>
+</body>
+</html>
