@@ -2,115 +2,87 @@
 <html lang="ja">
 <head>
 <meta charset="UTF-8">
-<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-<title>MathMotion</title>
+<title>二次関数</title>
 <style>
 :root {
   --bg-color: #f8f9fa;
   --panel-bg: #ffffff;
   --accent-color: #3b82f6;
-  --panel-width: 320px;
 }
 body {
-  font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
   background: var(--bg-color);
   margin: 0;
   display: flex;
   height: 100vh;
-  height: -webkit-fill-available; /* iOSの高さ対策 */
   overflow: hidden;
 }
-
-/* モバイル対応：画面が狭いときは縦並びに */
-@media (max-width: 768px) {
-  body { flex-direction: column; }
-  .controls { 
-    width: 100% !important; 
-    height: 40%; 
-    order: 2; 
-    box-shadow: 0 -2px 10px rgba(0,0,0,0.1) !important;
-  }
-  .canvas-container { order: 1; height: 60%; }
-}
-
 .controls {
-  width: var(--panel-width);
+  width: 320px;
   background: var(--panel-bg);
   padding: 20px;
   box-shadow: 2px 0 10px rgba(0,0,0,0.1);
   overflow-y: auto;
   z-index: 10;
-  box-sizing: border-box;
 }
-
 h2 { font-size: 1.2rem; margin-top: 0; color: #333; }
+/* 修正箇所：text-transform: uppercase; を削除 */
 h3 { font-size: 0.9rem; margin: 15px 0 8px; color: #666; }
 
 .input-group { margin-bottom: 12px; }
 label { display: flex; align-items: center; justify-content: space-between; font-size: 0.9rem; }
 
-.param-text { font-family: serif; font-style: italic; font-size: 1.1rem; }
-
-input[type="number"] {
-  width: 100px;
-  padding: 8px; /* タッチしやすく */
-  border: 1px solid #ddd;
-  border-radius: 4px;
-  font-size: 1rem; /* iOSでの自動ズーム防止 */
+/* 追加：パラメータを小文字・斜体にするスタイル */
+.param-text {
+  font-family: serif;
+  font-style: italic;
+  font-size: 1.1rem;
 }
 
+input[type="number"] {
+  width: 80px;
+  padding: 4px;
+  border: 1px solid #ddd;
+  border-radius: 4px;
+}
 textarea {
   width: 100%;
   height: 60px;
   font-family: monospace;
-  font-size: 0.9rem;
+  font-size: 0.85rem;
   padding: 8px;
   border: 1px solid #ddd;
   border-radius: 4px;
   box-sizing: border-box;
-  resize: none;
 }
-
 .btn {
   width: 100%;
-  padding: 12px;
+  padding: 10px;
   background: var(--accent-color);
   color: white;
   border: none;
-  border-radius: 8px;
+  border-radius: 4px;
   cursor: pointer;
   margin-top: 10px;
-  font-weight: bold;
-  touch-action: manipulation;
 }
-
-.btn:active { background: #2563eb; }
-
+.btn:hover { opacity: 0.9; }
 .canvas-container {
   flex-grow: 1;
   position: relative;
   background: #fff;
-  touch-action: none; /* ブラウザのデフォルト挙動を抑制 */
 }
-canvas { display: block; }
-
+canvas { display: block; cursor: grab; }
+canvas:active { cursor: grabbing; }
 .info-overlay {
   position: absolute;
-  top: 10px; /* モバイルで見やすいよう上に配置 */
-  right: 10px;
-  background: rgba(255,255,255,0.85);
-  padding: 8px 12px;
-  border-radius: 8px;
-  font-size: 0.85rem;
+  bottom: 20px;
+  right: 20px;
+  background: rgba(255,255,255,0.8);
+  padding: 10px;
+  border-radius: 4px;
+  font-size: 0.8rem;
   pointer-events: none;
-  font-family: serif;
-  box-shadow: 0 2px 5px rgba(0,0,0,0.1);
-}
-
-.checkbox-group {
-  display: flex;
-  gap: 15px;
-  margin-top: 10px;
+  font-family: serif; /* 数式っぽく */
 }
 </style>
 </head>
@@ -121,216 +93,18 @@ canvas { display: block; }
   
   <h3>f(x) = ax² + bx + c</h3>
   <div class="input-group">
-    <label><span class="param-text">a</span> <input type="number" id="a" value="1" step="0.1" inputmode="decimal"></label>
+    <label><span class="param-text">a</span> <input type="number" id="a" value="1" step="0.1"></label>
   </div>
   <div class="input-group">
-    <label><span class="param-text">b</span> <input type="number" id="b" value="0" step="0.1" inputmode="decimal"></label>
+    <label><span class="param-text">b</span> <input type="number" id="b" value="0" step="0.1"></label>
   </div>
   <div class="input-group">
-    <label><span class="param-text">c</span> <input type="number" id="c" value="0" step="0.1" inputmode="decimal"></label>
+    <label><span class="param-text">c</span> <input type="number" id="c" value="0" step="0.1"></label>
   </div>
 
   <h3>パラメータ拘束</h3>
   <textarea id="relation" placeholder="例: b = 2 * a;">// b = 2 * a;</textarea>
+  <small style="color:#888">例: b = 2 * a</small><br>
+  <small style="color:#888">例: a = b + c</small>
 
-  <div class="checkbox-group">
-    <label><input type="checkbox" id="showGrid" checked> グリッド</label>
-    <label><input type="checkbox" id="showVertex" checked> 頂点</label>
-  </div>
-  
-  <button class="btn" onclick="resetView()">視点をリセット</button>
-</div>
-
-<div class="canvas-container" id="container">
-  <canvas id="canvas"></canvas>
-  <div class="info-overlay" id="info"></div>
-</div>
-
-<script>
-const canvas = document.getElementById("canvas");
-const ctx = canvas.getContext("2d");
-const container = document.getElementById("container");
-const info = document.getElementById("info");
-
-const inputs = {
-  a: document.getElementById("a"),
-  b: document.getElementById("b"),
-  c: document.getElementById("c"),
-  relation: document.getElementById("relation"),
-  showGrid: document.getElementById("showGrid"),
-  showVertex: document.getElementById("showVertex")
-};
-
-let scale = 50; 
-let centerX = 0; 
-let centerY = 0;
-let isDragging = false;
-let lastX, lastY;
-let lastTouchDist = 0;
-
-function resize() {
-  canvas.width = container.clientWidth;
-  canvas.height = container.clientHeight;
-  draw();
-}
-
-window.addEventListener('resize', resize);
-setTimeout(resize, 0);
-
-// --- マウス操作 ---
-canvas.addEventListener("mousedown", e => { isDragging = true; lastX = e.offsetX; lastY = e.offsetY; });
-window.addEventListener("mouseup", () => isDragging = false);
-canvas.addEventListener("mousemove", e => {
-  if (!isDragging) return;
-  handleMove(e.offsetX, e.offsetY);
-});
-
-// --- タッチ操作 (スマホ/タブレット) ---
-canvas.addEventListener("touchstart", e => {
-  if (e.touches.length === 1) {
-    isDragging = true;
-    lastX = e.touches[0].clientX - canvas.getBoundingClientRect().left;
-    lastY = e.touches[0].clientY - canvas.getBoundingClientRect().top;
-  } else if (e.touches.length === 2) {
-    lastTouchDist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-  }
-}, { passive: false });
-
-canvas.addEventListener("touchmove", e => {
-  e.preventDefault();
-  const rect = canvas.getBoundingClientRect();
-  if (e.touches.length === 1 && isDragging) {
-    const x = e.touches[0].clientX - rect.left;
-    const y = e.touches[0].clientY - rect.top;
-    handleMove(x, y);
-  } else if (e.touches.length === 2) {
-    // ピンチズーム
-    const dist = Math.hypot(e.touches[0].pageX - e.touches[1].pageX, e.touches[0].pageY - e.touches[1].pageY);
-    const zoom = dist / lastTouchDist;
-    applyZoom(zoom);
-    lastTouchDist = dist;
-  }
-}, { passive: false });
-
-canvas.addEventListener("touchend", () => { isDragging = false; lastTouchDist = 0; });
-
-function handleMove(x, y) {
-  centerX -= (x - lastX) / scale;
-  centerY += (y - lastY) / scale;
-  lastX = x; lastY = y;
-  draw();
-}
-
-// ズーム処理の共通化
-canvas.addEventListener("wheel", e => {
-  e.preventDefault();
-  applyZoom(e.deltaY < 0 ? 1.1 : 0.9);
-}, { passive: false });
-
-function applyZoom(multiplier) {
-  scale = Math.min(Math.max(scale * multiplier, 5), 500);
-  draw();
-}
-
-function resetView() {
-  centerX = 0; centerY = 0; scale = 50;
-  draw();
-}
-
-function getParams() {
-  let a = parseFloat(inputs.a.value) || 0;
-  let b = parseFloat(inputs.b.value) || 0;
-  let c = parseFloat(inputs.c.value) || 0;
-
-  try {
-    const code = inputs.relation.value;
-    const fn = new Function("a", "b", "c", `${code}; return {a,b,c};`);
-    const res = fn(a, b, c);
-    // 入力値へのフィードバック（無限ループ防止のため変更があった時のみ）
-    if (res.a !== a) inputs.a.value = res.a.toFixed(2);
-    if (res.b !== b) inputs.b.value = res.b.toFixed(2);
-    if (res.c !== c) inputs.c.value = res.c.toFixed(2);
-    return res;
-  } catch (e) {
-    return { a, b, c };
-  }
-}
-
-function draw() {
-  ctx.clearRect(0, 0, canvas.width, canvas.height);
-  const { a, b, c } = getParams();
-
-  const ox = canvas.width / 2 - centerX * scale;
-  const oy = canvas.height / 2 + centerY * scale;
-
-  // グリッド描画
-  if (inputs.showGrid.checked) {
-    const step = scale > 100 ? 0.5 : (scale < 30 ? 5 : 1);
-    ctx.strokeStyle = "#eee";
-    ctx.lineWidth = 1;
-    ctx.beginPath();
-    for (let x = Math.floor(-ox / (scale * step)) * step; x * scale + ox <= canvas.width; x += step) {
-      const px = ox + x * scale;
-      ctx.moveTo(px, 0); ctx.lineTo(px, canvas.height);
-    }
-    for (let y = Math.floor((oy - canvas.height) / (scale * step)) * step; oy - y * scale <= canvas.height; y += step) {
-      const py = oy - y * scale;
-      ctx.moveTo(0, py); ctx.lineTo(canvas.width, py);
-    }
-    ctx.stroke();
-  }
-
-  // 軸描画
-  ctx.strokeStyle = "#333";
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.moveTo(0, oy); ctx.lineTo(canvas.width, oy);
-  ctx.moveTo(ox, 0); ctx.lineTo(ox, canvas.height);
-  ctx.stroke();
-
-  // グラフ描画
-  if (a !== 0) {
-    ctx.strokeStyle = "#3b82f6";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    for (let px = 0; px <= canvas.width; px++) {
-      const x = (px - ox) / scale;
-      const y = a * x * x + b * x + c;
-      const py = oy - y * scale;
-      if (px === 0) ctx.moveTo(px, py);
-      else ctx.lineTo(px, py);
-    }
-    ctx.stroke();
-
-    const vx = -b / (2 * a);
-    const vy = c - (b * b) / (4 * a);
-    if (inputs.showVertex.checked) {
-      ctx.fillStyle = "#ef4444";
-      ctx.beginPath();
-      ctx.arc(ox + vx * scale, oy - vy * scale, 5, 0, Math.PI * 2);
-      ctx.fill();
-      info.innerHTML = `頂点: (${vx.toFixed(2)}, ${vy.toFixed(2)})<br>式: f(x) = ${a}x² + ${b}x + ${c}`;
-    }
-  } else {
-    // 直線の描画
-    ctx.strokeStyle = "#10b981";
-    ctx.lineWidth = 3;
-    ctx.beginPath();
-    const x1 = -ox/scale, x2 = (canvas.width-ox)/scale;
-    ctx.moveTo(0, oy - (b*x1+c)*scale);
-    ctx.lineTo(canvas.width, oy - (b*x2+c)*scale);
-    ctx.stroke();
-    info.innerHTML = `直線: f(x) = ${b}x + ${c}`;
-  }
-}
-
-// イベント登録
-[inputs.a, inputs.b, inputs.c, inputs.relation, inputs.showGrid, inputs.showVertex].forEach(el => {
-  el.addEventListener("input", draw);
-});
-
-draw();
-</script>
-</body>
-</html>
-
+  <hr style="border:0; border-top:1px solid #eee; margin:2
