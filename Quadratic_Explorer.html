@@ -52,20 +52,16 @@ canvas {
   background: white;
   border-radius: 8px;
   cursor: grab;
-  touch-action: none; /* ★ 超重要：ブラウザのスクロール抑止 */
+  touch-action: none;
 }
-canvas:active {
-  cursor: grabbing;
-}
+canvas:active { cursor: grabbing; }
 </style>
 </head>
 
 <body>
-
 <div class="container">
 
 <div class="left">
-
 <h1>Quadratic Explorer</h1>
 
 <div class="panel">
@@ -91,10 +87,10 @@ y =
 <div class="panel">
 <b>④ パラメータ a</b><br><br>
 a の範囲：
-<input type="number" id="aMin" value="-5"> ～ 
+<input type="number" id="aMin" value="-5"> ～
 <input type="number" id="aMax" value="5"><br><br>
 <input type="range" id="aSlider" min="-5" max="5" step="0.1" value="0.5">
-<span id="aVal">3.7</span>
+<span id="aVal"></span>
 </div>
 
 <div class="panel">
@@ -105,7 +101,6 @@ a の範囲：
 </div>
 
 <div id="explanation" class="panel"></div>
-
 </div>
 
 <div class="right">
@@ -121,11 +116,9 @@ const ctx = canvas.getContext("2d");
 let view = { xmin:-6, xmax:6, ymin:-10, ymax:10 };
 const PAD = 40;
 
-/* ===== 座標変換 ===== */
 const cx = x => PAD + (x-view.xmin)/(view.xmax-view.xmin)*(canvas.width-2*PAD);
 const cy = y => canvas.height-PAD-(y-view.ymin)/(view.ymax-view.ymin)*(canvas.height-2*PAD);
 
-/* ===== 軸 ===== */
 function drawAxes(){
   ctx.strokeStyle="#aaa";
   ctx.beginPath();
@@ -136,7 +129,6 @@ function drawAxes(){
   ctx.stroke();
 }
 
-/* ===== グラフ ===== */
 function drawGraph(f,L,R){
   ctx.setLineDash([4,4]);
   ctx.strokeStyle="#999";
@@ -195,13 +187,18 @@ function draw(){
 
   let A,B,C,left,right;
   try{
-    A=eval(coefA.value); B=eval(coefB.value); C=eval(coefC.value);
-    left=eval(L.value); right=eval(R.value);
+    A=eval(coefA.value);
+    B=eval(coefB.value);
+    C=eval(coefC.value);
+    left=eval(L.value);
+    right=eval(R.value);
   }catch{
     explanation.innerHTML="⚠ 式エラー"; return;
   }
 
-  if(A===0){ explanation.innerHTML="⚠ 二次関数ではありません"; return; }
+  if(A===0){
+    explanation.innerHTML="⚠ 二次関数ではありません"; return;
+  }
 
   const f=x=>A*x*x+B*x+C;
   const axis=-B/(2*A);
@@ -211,112 +208,41 @@ function draw(){
   drawVLine(left,"#00a000");
   drawVLine(right,"#00a000");
 
-  let minX,maxX;
-  if(axis<left){minX=left;maxX=right;}
-  else if(axis>right){minX=right;maxX=left;}
-  else{
-    minX=axis;
-    maxX=Math.abs(left-axis)>Math.abs(right-axis)?left:right;
+  /* ===== ★ 修正済み 最大値・最小値判定 ===== */
+  let minX, maxX;
+
+  if(axis >= left && axis <= right){
+    const far = Math.abs(left-axis) > Math.abs(right-axis) ? left : right;
+    if(A > 0){
+      minX = axis;
+      maxX = far;
+    }else{
+      maxX = axis;
+      minX = far;
+    }
+  }else{
+    const yL = f(left);
+    const yR = f(right);
+    if(yL < yR){
+      minX = left;
+      maxX = right;
+    }else{
+      minX = right;
+      maxX = left;
+    }
   }
 
   drawPoint(minX,f(minX),"blue");
   drawPoint(maxX,f(maxX),"red");
 
-  explanation.innerHTML=
+  explanation.innerHTML =
     `<b>結果</b><br>
-     y = f(x)<br>
      軸：x = ${axis.toFixed(2)}<br>
-     最小値：f(${minX.toFixed(2)})<br>
-     最大値：f(${maxX.toFixed(2)})`;
+     最大値：f(${maxX.toFixed(2)}) = ${f(maxX).toFixed(2)}<br>
+     最小値：f(${minX.toFixed(2)}) = ${f(minX).toFixed(2)}`;
 }
 
-/* ===== マウス操作 ===== */
-let dragging=false, px,py;
-
-canvas.addEventListener("mousedown",e=>{
-  dragging=true; px=e.offsetX; py=e.offsetY;
-});
-canvas.addEventListener("mouseup",()=>dragging=false);
-canvas.addEventListener("mouseleave",()=>dragging=false);
-
-canvas.addEventListener("mousemove",e=>{
-  if(!dragging) return;
-  const dx=(e.offsetX-px)/canvas.width*(view.xmax-view.xmin);
-  const dy=(e.offsetY-py)/canvas.height*(view.ymax-view.ymin);
-  view.xmin-=dx; view.xmax-=dx;
-  view.ymin+=dy; view.ymax+=dy;
-  px=e.offsetX; py=e.offsetY;
-  draw();
-});
-
-/* ===== ホイールズーム ===== */
-canvas.addEventListener("wheel",e=>{
-  e.preventDefault();
-  zoomAt(e.offsetX,e.offsetY,e.deltaY>0?1.1:0.9);
-});
-
-/* ===== タッチ操作（★追加） ===== */
-let prevDist=null;
-
-canvas.addEventListener("touchstart",e=>{
-  if(e.touches.length===1){
-    px=e.touches[0].clientX;
-    py=e.touches[0].clientY;
-  }
-  if(e.touches.length===2){
-    prevDist=getDist(e.touches);
-  }
-});
-
-canvas.addEventListener("touchmove",e=>{
-  e.preventDefault();
-
-  if(e.touches.length===1){
-    const dx=(e.touches[0].clientX-px)/canvas.width*(view.xmax-view.xmin);
-    const dy=(e.touches[0].clientY-py)/canvas.height*(view.ymax-view.ymin);
-    view.xmin-=dx; view.xmax-=dx;
-    view.ymin+=dy; view.ymax+=dy;
-    px=e.touches[0].clientX;
-    py=e.touches[0].clientY;
-    draw();
-  }
-
-  if(e.touches.length===2){
-    const dist=getDist(e.touches);
-    const zoom=prevDist/dist;
-    const rect=canvas.getBoundingClientRect();
-    const mx=((e.touches[0].clientX+e.touches[1].clientX)/2-rect.left);
-    const my=((e.touches[0].clientY+e.touches[1].clientY)/2-rect.top);
-    zoomAt(mx,my,zoom);
-    prevDist=dist;
-  }
-});
-
-canvas.addEventListener("touchend",()=>prevDist=null);
-
-function getDist(t){
-  return Math.hypot(
-    t[0].clientX-t[1].clientX,
-    t[0].clientY-t[1].clientY
-  );
-}
-
-function zoomAt(px,py,zoom){
-  const mx=view.xmin+(px/canvas.width)*(view.xmax-view.xmin);
-  const my=view.ymax-(py/canvas.height)*(view.ymax-view.ymin);
-  view.xmin=mx+(view.xmin-mx)*zoom;
-  view.xmax=mx+(view.xmax-mx)*zoom;
-  view.ymin=my+(view.ymin-my)*zoom;
-  view.ymax=my+(view.ymax-my)*zoom;
-  draw();
-}
-
-/* ===== その他 ===== */
-function updateARange(){
-  aSlider.min=aMin.value;
-  aSlider.max=aMax.value;
-  draw();
-}
+/* ===== 表示操作 ===== */
 function resetView(){
   view={xmin:-6,xmax:6,ymin:-10,ymax:10};
   draw();
@@ -324,13 +250,15 @@ function resetView(){
 
 [aSlider,coefA,coefB,coefC,L,R,useCoef,useInterval]
   .forEach(e=>e.addEventListener("input",draw));
-[aMin,aMax].forEach(e=>e.addEventListener("input",updateARange));
+[aMin,aMax].forEach(e=>{
+  e.addEventListener("input",()=>{
+    aSlider.min=aMin.value;
+    aSlider.max=aMax.value;
+    draw();
+  });
+});
 
 draw();
 </script>
-
 </body>
 </html>
-
-
-
