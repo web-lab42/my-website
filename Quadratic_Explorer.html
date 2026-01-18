@@ -234,6 +234,76 @@ function resetView(){
   draw();
 }
 
+/* ===== タッチ操作（スマホ・タブレット） ===== */
+let touchDragging = false;
+let prevDist = null;
+let tx, ty;
+
+canvas.addEventListener("touchstart", e => {
+  e.preventDefault();
+
+  if (e.touches.length === 1) {
+    touchDragging = true;
+    tx = e.touches[0].clientX;
+    ty = e.touches[0].clientY;
+  }
+
+  if (e.touches.length === 2) {
+    touchDragging = false;
+    prevDist = getDist(e.touches);
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchmove", e => {
+  e.preventDefault();
+
+  const rect = canvas.getBoundingClientRect();
+
+  /* --- 1本指：移動 --- */
+  if (touchDragging && e.touches.length === 1) {
+    const nx = e.touches[0].clientX;
+    const ny = e.touches[0].clientY;
+
+    const dx = (nx - tx) / canvas.width * (view.xmax - view.xmin);
+    const dy = (ny - ty) / canvas.height * (view.ymax - view.ymin);
+
+    view.xmin -= dx;
+    view.xmax -= dx;
+    view.ymin += dy;
+    view.ymax += dy;
+
+    tx = nx;
+    ty = ny;
+    draw();
+  }
+
+  /* --- 2本指：ピンチズーム --- */
+  if (e.touches.length === 2) {
+    const dist = getDist(e.touches);
+    const zoom = prevDist / dist;
+
+    const mx =
+      ((e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left);
+    const my =
+      ((e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top);
+
+    zoomAt(mx, my, zoom);
+    prevDist = dist;
+  }
+}, { passive: false });
+
+canvas.addEventListener("touchend", () => {
+  touchDragging = false;
+  prevDist = null;
+});
+
+function getDist(t) {
+  return Math.hypot(
+    t[0].clientX - t[1].clientX,
+    t[0].clientY - t[1].clientY
+  );
+}
+
 /* ===== イベント ===== */
 [aSlider,coefA,coefB,coefC,L,R,useCoef,useInterval]
 .forEach(e=>e.addEventListener("input",draw));
@@ -249,3 +319,4 @@ draw();
 </script>
 </body>
 </html>
+
