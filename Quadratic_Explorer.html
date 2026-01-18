@@ -193,10 +193,10 @@ function draw(){
 
   explanation.innerHTML=
     `<b>結果</b><br>
-     ${A>0?"上に開く":"下に開く"}放物線<br>
+     ${A>0?"下に凸":"上に凸"}<br>
      軸：x=${axis.toFixed(2)}<br>
-     最小値：f(${minX.toFixed(2)})=${f(minX).toFixed(2)}<br>
-     最大値：f(${maxX.toFixed(2)})=${f(maxX).toFixed(2)}`;
+     最大値：f(${maxX.toFixed(2)})=${f(maxX).toFixed(2)}<br>
+     最小値：f(${minX.toFixed(2)})=${f(minX).toFixed(2)}`;
 }
 
 /* ===== 移動・ズーム ===== */
@@ -319,4 +319,5 @@ draw();
 </script>
 </body>
 </html>
+
 
