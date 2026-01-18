@@ -4,57 +4,17 @@
 <meta charset="UTF-8">
 <title>Quadratic_Explorer</title>
 <style>
-body {
-  margin: 0;
-  font-family: sans-serif;
-  background: #f5f5f5;
-}
-
-.container {
-  display: flex;
-  height: 100vh;
-}
-
-.left {
-  width: 50%;
-  padding: 20px;
-  box-sizing: border-box;
-  overflow-y: auto;
-}
-
-.right {
-  width: 50%;
-  display: flex;
-  justify-content: center;
-  align-items: center;
-  background: #eaeaea;
-}
-
-h1 { font-size: 20px; }
-
-.panel {
-  background: white;
-  padding: 12px;
-  border-radius: 8px;
-  margin-bottom: 12px;
-}
-
-input[type="text"] { width: 80px; }
-input[type="number"] { width: 70px; }
-
-#explanation {
-  background: #eef3ff;
-  padding: 10px;
-  border-radius: 6px;
-}
-
-canvas {
-  background: white;
-  border-radius: 8px;
-  cursor: grab;
-  touch-action: none;
-}
-canvas:active { cursor: grabbing; }
+body{margin:0;font-family:sans-serif;background:#f5f5f5}
+.container{display:flex;height:100vh}
+.left{width:50%;padding:20px;box-sizing:border-box;overflow-y:auto}
+.right{width:50%;display:flex;justify-content:center;align-items:center;background:#eaeaea}
+h1{font-size:20px}
+.panel{background:white;padding:12px;border-radius:8px;margin-bottom:12px}
+input[type="text"]{width:80px}
+input[type="number"]{width:70px}
+#explanation{background:#eef3ff;padding:10px;border-radius:6px}
+canvas{background:white;border-radius:8px;cursor:grab;touch-action:none}
+canvas:active{cursor:grabbing}
 </style>
 </head>
 
@@ -89,7 +49,7 @@ y =
 a の範囲：
 <input type="number" id="aMin" value="-5"> ～
 <input type="number" id="aMax" value="5"><br><br>
-<input type="range" id="aSlider" min="-5" max="5" step="0.1" value="0.5">
+<input type="range" id="aSlider" min="-5" max="5" step="0.1" value="0">
 <span id="aVal"></span>
 </div>
 
@@ -106,19 +66,25 @@ a の範囲：
 <div class="right">
 <canvas id="canvas" width="600" height="450"></canvas>
 </div>
-
 </div>
 
 <script>
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
 
-let view = { xmin:-6, xmax:6, ymin:-10, ymax:10 };
-const PAD = 40;
+let view={xmin:-6,xmax:6,ymin:-10,ymax:10};
+const PAD=40;
 
-const cx = x => PAD + (x-view.xmin)/(view.xmax-view.xmin)*(canvas.width-2*PAD);
-const cy = y => canvas.height-PAD-(y-view.ymin)/(view.ymax-view.ymin)*(canvas.height-2*PAD);
+const cx=x=>PAD+(x-view.xmin)/(view.xmax-view.xmin)*(canvas.width-2*PAD);
+const cy=y=>canvas.height-PAD-(y-view.ymin)/(view.ymax-view.ymin)*(canvas.height-2*PAD);
 
+/* ===== 安全評価 ===== */
+function safeEval(expr,a){
+  if(!/^[0-9a-x+\-*/(). ]+$/.test(expr)) throw "invalid";
+  return Function("a","return "+expr)(a);
+}
+
+/* ===== 描画 ===== */
 function drawAxes(){
   ctx.strokeStyle="#aaa";
   ctx.beginPath();
@@ -133,9 +99,10 @@ function drawGraph(f,L,R){
   ctx.setLineDash([4,4]);
   ctx.strokeStyle="#999";
   ctx.beginPath();
+  let first=true;
   for(let x=view.xmin;x<=view.xmax;x+=(view.xmax-view.xmin)/600){
     const y=f(x);
-    if(x===view.xmin) ctx.moveTo(cx(x),cy(y));
+    if(first){ctx.moveTo(cx(x),cy(y));first=false;}
     else ctx.lineTo(cx(x),cy(y));
   }
   ctx.stroke();
@@ -144,9 +111,10 @@ function drawGraph(f,L,R){
   ctx.lineWidth=3;
   ctx.strokeStyle="#000";
   ctx.beginPath();
-  for(let x=L;x<=R;x+=(view.xmax-view.xmin)/600){
+  first=true;
+  for(let x=L;x<=R;x+=(R-L)/300){
     const y=f(x);
-    if(x===L) ctx.moveTo(cx(x),cy(y));
+    if(first){ctx.moveTo(cx(x),cy(y));first=false;}
     else ctx.lineTo(cx(x),cy(y));
   }
   ctx.stroke();
@@ -154,6 +122,7 @@ function drawGraph(f,L,R){
 }
 
 function drawPoint(x,y,color){
+  if(x<view.xmin||x>view.xmax||y<view.ymin||y>view.ymax) return;
   ctx.fillStyle=color;
   ctx.beginPath();
   ctx.arc(cx(x),cy(y),6,0,Math.PI*2);
@@ -161,6 +130,7 @@ function drawPoint(x,y,color){
 }
 
 function drawVLine(x,color){
+  if(x<view.xmin||x>view.xmax) return;
   ctx.setLineDash([5,5]);
   ctx.strokeStyle=color;
   ctx.beginPath();
@@ -170,7 +140,7 @@ function drawVLine(x,color){
   ctx.setLineDash([]);
 }
 
-/* ===== メイン描画 ===== */
+/* ===== メイン ===== */
 function draw(){
   ctx.clearRect(0,0,canvas.width,canvas.height);
   drawAxes();
@@ -179,26 +149,25 @@ function draw(){
   aVal.textContent=a.toFixed(2);
 
   if(!useCoef.checked && /a/.test(coefA.value+coefB.value+coefC.value)){
-    explanation.innerHTML="⚠ 係数に a は使えません"; return;
+    explanation.innerHTML="⚠ 係数に a は使えません";return;
   }
   if(!useInterval.checked && /a/.test(L.value+R.value)){
-    explanation.innerHTML="⚠ 区間に a は使えません"; return;
+    explanation.innerHTML="⚠ 区間に a は使えません";return;
   }
 
   let A,B,C,left,right;
   try{
-    A=eval(coefA.value);
-    B=eval(coefB.value);
-    C=eval(coefC.value);
-    left=eval(L.value);
-    right=eval(R.value);
+    A=safeEval(coefA.value,a);
+    B=safeEval(coefB.value,a);
+    C=safeEval(coefC.value,a);
+    left=safeEval(L.value,a);
+    right=safeEval(R.value,a);
   }catch{
-    explanation.innerHTML="⚠ 式エラー"; return;
+    explanation.innerHTML="⚠ 式エラー";return;
   }
 
-  if(A===0){
-    explanation.innerHTML="⚠ 二次関数ではありません"; return;
-  }
+  if(A===0){explanation.innerHTML="⚠ 二次関数ではありません";return;}
+  if(left>right)[left,right]=[right,left];
 
   const f=x=>A*x*x+B*x+C;
   const axis=-B/(2*A);
@@ -208,55 +177,73 @@ function draw(){
   drawVLine(left,"#00a000");
   drawVLine(right,"#00a000");
 
-  /* ===== ★ 修正済み 最大値・最小値判定 ===== */
-  let minX, maxX;
-
-  if(axis >= left && axis <= right){
-    const far = Math.abs(left-axis) > Math.abs(right-axis) ? left : right;
-    if(A > 0){
-      minX = axis;
-      maxX = far;
-    }else{
-      maxX = axis;
-      minX = far;
-    }
+  let minX,maxX;
+  if(axis>=left&&axis<=right){
+    const far=Math.abs(left-axis)>Math.abs(right-axis)?left:right;
+    if(A>0){minX=axis;maxX=far;}
+    else{maxX=axis;minX=far;}
   }else{
-    const yL = f(left);
-    const yR = f(right);
-    if(yL < yR){
-      minX = left;
-      maxX = right;
-    }else{
-      minX = right;
-      maxX = left;
-    }
+    const yL=f(left),yR=f(right);
+    if(yL<yR){minX=left;maxX=right;}
+    else{minX=right;maxX=left;}
   }
 
   drawPoint(minX,f(minX),"blue");
   drawPoint(maxX,f(maxX),"red");
 
-  explanation.innerHTML =
+  explanation.innerHTML=
     `<b>結果</b><br>
-     軸：x = ${axis.toFixed(2)}<br>
-     最大値：f(${maxX.toFixed(2)}) = ${f(maxX).toFixed(2)}<br>
-     最小値：f(${minX.toFixed(2)}) = ${f(minX).toFixed(2)}`;
+     ${A>0?"上に開く":"下に開く"}放物線<br>
+     軸：x=${axis.toFixed(2)}<br>
+     最小値：f(${minX.toFixed(2)})=${f(minX).toFixed(2)}<br>
+     最大値：f(${maxX.toFixed(2)})=${f(maxX).toFixed(2)}`;
 }
 
-/* ===== 表示操作 ===== */
+/* ===== 移動・ズーム ===== */
+let dragging=false,px,py;
+canvas.addEventListener("mousedown",e=>{dragging=true;px=e.offsetX;py=e.offsetY});
+canvas.addEventListener("mouseup",()=>dragging=false);
+canvas.addEventListener("mouseleave",()=>dragging=false);
+canvas.addEventListener("mousemove",e=>{
+  if(!dragging)return;
+  const dx=(e.offsetX-px)/canvas.width*(view.xmax-view.xmin);
+  const dy=(e.offsetY-py)/canvas.height*(view.ymax-view.ymin);
+  view.xmin-=dx;view.xmax-=dx;
+  view.ymin+=dy;view.ymax+=dy;
+  px=e.offsetX;py=e.offsetY;
+  draw();
+});
+
+canvas.addEventListener("wheel",e=>{
+  e.preventDefault();
+  zoomAt(e.offsetX,e.offsetY,e.deltaY>0?1.1:0.9);
+});
+
+function zoomAt(px,py,z){
+  const mx=view.xmin+(px/canvas.width)*(view.xmax-view.xmin);
+  const my=view.ymax-(py/canvas.height)*(view.ymax-view.ymin);
+  view.xmin=mx+(view.xmin-mx)*z;
+  view.xmax=mx+(view.xmax-mx)*z;
+  view.ymin=my+(view.ymin-my)*z;
+  view.ymax=my+(view.ymax-my)*z;
+  draw();
+}
+
 function resetView(){
   view={xmin:-6,xmax:6,ymin:-10,ymax:10};
   draw();
 }
 
+/* ===== イベント ===== */
 [aSlider,coefA,coefB,coefC,L,R,useCoef,useInterval]
-  .forEach(e=>e.addEventListener("input",draw));
-[aMin,aMax].forEach(e=>{
-  e.addEventListener("input",()=>{
-    aSlider.min=aMin.value;
-    aSlider.max=aMax.value;
-    draw();
-  });
-});
+.forEach(e=>e.addEventListener("input",draw));
+
+[aMin,aMax].forEach(e=>e.addEventListener("input",()=>{
+  aSlider.min=aMin.value;
+  aSlider.max=aMax.value;
+  aSlider.value=Math.min(Math.max(aSlider.value,aSlider.min),aSlider.max);
+  draw();
+}));
 
 draw();
 </script>
