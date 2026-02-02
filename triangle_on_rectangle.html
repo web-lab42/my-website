@@ -1,0 +1,201 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>triangle_on_rectangle</title>
+  <style>
+    body { font-family: sans-serif; background: #f8f9fa; margin: 0; padding: 10px; display: flex; flex-direction: column; align-items: center; touch-action: manipulation; }
+    .container { background: white; padding: 20px; border-radius: 12px; box-shadow: 0 5px 15px rgba(0,0,0,0.1); width: 95%; max-width: 720px; }
+    canvas { border: 1px solid #eee; border-radius: 8px; width: 100%; height: auto; background: #fff; display: block; }
+    
+    .mode-selector { display: flex; justify-content: center; gap: 10px; margin-bottom: 15px; }
+    .mode-btn { flex: 1; padding: 12px 5px; border: 2px solid #ddd; border-radius: 8px; background: #fdfdfd; cursor: pointer; font-weight: bold; font-size: 14px; transition: 0.2s; }
+    .mode-btn.active { border-color: #007bff; background: #e7f1ff; color: #007bff; }
+    
+    .controls { margin-top: 15px; display: flex; align-items: center; gap: 10px; }
+    input[type="range"] { flex-grow: 1; height: 35px; }
+    #playBtn { padding: 10px 20px; border-radius: 6px; border: 1px solid #ccc; background: #fff; cursor: pointer; }
+  </style>
+</head>
+<body>
+
+<div class="container">
+  <div class="mode-selector">
+    <button id="modeFixed" class="mode-btn active">固定頂点を選択</button>
+    <button id="modeStart" class="mode-btn">スタート地点を選択</button>
+  </div>
+
+  <canvas id="canvas" width="700" height="350"></canvas>
+  
+  <div class="controls">
+    <button id="playBtn">再生 / 停止</button>
+    <input type="range" id="slider" min="0" max="1" step="0.001" value="0">
+  </div>
+</div>
+
+<script>
+const canvas = document.getElementById("canvas");
+const ctx = canvas.getContext("2d");
+const slider = document.getElementById("slider");
+const playBtn = document.getElementById("playBtn");
+const btnFixed = document.getElementById("modeFixed");
+const btnStart = document.getElementById("modeStart");
+
+const a = 300, b = 200;
+const L = 2 * (a + b);
+const offsetX = 50, offsetY = 50;
+
+const points = {
+  A: { x: 0, y: b, offset: 0 },
+  B: { x: a, y: b, offset: a },
+  C: { x: a, y: 0, offset: a + b },
+  D: { x: 0, y: 0, offset: 2 * a + b }
+};
+
+let selectedFixed = ["A", "B"];
+let startVertex = "A";
+let activeMode = "fixed"; // "fixed" or "start"
+let isPlaying = false;
+
+function tx(x) { return offsetX + x; }
+function ty(y) { return offsetY + y; }
+
+function calcArea(p1, p2, p3) {
+  return Math.abs((p1.x * (p2.y - p3.y) + p2.x * (p3.y - p1.y) + p3.x * (p1.y - p2.y)) / 2);
+}
+
+function getPointP(t) {
+  const startV = points[startVertex];
+  let d = (t * L + startV.offset) % L;
+  if (d <= a) return { x: d, y: b };
+  if (d <= a + b) return { x: a, y: b - (d - a) };
+  if (d <= 2 * a + b) return { x: a - (d - (a + b)), y: 0 };
+  return { x: 0, y: d - (2 * a + b) };
+}
+
+function draw() {
+  ctx.clearRect(0, 0, canvas.width, canvas.height);
+  const t = parseFloat(slider.value);
+  const P = getPointP(t);
+  const p1 = points[selectedFixed[0]];
+  const p2 = points[selectedFixed[1]];
+  const area = calcArea(p1, p2, P);
+
+  // 長方形
+  ctx.setLineDash([4, 4]);
+  ctx.strokeStyle = "#ddd";
+  ctx.strokeRect(tx(0), ty(0), a, b);
+  ctx.setLineDash([]);
+
+  // 三角形
+  ctx.fillStyle = "rgba(0, 123, 255, 0.15)";
+  ctx.beginPath();
+  ctx.moveTo(tx(p1.x), ty(p1.y));
+  ctx.lineTo(tx(p2.x), ty(p2.y));
+  ctx.lineTo(tx(P.x), ty(P.y));
+  ctx.closePath();
+  ctx.fill();
+  ctx.strokeStyle = "#007bff";
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // グラフ
+  const gx = 450, gy = 250, gw = 200, gh = 180;
+  ctx.strokeStyle = "#999";
+  ctx.lineWidth = 1;
+  ctx.beginPath();
+  ctx.moveTo(gx, gy - gh); ctx.lineTo(gx, gy); ctx.lineTo(gx + gw, gy);
+  ctx.stroke();
+
+  ctx.beginPath();
+  ctx.strokeStyle = "#ff4d4d";
+  ctx.lineWidth = 2;
+  for(let i=0; i<=1; i+=0.005) {
+    const p_i = getPointP(i);
+    const area_i = calcArea(p1, p2, p_i);
+    const vx = gx + i * gw;
+    const vy = gy - (area_i / (a * b / 2)) * gh; 
+    if(i===0) ctx.moveTo(vx, vy); else ctx.lineTo(vx, vy);
+  }
+  ctx.stroke();
+
+  ctx.fillStyle = "#ff4d4d";
+  ctx.beginPath();
+  ctx.arc(gx + t * gw, gy - (area / (a * b / 2)) * gh, 5, 0, Math.PI*2);
+  ctx.fill();
+
+  // 頂点
+  for (let key in points) {
+    const p = points[key];
+    const isFixed = selectedFixed.includes(key);
+    ctx.fillStyle = isFixed ? "#ff9800" : "#444";
+    ctx.beginPath();
+    ctx.arc(tx(p.x), ty(p.y), 8, 0, Math.PI*2);
+    ctx.fill();
+    
+    if (key === startVertex) {
+      ctx.strokeStyle = "red";
+      ctx.lineWidth = 3;
+      ctx.beginPath();
+      ctx.arc(tx(p.x), ty(p.y), 14, 0, Math.PI*2);
+      ctx.stroke();
+    }
+  }
+
+  // 点P
+  ctx.fillStyle = "red";
+  ctx.beginPath();
+  ctx.arc(tx(P.x), ty(P.y), 7, 0, Math.PI * 2);
+  ctx.fill();
+
+  if(isPlaying) {
+    let nextVal = parseFloat(slider.value) + 0.002;
+    if(nextVal > 1) nextVal = 0;
+    slider.value = nextVal;
+    requestAnimationFrame(draw);
+  }
+}
+
+function handleInput(e) {
+  e.preventDefault();
+  const rect = canvas.getBoundingClientRect();
+  const clientX = e.touches ? e.touches[0].clientX : e.clientX;
+  const clientY = e.touches ? e.touches[0].clientY : e.clientY;
+  const scaleX = canvas.width / rect.width;
+  const scaleY = canvas.height / rect.height;
+  const mx = (clientX - rect.left) * scaleX;
+  const my = (clientY - rect.top) * scaleY;
+
+  for (let key in points) {
+    const p = points[key];
+    if (Math.hypot(mx - tx(p.x), my - ty(p.y)) < 35) {
+      if (activeMode === "fixed") {
+        if (!selectedFixed.includes(key)) {
+          selectedFixed.shift();
+          selectedFixed.push(key);
+        }
+      } else {
+        startVertex = key;
+        slider.value = 0;
+      }
+      draw();
+      break;
+    }
+  }
+}
+
+// モード切り替え
+btnFixed.onclick = () => { activeMode = "fixed"; btnFixed.classList.add("active"); btnStart.classList.remove("active"); };
+btnStart.onclick = () => { activeMode = "start"; btnStart.classList.add("active"); btnFixed.classList.remove("active"); };
+
+canvas.addEventListener("mousedown", handleInput);
+canvas.addEventListener("touchstart", handleInput, {passive: false});
+playBtn.onclick = () => { isPlaying = !isPlaying; if(isPlaying) draw(); };
+slider.oninput = () => { if(!isPlaying) draw(); };
+window.addEventListener('resize', draw);
+
+draw();
+</script>
+</body>
+</html>
