@@ -179,7 +179,7 @@ button {
 </head>
 <body>
 <div class="container">
-    <header><h1>Goldbach Conjecture Master</h1></header>
+    <header><h1>Goldbach's_conjecture</h1></header>
 
     <div class="config-panel">
         <div><label>Max N: </label><input type="number" id="min-n" value="4" min="4" step="2"></div>
@@ -327,7 +327,7 @@ function checkAnswer() {
     if (sum === state.currentN) {
         showSuccess();
     } else {
-        document.getElementById('result-text').innerText = "Oops!";
+        document.getElementById('result-text').innerText = "wrong";
         setTimeout(() => {
             state.selectedPrimes = [];
             document.querySelectorAll('.prime-chip').forEach(c => c.classList.remove('selected', 'double-selected'));
@@ -348,7 +348,7 @@ function showSuccess() {
     const pairs = findGoldbachPairs(state.currentN);
     const pairsHtml = pairs.map(pair => `<span>${pair[0]} + ${pair[1]}</span>`).join(' / ');
     const allCombosEl = document.getElementById('all-combinations');
-    allCombosEl.innerHTML = `<strong>すべての組み合わせ (${pairs.length})</strong><br>${pairsHtml}`;
+    allCombosEl.innerHTML = `<strong>All combinations (${pairs.length})</strong><br>${pairsHtml}`;
     allCombosEl.classList.remove('hidden');
 
     document.getElementById('prime-chips').classList.add('hidden');
@@ -384,3 +384,4 @@ function updateVisuals(p, q) {
 </body>
 
 </html>
+
