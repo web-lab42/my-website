@@ -1,0 +1,385 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Goldbach's Conjecture Master</title>
+<style>
+:root {
+    --bg-color: #f0f2f5;
+    --card-bg: #ffffff;
+    --text-color: #333;
+    --primary-color: #4a90e2;
+    --secondary-color: #ff6b6b;
+    --accent-color: #4cd137;
+    --border-radius: 12px;
+    --transition: all 0.3s ease;
+}
+
+body {
+    margin: 0;
+    padding: 0;
+    font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+    background-color: var(--bg-color);
+    color: var(--text-color);
+    transition: var(--transition);
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    min-height: 100vh;
+}
+
+.container {
+    width: 90%;
+    max-width: 800px;
+    margin: 20px auto;
+    padding: 20px;
+    background: var(--card-bg);
+    border-radius: var(--border-radius);
+    box-shadow: 0 10px 30px rgba(0,0,0,0.1);
+}
+
+header { text-align: center; margin-bottom: 20px; }
+
+.config-panel {
+    display: grid;
+    grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+    gap: 15px;
+    padding: 15px;
+    border: 1px solid #ddd;
+    border-radius: var(--border-radius);
+    margin-bottom: 20px;
+}
+
+button {
+    padding: 10px 20px;
+    border: none;
+    border-radius: 5px;
+    cursor: pointer;
+    font-weight: bold;
+    transition: var(--transition);
+}
+
+.btn-start { background: var(--accent-color); color: white; }
+.btn-next {
+    background: var(--primary-color);
+    color: white;
+    font-size: 1.1rem;
+    padding: 15px 40px;
+    margin-top: 20px;
+}
+
+.game-area { display: none; flex-direction: column; align-items: center; }
+.game-area.active { display: flex; }
+
+.target-n {
+    font-size: 3rem;
+    font-weight: 800;
+    margin: 20px 0;
+    text-shadow: 2px 2px 4px rgba(0,0,0,0.1);
+}
+
+.number-line-container {
+    width: 100%;
+    height: 60px;
+    position: relative;
+    background: #eee;
+    border-radius: 30px;
+    margin: 40px 0;
+    overflow: hidden;
+}
+
+.marker {
+    position: absolute;
+    top: 50%;
+    transform: translateY(-50%);
+    width: 24px;
+    height: 24px;
+    border-radius: 50%;
+    transition: left 0.8s cubic-bezier(0.4, 0, 0.2, 1);
+    z-index: 2;
+}
+
+.marker.p { background: var(--primary-color); }
+.marker.q { background: var(--secondary-color); }
+
+.line-connector {
+    position: absolute;
+    top: 50%;
+    height: 4px;
+    background: var(--accent-color);
+    transform: translateY(-50%);
+    transition: width 0.8s, left 0.8s;
+}
+
+.prime-list {
+    display: flex;
+    flex-wrap: wrap;
+    gap: 8px;
+    justify-content: center;
+    max-height: 200px;
+    overflow-y: auto;
+    padding: 10px;
+    border: 1px inset #ccc;
+    width: 100%;
+}
+
+.prime-chip {
+    padding: 8px 16px;
+    background: #ddd;
+    border-radius: 20px;
+    cursor: pointer;
+    user-select: none;
+    font-size: 1.1rem;
+    position: relative;
+}
+
+.prime-chip.selected { background: var(--primary-color); color: white; }
+.prime-chip.double-selected { background: #6c5ce7; color: white; }
+.prime-chip.double-selected::after {
+    content: "x2";
+    position: absolute;
+    top: -8px;
+    right: -5px;
+    background: var(--secondary-color);
+    font-size: 0.7rem;
+    padding: 2px 5px;
+    border-radius: 10px;
+}
+
+.stats-grid {
+    display: grid;
+    grid-template-columns: repeat(2, 1fr);
+    width: 100%;
+    text-align: center;
+    margin: 15px 0;
+}
+
+.result-msg {
+    font-weight: bold;
+    font-size: 1.2rem;
+    margin: 10px 0;
+    min-height: 24px;
+    color: #2c3e50;
+}
+
+.all-pairs-list {
+    margin-top: 10px;
+    font-size: 1rem;
+    color: #444;
+    background: #f8f9fa;
+    padding: 15px;
+    border-radius: 8px;
+    width: 100%;
+    text-align: center;
+}
+
+.hidden { display: none !important; }
+</style>
+</head>
+<body>
+<div class="container">
+    <header><h1>Goldbach Conjecture Master</h1></header>
+
+    <div class="config-panel">
+        <div><label>最小 N: </label><input type="number" id="min-n" value="4" min="4" step="2"></div>
+        <div><label>最大 N: </label><input type="number" id="max-n" value="100" min="4" step="2"></div>
+        <button class="btn-start" onclick="initGame()">ゲーム開始</button>
+    </div>
+
+    <div class="stats-grid">
+        <div>Score: <span id="current-score">0</span></div>
+        <div>High: <span id="high-score">0</span></div>
+    </div>
+
+    <div id="game-main" class="game-area">
+        <div id="target-display" class="target-n">N = </div>
+        
+        <div class="number-line-container">
+            <div id="marker-p" class="marker p" style="left: 0%;"></div>
+            <div id="marker-q" class="marker q" style="left: 100%;"></div>
+            <div id="connector" class="line-connector" style="left: 0; width: 0;"></div>
+        </div>
+
+        <div id="result-text" class="result-msg"></div>
+        <div id="all-combinations" class="all-pairs-list hidden"></div>
+
+        <div id="controls-area" style="width: 100%; text-align: center;">
+            <div class="prime-list" id="prime-chips"></div>
+            <button id="btn-hint" onclick="getHint()" style="margin-top:20px">ヒント</button>
+            <button id="btn-next-question" class="btn-next hidden" onclick="nextQuestion()">次へ進む</button>
+        </div>
+    </div>
+</div>
+
+<script>
+const state = {
+    minN: 4,
+    maxN: 100,
+    currentN: 0,
+    primes: [],
+    selectedPrimes: [],
+    score: 0,
+    highScore: 0
+};
+
+function generatePrimes(limit) {
+    const sieve = new Array(limit + 1).fill(true);
+    sieve[0] = sieve[1] = false;
+    for (let i = 2; i * i <= limit; i++) {
+        if (sieve[i]) {
+            for (let j = i * i; j <= limit; j += i) sieve[j] = false;
+        }
+    }
+    return sieve.map((isPrime, n) => isPrime ? n : null).filter(n => n !== null);
+}
+
+function isPrime(num) {
+    if (num < 2) return false;
+    for (let i = 2; i * i <= num; i++) {
+        if (num % i === 0) return false;
+    }
+    return true;
+}
+
+function findGoldbachPairs(n) {
+    const results = [];
+    for (let p of state.primes) {
+        if (p > n / 2) break;
+        let q = n - p;
+        if (isPrime(q)) results.push([p, q]);
+    }
+    return results;
+}
+
+function initGame() {
+    state.minN = parseInt(document.getElementById('min-n').value);
+    state.maxN = parseInt(document.getElementById('max-n').value);
+    state.primes = generatePrimes(state.maxN);
+    state.score = 0;
+    const saved = localStorage.getItem('goldbach_score_solo');
+    if (saved) state.highScore = parseInt(saved);
+    document.getElementById('game-main').classList.add('active');
+    nextQuestion();
+}
+
+function nextQuestion() {
+    state.selectedPrimes = [];
+    document.getElementById('btn-next-question').classList.add('hidden');
+    document.getElementById('prime-chips').classList.remove('hidden');
+    document.getElementById('btn-hint').classList.remove('hidden');
+    document.getElementById('all-combinations').classList.add('hidden');
+    document.getElementById('result-text').innerText = "";
+    
+    state.currentN = Math.floor(Math.random() * ((state.maxN - state.minN) / 2 + 1)) * 2 + state.minN;
+    document.getElementById('target-display').innerText = `N = ${state.currentN}`;
+    document.getElementById('current-score').innerText = state.score;
+    document.getElementById('high-score').innerText = state.highScore;
+
+    updateVisuals(0, 0);
+    renderPrimeChips();
+}
+
+function renderPrimeChips() {
+    const container = document.getElementById('prime-chips');
+    container.innerHTML = '';
+    state.primes.filter(p => p < state.currentN).forEach(p => {
+        const chip = document.createElement('div');
+        chip.className = 'prime-chip';
+        chip.innerText = p;
+        chip.dataset.val = p;
+        chip.onclick = () => selectPrime(p, chip);
+        container.appendChild(chip);
+    });
+}
+
+function selectPrime(p, el) {
+    const count = state.selectedPrimes.filter(x => x === p).length;
+
+    if (count === 1 && state.selectedPrimes.length === 1) {
+        // 同じ数を2回選択
+        state.selectedPrimes.push(p);
+        el.classList.add('double-selected');
+    } else if (count > 0) {
+        // すでに選ばれているものをキャンセル
+        state.selectedPrimes = state.selectedPrimes.filter(x => x !== p);
+        el.classList.remove('selected', 'double-selected');
+    } else if (state.selectedPrimes.length < 2) {
+        // 新しく選択
+        state.selectedPrimes.push(p);
+        el.classList.add('selected');
+    }
+
+    if (state.selectedPrimes.length === 2) {
+        checkAnswer();
+    } else if (state.selectedPrimes.length === 1) {
+        updateVisuals(state.selectedPrimes[0], 0);
+    } else {
+        updateVisuals(0, 0);
+    }
+}
+
+function checkAnswer() {
+    const [p, q] = state.selectedPrimes;
+    const sum = p + q;
+    updateVisuals(p, q);
+
+    if (sum === state.currentN) {
+        showSuccess();
+    } else {
+        document.getElementById('result-text').innerText = "おっと！合計が違います。";
+        setTimeout(() => {
+            state.selectedPrimes = [];
+            document.querySelectorAll('.prime-chip').forEach(c => c.classList.remove('selected', 'double-selected'));
+            updateVisuals(0, 0);
+            document.getElementById('result-text').innerText = "";
+        }, 1200);
+    }
+}
+
+function showSuccess() {
+    document.getElementById('result-text').innerText = "正解！";
+    state.score++;
+    if (state.score > state.highScore) {
+        state.highScore = state.score;
+        localStorage.setItem('goldbach_score_solo', state.highScore);
+    }
+
+    const pairs = findGoldbachPairs(state.currentN);
+    const pairsHtml = pairs.map(pair => `<span>${pair[0]} + ${pair[1]}</span>`).join(' / ');
+    const allCombosEl = document.getElementById('all-combinations');
+    allCombosEl.innerHTML = `<strong>すべての組み合わせ (${pairs.length})</strong><br>${pairsHtml}`;
+    allCombosEl.classList.remove('hidden');
+
+    document.getElementById('prime-chips').classList.add('hidden');
+    document.getElementById('btn-hint').classList.add('hidden');
+    document.getElementById('btn-next-question').classList.remove('hidden');
+}
+
+function getHint() {
+    const pairs = findGoldbachPairs(state.currentN);
+    const hintPair = pairs[Math.floor(Math.random() * pairs.length)];
+    document.getElementById('result-text').innerText = `ヒント: 片方は ${hintPair[0]}`;
+}
+
+function updateVisuals(p, q) {
+    const pMarker = document.getElementById('marker-p');
+    const qMarker = document.getElementById('marker-q');
+    const connector = document.getElementById('connector');
+    
+    const pPos = (p / state.currentN) * 100;
+    const qPos = q === 0 ? 100 : ((state.currentN - q) / state.currentN) * 100;
+
+    pMarker.style.left = `${pPos}%`;
+    qMarker.style.left = `${qPos}%`;
+
+    if (p > 0 && q > 0) {
+        connector.style.left = `${Math.min(pPos, qPos)}%`;
+        connector.style.width = `${Math.abs(qPos - pPos)}%`;
+    } else {
+        connector.style.width = '0';
+    }
+}
+</script>
+</body>
+</html>
