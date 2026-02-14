@@ -1,0 +1,318 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Make a ten!</title>
+    <style>
+        :root {
+            --bg: #f8fafc;
+            --card-bg: #ffffff;
+            --primary: #3b82f6;
+            --success: #22c55e;
+            --danger: #ef4444;
+            --accent: #f59e0b;
+            --text: #1e293b;
+        }
+
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            background-color: var(--bg);
+            color: var(--text);
+            text-align: center;
+            margin: 0;
+            padding: 20px;
+            overflow: hidden;
+            user-select: none;
+        }
+
+        .header { margin-bottom: 30px; }
+        h1 { margin: 0; font-size: 2rem; color: #334155; }
+
+        .stats {
+            display: flex;
+            justify-content: center;
+            gap: 40px;
+            font-size: 1.2rem;
+            font-weight: bold;
+            margin-top: 10px;
+        }
+        #high-score { color: var(--accent); }
+
+        /* 数字カードエリア */
+        #numbers-container {
+            display: flex;
+            justify-content: center;
+            gap: 20px;
+            margin-bottom: 50px;
+            min-height: 90px;
+        }
+
+        .num-card {
+            width: 80px;
+            height: 80px;
+            background: var(--card-bg);
+            border: 3px solid var(--primary);
+            border-radius: 16px;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-size: 2.2rem;
+            font-weight: 900;
+            cursor: grab;
+            box-shadow: 0 10px 15px -3px rgba(0,0,0,0.1);
+            transition: transform 0.1s, box-shadow 0.2s;
+        }
+        .num-card:active { cursor: grabbing; }
+        .num-card.dragging { opacity: 0.4; transform: scale(0.8); }
+
+        /* スロットエリア */
+        #lists-container {
+            display: flex;
+            justify-content: center;
+            flex-wrap: wrap;
+            gap: 15px;
+        }
+
+        .slot {
+            width: 120px;
+            height: 180px;
+            background: var(--card-bg);
+            border: 4px solid #e2e8f0;
+            border-radius: 20px;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: center;
+            position: relative;
+            transition: all 0.2s ease;
+        }
+        .slot h3 { font-size: 0.9rem; color: #94a3b8; margin: 0; margin-bottom: 5px; }
+        .slot .total-val { font-size: 3rem; font-weight: 800; color: #475569; margin: 0; }
+
+        /* インタラクション状態 */
+        .slot.drag-over { border-color: var(--primary); background: #eff6ff; transform: translateY(-5px); }
+        
+        .slot.success-flash { animation: success-ani 0.6s ease-out; }
+        @keyframes success-ani {
+            0% { transform: scale(1); border-color: var(--success); box-shadow: 0 0 0 0 rgba(34, 197, 94, 0.7); }
+            50% { transform: scale(1.1); border-color: var(--success); box-shadow: 0 0 30px 10px rgba(34, 197, 94, 0.4); }
+            100% { transform: scale(1); border-color: #e2e8f0; }
+        }
+
+        .slot.broken {
+            background: #f1f5f9;
+            border-color: var(--danger);
+            opacity: 0.7;
+            animation: shake 0.4s ease-in-out;
+        }
+        .slot.broken .total-val { color: var(--danger); }
+        @keyframes shake {
+            0%, 100% { transform: translateX(0); }
+            20%, 60% { transform: translateX(-6px); }
+            40%, 80% { transform: translateX(6px); }
+        }
+
+        /* コンボ表示 */
+        #combo-popup {
+            position: fixed;
+            top: 40%;
+            left: 50%;
+            transform: translate(-50%, -50%);
+            font-size: 5rem;
+            font-weight: 900;
+            color: var(--accent);
+            text-shadow: 2px 2px 0 #fff, -2px -2px 0 #fff, 4px 4px 10px rgba(0,0,0,0.2);
+            pointer-events: none;
+            opacity: 0;
+            z-index: 1000;
+        }
+        .animate-combo { animation: combo-float 0.8s cubic-bezier(0.18, 0.89, 0.32, 1.28) forwards; }
+        @keyframes combo-float {
+            0% { opacity: 0; transform: translate(-50%, 0) scale(0.5); }
+            30% { opacity: 1; transform: translate(-50%, -50%) scale(1.2); }
+            100% { opacity: 0; transform: translate(-50%, -100%) scale(1); }
+        }
+
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Make a ten!</h1>
+        <div class="stats">
+            <div>SCORE: <span id="score">0</span></div>
+            <div>Highest score: <span id="high-score">0</span></div>
+        </div>
+    </div>
+
+    <div id="numbers-container"></div>
+    <div id="lists-container"></div>
+    <div id="combo-popup">COMBO!</div>
+
+    <script>
+        // --- サウンドシステム ---
+        const AudioSys = {
+            ctx: new (window.AudioContext || window.webkitAudioContext)(),
+            play(f, type, d, v = 0.1) {
+                if(this.ctx.state === 'suspended') this.ctx.resume();
+                const o = this.ctx.createOscillator();
+                const g = this.ctx.createGain();
+                o.type = type;
+                o.frequency.setValueAtTime(f, this.ctx.currentTime);
+                g.gain.setValueAtTime(v, this.ctx.currentTime);
+                g.gain.exponentialRampToValueAtTime(0.01, this.ctx.currentTime + d);
+                o.connect(g); g.connect(this.ctx.destination);
+                o.start(); o.stop(this.ctx.currentTime + d);
+            },
+            pick() { this.play(880, 'sine', 0.05, 0.05); },
+            success(c) {
+                const base = 523.25 + (c * 50); // コンボで音程アップ
+                this.play(base, 'sine', 0.2);
+                setTimeout(() => this.play(base * 1.5, 'sine', 0.3), 100);
+            },
+            error() {
+                this.play(150, 'sawtooth', 0.4, 0.05);
+                this.play(140, 'sawtooth', 0.4, 0.05);
+            }
+        };
+
+        // --- ゲームロジック ---
+        let score = 0;
+        let highScore = localStorage.getItem('tenGameHighScore') || 0;
+        let combo = 0;
+        let lastSuccessTime = 0;
+        const COMBO_LIMIT = 2500; // 2.5秒以内に次を作ればコンボ
+
+        document.getElementById('high-score').textContent = highScore;
+
+        function init() {
+            createSlots();
+            generateNumbers();
+        }
+
+        function createSlots() {
+            const container = document.getElementById("lists-container");
+            container.innerHTML = "";
+            for (let i = 0; i < 5; i++) {
+                const div = document.createElement("div");
+                div.className = "slot";
+                div.innerHTML = `<h3>TOTAL</h3><p class="total-val">0</p>`;
+                div.dataset.val = 0;
+                
+                div.ondragover = (e) => { e.preventDefault(); if(!div.classList.contains('broken')) div.classList.add('drag-over'); };
+                div.ondragleave = () => div.classList.remove('drag-over');
+                div.ondrop = (e) => handleDrop(e, div);
+                
+                container.appendChild(div);
+            }
+        }
+
+        function generateNumbers() {
+            const container = document.getElementById("numbers-container");
+            container.innerHTML = "";
+            for (let i = 0; i < 3; i++) {
+                const val = Math.floor(Math.random() * 9) + 1;
+                const card = document.createElement("div");
+                card.className = "num-card";
+                card.textContent = val;
+                card.draggable = true;
+                card.ondragstart = (e) => {
+                    AudioSys.pick();
+                    e.dataTransfer.setData("text", val);
+                    card.classList.add('dragging');
+                };
+                card.ondragend = () => card.classList.remove('dragging');
+                container.appendChild(card);
+            }
+        }
+
+        function handleDrop(e, slot) {
+            e.preventDefault();
+            slot.classList.remove('drag-over');
+            if (slot.classList.contains('broken')) return;
+
+            const val = parseInt(e.dataTransfer.getData("text"));
+            let total = parseInt(slot.dataset.val) + val;
+            
+            const dragCard = document.querySelector('.dragging');
+            if(dragCard) dragCard.remove();
+
+            slot.dataset.val = total;
+            slot.querySelector(".total-val").textContent = total;
+
+            if (total === 10) {
+                handleSuccess(slot);
+            } else if (total > 10) {
+                handleBurst(slot);
+            }
+
+            if (document.querySelectorAll('.num-card').length === 0) generateNumbers();
+        }
+
+        function handleSuccess(slot) {
+            const now = Date.now();
+            if (now - lastSuccessTime < COMBO_LIMIT) {
+                combo++;
+                showComboUI();
+            } else {
+                combo = 1;
+            }
+            lastSuccessTime = now;
+
+            score += 10 * combo;
+            updateScore();
+            AudioSys.success(combo);
+
+            slot.classList.add('success-flash');
+            setTimeout(() => {
+                slot.classList.remove('success-flash');
+                slot.dataset.val = 0;
+                slot.querySelector(".total-val").textContent = "0";
+            }, 600);
+        }
+
+        function handleBurst(slot) {
+            slot.classList.add('broken');
+            combo = 0;
+            AudioSys.error();
+            checkGameOver();
+        }
+
+        function updateScore() {
+            document.getElementById('score').textContent = score;
+            if (score > highScore) {
+                highScore = score;
+                document.getElementById('high-score').textContent = highScore;
+                localStorage.setItem('tenGameHighScore', highScore);
+            }
+        }
+
+        function showComboUI() {
+            const popup = document.getElementById('combo-popup');
+            popup.textContent = `${combo} COMBO!`;
+            popup.classList.remove('animate-combo');
+            void popup.offsetWidth; 
+            popup.classList.add('animate-combo');
+        }
+
+        function checkGameOver() {
+            const slots = document.querySelectorAll('.slot');
+            const broken = document.querySelectorAll('.slot.broken');
+            if (slots.length === broken.length) {
+                setTimeout(() => {
+                    alert(`GAME OVER\nSCORE: ${score}`);
+                    location.reload(); 
+                }, 600);
+            }
+        }
+
+        // 初回クリック時にオーディオコンテキストを有効化
+        window.addEventListener('mousedown', () => {
+            if (AudioSys.ctx.state === 'suspended') AudioSys.ctx.resume();
+        }, { once: true });
+
+        init();
+    </script>
+</body>
+</html>
