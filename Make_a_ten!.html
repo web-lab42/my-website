@@ -43,14 +43,18 @@
         #high-score { color: var(--accent); }
 
         /* 数字カードエリア */
-        #numbers-container {
-            display: flex;
-            justify-content: center;
-            gap: 12px;
-            margin-bottom: 30px;
-            min-height: 85px;
-        }
-
+/* 数字カードエリアの修正 */
+#numbers-container {
+    display: flex;
+    justify-content: flex-start; /* centerからflex-startに変更 */
+    gap: 12px;
+    margin-bottom: 30px;
+    min-height: 85px;
+    /* カード3枚分 + gap2つ分 + 余裕を持たせた幅に固定 */
+    width: 250px; 
+    margin-left: auto;
+    margin-right: auto;
+}
         .num-card {
             width: 70px;
             height: 70px;
