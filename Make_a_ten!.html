@@ -24,7 +24,6 @@
             margin: 0;
             padding: 10px;
             overflow-x: hidden;
-            /* スマホでのスクロールやダブルタップズームを抑制 */
             touch-action: manipulation;
             user-select: none;
             -webkit-user-select: none;
@@ -42,19 +41,15 @@
         }
         #high-score { color: var(--accent); }
 
-        /* 数字カードエリア */
-/* 数字カードエリアの修正 */
-#numbers-container {
-    display: flex;
-    justify-content: flex-start; /* centerからflex-startに変更 */
-    gap: 12px;
-    margin-bottom: 30px;
-    min-height: 85px;
-    /* カード3枚分 + gap2つ分 + 余裕を持たせた幅に固定 */
-    width: 250px; 
-    margin-left: auto;
-    margin-right: auto;
-}
+        /* 数字カードエリア：位置固定のため幅を指定 */
+        #numbers-container {
+            display: flex;
+            justify-content: center;
+            gap: 12px;
+            margin-bottom: 30px;
+            min-height: 85px;
+        }
+
         .num-card {
             width: 70px;
             height: 70px;
@@ -69,10 +64,9 @@
             cursor: pointer;
             box-shadow: 0 4px 6px rgba(0,0,0,0.1);
             transition: transform 0.1s, background-color 0.2s;
-            touch-action: none; /* ドラッグ操作を優先 */
+            touch-action: none;
         }
         
-        /* 選択中のスタイル（スマホ用） */
         .num-card.selected {
             background-color: var(--selected);
             transform: scale(1.1);
@@ -104,7 +98,6 @@
         .slot h3 { font-size: 0.7rem; color: #94a3b8; margin: 0; }
         .slot .total-val { font-size: 2.5rem; font-weight: 800; color: #475569; margin: 0; }
 
-        /* モバイル対応の調整 */
         @media (max-width: 480px) {
             #lists-container { grid-template-columns: repeat(3, 1fr); }
             .slot { height: 120px; }
@@ -196,7 +189,7 @@
         let highScore = localStorage.getItem('tenGameHighScore') || 0;
         let combo = 0;
         let lastSuccessTime = 0;
-        let selectedValue = null; // タップ操作用
+        let selectedValue = null;
         let selectedCardElement = null;
         const COMBO_LIMIT = 2500;
 
@@ -216,7 +209,6 @@
                 div.innerHTML = `<h3>TOTAL</h3><p class="total-val">0</p>`;
                 div.dataset.val = 0;
                 
-                // Drag & Drop events
                 div.ondragover = (e) => { e.preventDefault(); if(!div.classList.contains('broken')) div.classList.add('drag-over'); };
                 div.ondragleave = () => div.classList.remove('drag-over');
                 div.ondrop = (e) => {
@@ -224,7 +216,6 @@
                     executeMove(div, parseInt(val));
                 };
 
-                // Tap event (Alternative for mobile)
                 div.onclick = () => {
                     if (selectedValue !== null) {
                         executeMove(div, selectedValue);
@@ -237,7 +228,7 @@
 
         function generateNumbers() {
             const container = document.getElementById("numbers-container");
-            container.innerHTML = "";
+            container.innerHTML = ""; // ここで物理的にクリアされる
             selectedValue = null;
             selectedCardElement = null;
 
@@ -248,17 +239,14 @@
                 card.textContent = val;
                 card.draggable = true;
 
-                // Drag Start
                 card.ondragstart = (e) => {
                     AudioSys.pick();
                     e.dataTransfer.setData("text", val);
                     card.classList.add('dragging');
-                    // 同時にタップ選択状態も更新
                     selectCard(card, val);
                 };
                 card.ondragend = () => card.classList.remove('dragging');
 
-                // Tap selection
                 card.onclick = (e) => {
                     e.stopPropagation();
                     AudioSys.pick();
@@ -280,21 +268,25 @@
             slot.classList.remove('drag-over');
             if (slot.classList.contains('broken') || isNaN(val)) return;
 
-            let total = parseInt(slot.dataset.val) + val;
-            
-            // 使用したカードを削除
+            // 使用したカードを「消去」せず「不可視化」して場所を保持
             if (selectedCardElement) {
-                selectedCardElement.remove();
+                selectedCardElement.style.visibility = 'hidden';
+                selectedCardElement.style.pointerEvents = 'none';
                 selectedValue = null;
                 selectedCardElement = null;
             } else {
-                // Drag&Drop経由で要素が特定できない場合のフォールバック
                 const cards = document.querySelectorAll('.num-card');
                 for(let c of cards) {
-                    if(parseInt(c.textContent) === val) { c.remove(); break; }
+                    // まだ表示されているカードの中から対象を探す
+                    if(parseInt(c.textContent) === val && c.style.visibility !== 'hidden') { 
+                        c.style.visibility = 'hidden';
+                        c.style.pointerEvents = 'none';
+                        break; 
+                    }
                 }
             }
 
+            let total = parseInt(slot.dataset.val) + val;
             slot.dataset.val = total;
             slot.querySelector(".total-val").textContent = total;
 
@@ -304,7 +296,10 @@
                 handleBurst(slot);
             }
 
-            if (document.querySelectorAll('.num-card').length === 0) generateNumbers();
+            // 非表示のカードも含め、全てが invisible になったら次を生成
+            const visibleCards = Array.from(document.querySelectorAll('.num-card'))
+                                     .filter(c => c.style.visibility !== 'hidden');
+            if (visibleCards.length === 0) generateNumbers();
         }
 
         function handleSuccess(slot) {
@@ -359,7 +354,6 @@
             }
         }
 
-        // 画面のどこかをタップした時にオーディオを再開し、選択を解除
         window.addEventListener('touchstart', () => {
             if (AudioSys.ctx.state === 'suspended') AudioSys.ctx.resume();
         }, { passive: true });
