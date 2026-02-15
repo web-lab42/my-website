@@ -3,7 +3,7 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
-    <title>Make a 13!</title>
+    <title>Make a ten!</title>
     <style>
         :root {
             --bg: #f8fafc;
@@ -149,7 +149,7 @@
 <body>
 
     <div class="header">
-        <h1>Make a 13!</h1>
+        <h1>Make a ten!</h1>
         <div class="stats">
             <div>SCORE: <span id="score">0</span></div>
             <div>HIGH: <span id="high-score">0</span></div>
@@ -290,9 +290,9 @@
             slot.dataset.val = total;
             slot.querySelector(".total-val").textContent = total;
 
-            if (total === 13) {
+            if (total === 10) {
                 handleSuccess(slot);
-            } else if (total > 13) {
+            } else if (total > 10) {
                 handleBurst(slot);
             }
 
@@ -361,4 +361,5 @@
         init();
     </script>
 </body>
+
 </html>
