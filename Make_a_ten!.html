@@ -29,8 +29,30 @@
             -webkit-user-select: none;
         }
 
+        /* 新設：コントロールボタンの配置 */
+        .controls {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            max-width: 600px;
+            margin: 0 auto;
+            padding: 5px 10px;
+        }
+
+        .btn-small {
+            background: #e2e8f0;
+            border: none;
+            border-radius: 6px;
+            padding: 5px 10px;
+            font-size: 0.8rem;
+            font-weight: bold;
+            color: #64748b;
+            cursor: pointer;
+        }
+        .btn-small:active { background: #cbd5e1; }
+
         .header { margin-bottom: 20px; }
-        h1 { margin: 10px 0; font-size: 1.8rem; color: #334155; }
+        h1 { margin: 5px 0; font-size: 1.8rem; color: #334155; }
 
         .stats {
             display: flex;
@@ -39,9 +61,8 @@
             font-size: 1rem;
             font-weight: bold;
         }
-        #high-score { color: var(--accent); }
+        #highest-score { color: var(--accent); } /* IDをhighestに変更 */
 
-        /* 数字カードエリア：位置固定のため幅を指定 */
         #numbers-container {
             display: flex;
             justify-content: center;
@@ -75,7 +96,6 @@
 
         .num-card.dragging { opacity: 0.4; }
 
-        /* スロットエリア */
         #lists-container {
             display: grid;
             grid-template-columns: repeat(auto-fit, minmax(100px, 1fr));
@@ -148,11 +168,16 @@
 </head>
 <body>
 
+    <div class="controls">
+        <button class="btn-small" onclick="resetHighest()">RESET HIGHEST</button>
+        <button class="btn-small" onclick="showHelp()">HOW TO PLAY?</button>
+    </div>
+
     <div class="header">
         <h1>Make a ten!</h1>
         <div class="stats">
             <div>SCORE: <span id="score">0</span></div>
-            <div>HIGH: <span id="high-score">0</span></div>
+            <div>HIGHEST: <span id="highest-score">0</span></div>
         </div>
     </div>
 
@@ -186,18 +211,31 @@
         };
 
         let score = 0;
-        let highScore = localStorage.getItem('tenGameHighScore') || 0;
+        let highestScore = localStorage.getItem('tenGameHighScore') || 0;
         let combo = 0;
         let lastSuccessTime = 0;
         let selectedValue = null;
         let selectedCardElement = null;
-        const COMBO_LIMIT = 2500;
+        const COMBO_LIMIT = 5000; 
 
-        document.getElementById('high-score').textContent = highScore;
+        document.getElementById('highest-score').textContent = highestScore;
 
         function init() {
             createSlots();
-            generateNumbers();
+            generateInitialNumbers();
+        }
+
+        // 使い方を表示する関数
+        function showHelp() {
+            alert("HOW TO PLAY:\n1. Drag or click a number card.\n2. Place it into one of the slots.\n3. Make the total exactly 10 to clear the slot!\n4. If the total exceeds 10, the slot breaks.\n5. Successive cleans within 5 seconds trigger a COMBO bonus!\n6. Game over when all slots are broken.");
+        }
+
+        // 最高スコアをリセットする関数
+        function resetHighest() {
+            if (confirm("Are you sure you want to reset your HIGHEST score? This cannot be undone.")) {
+                localStorage.setItem('tenGameHighScore', 0);
+                location.reload();
+            }
         }
 
         function createSlots() {
@@ -213,12 +251,13 @@
                 div.ondragleave = () => div.classList.remove('drag-over');
                 div.ondrop = (e) => {
                     const val = e.dataTransfer.getData("text");
-                    executeMove(div, parseInt(val));
+                    const draggingCard = document.querySelector('.num-card.dragging');
+                    executeMove(div, parseInt(val), draggingCard);
                 };
 
                 div.onclick = () => {
                     if (selectedValue !== null) {
-                        executeMove(div, selectedValue);
+                        executeMove(div, selectedValue, selectedCardElement);
                     }
                 };
                 
@@ -226,35 +265,35 @@
             }
         }
 
-        function generateNumbers() {
+        function generateInitialNumbers() {
             const container = document.getElementById("numbers-container");
-            container.innerHTML = ""; // ここで物理的にクリアされる
-            selectedValue = null;
-            selectedCardElement = null;
-
+            container.innerHTML = ""; 
             for (let i = 0; i < 3; i++) {
-                const val = Math.floor(Math.random() * 9) + 1;
-                const card = document.createElement("div");
-                card.className = "num-card";
-                card.textContent = val;
-                card.draggable = true;
-
-                card.ondragstart = (e) => {
-                    AudioSys.pick();
-                    e.dataTransfer.setData("text", val);
-                    card.classList.add('dragging');
-                    selectCard(card, val);
-                };
-                card.ondragend = () => card.classList.remove('dragging');
-
-                card.onclick = (e) => {
-                    e.stopPropagation();
-                    AudioSys.pick();
-                    selectCard(card, val);
-                };
-
-                container.appendChild(card);
+                container.appendChild(createCard());
             }
+        }
+
+        function createCard() {
+            const val = Math.floor(Math.random() * 9) + 1;
+            const card = document.createElement("div");
+            card.className = "num-card";
+            card.textContent = val;
+            card.draggable = true;
+
+            card.ondragstart = (e) => {
+                AudioSys.pick();
+                e.dataTransfer.setData("text", val);
+                card.classList.add('dragging');
+                selectCard(card, val);
+            };
+            card.ondragend = () => card.classList.remove('dragging');
+
+            card.onclick = (e) => {
+                e.stopPropagation();
+                AudioSys.pick();
+                selectCard(card, val);
+            };
+            return card;
         }
 
         function selectCard(card, val) {
@@ -264,26 +303,15 @@
             selectedCardElement = card;
         }
 
-        function executeMove(slot, val) {
+        function executeMove(slot, val, cardEl) {
             slot.classList.remove('drag-over');
             if (slot.classList.contains('broken') || isNaN(val)) return;
 
-            // 使用したカードを「消去」せず「不可視化」して場所を保持
-            if (selectedCardElement) {
-                selectedCardElement.style.visibility = 'hidden';
-                selectedCardElement.style.pointerEvents = 'none';
+            if (cardEl && cardEl.parentNode) {
+                const container = document.getElementById("numbers-container");
+                container.replaceChild(createCard(), cardEl);
                 selectedValue = null;
                 selectedCardElement = null;
-            } else {
-                const cards = document.querySelectorAll('.num-card');
-                for(let c of cards) {
-                    // まだ表示されているカードの中から対象を探す
-                    if(parseInt(c.textContent) === val && c.style.visibility !== 'hidden') { 
-                        c.style.visibility = 'hidden';
-                        c.style.pointerEvents = 'none';
-                        break; 
-                    }
-                }
             }
 
             let total = parseInt(slot.dataset.val) + val;
@@ -295,11 +323,6 @@
             } else if (total > 10) {
                 handleBurst(slot);
             }
-
-            // 非表示のカードも含め、全てが invisible になったら次を生成
-            const visibleCards = Array.from(document.querySelectorAll('.num-card'))
-                                     .filter(c => c.style.visibility !== 'hidden');
-            if (visibleCards.length === 0) generateNumbers();
         }
 
         function handleSuccess(slot) {
@@ -329,10 +352,10 @@
 
         function updateScore() {
             document.getElementById('score').textContent = score;
-            if (score > highScore) {
-                highScore = score;
-                document.getElementById('high-score').textContent = highScore;
-                localStorage.setItem('tenGameHighScore', highScore);
+            if (score > highestScore) {
+                highestScore = score;
+                document.getElementById('highest-score').textContent = highestScore;
+                localStorage.setItem('tenGameHighScore', highestScore);
             }
         }
 
@@ -361,5 +384,4 @@
         init();
     </script>
 </body>
-
 </html>
