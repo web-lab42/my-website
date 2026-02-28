@@ -1,0 +1,270 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<title>6x6 Forbidden Othello</title>
+<style>
+:root { --bg: #1e272e; --board: #218c74; --cell: 55px; }
+body { font-family: sans-serif; background: var(--bg); color: #ecf0f1; display: flex; flex-direction: column; align-items: center; padding: 10px; margin: 0; }
+.panel { background: #2f3542; padding: 15px; border-radius: 10px; margin-bottom: 10px; width: 380px; box-shadow: 0 4px 15px rgba(0,0,0,0.3); position: relative; }
+#status { font-size: 1.1rem; color: #f1c40f; font-weight: bold; text-align: center; margin-bottom: 10px; min-height: 1.5em; }
+.setup-row { display: flex; justify-content: space-between; align-items: center; margin: 5px 0; font-size: 0.9rem; }
+#board { display: grid; grid-template-columns: repeat(6, var(--cell)); grid-template-rows: repeat(6, var(--cell)); gap: 2px; background: #111; border: 4px solid #111; margin: 10px 0; }
+.cell { background: var(--board); display: flex; justify-content: center; align-items: center; cursor: pointer; position: relative; width: var(--cell); height: var(--cell); }
+.stone { width: 85%; height: 85%; border-radius: 50%; z-index: 2; transition: 0.3s; }
+.black { background: #000; border: 1px solid #333; }
+.white { background: #fff; border: 1px solid #ccc; }
+.forbidden { background: #4b6584 !important; }
+.forbidden::after { content: "×"; color: #ff4757; font-size: 35px; position: absolute; z-index: 3; opacity: 0.8; }
+.last-move { box-shadow: inset 0 0 0 3px #ff7f50; }
+.eval-num { position: absolute; font-size: 9px; bottom: 1px; right: 2px; color: rgba(255,255,255,0.7); pointer-events: none; display: none; text-shadow: 1px 1px 1px #000; }
+.show-eval .eval-num { display: block; }
+.replay-panel { display: none; border-top: 1px solid #57606f; padding-top: 10px; margin-top: 10px; }
+button { padding: 6px 12px; cursor: pointer; background: #57606f; color: white; border: none; border-radius: 4px; }
+button:hover { background: #a4b0be; }
+.active { background: #2e86de !important; }
+#modal { display: none; position: fixed; top: 0; left: 0; width: 100%; height: 100%; background: rgba(0,0,0,0.8); z-index: 100; justify-content: center; align-items: center; }
+.modal-content { background: #2f3542; padding: 20px; border-radius: 15px; width: 320px; max-height: 80vh; overflow-y: auto; line-height: 1.6; }
+.modal-content h3 { color: #f1c40f; margin-top: 0; }
+.close-btn { background: #e74c3c; width: 100%; margin-top: 15px; }
+</style>
+</head>
+<body>
+
+<div class="panel">
+    <div id="status">準備中...</div>
+    <div class="setup-row">
+        <button id="btnPvP" onclick="setGameMode('PvP')">人 vs 人</button>
+        <button id="btnPvC" class="active" onclick="setGameMode('PvC')">人 vs CPU</button>
+        <button onclick="showHelp()">？ 遊び方</button>
+    </div>
+    <div class="setup-row">
+        CPU Lv: <span id="lv-val">3</span>
+        <input type="range" id="cpu-lv" min="1" max="5" value="3" oninput="document.getElementById('lv-val').innerText=this.value">
+        <button id="evalToggle" onclick="toggleEval()">評価値: OFF</button>
+    </div>
+</div>
+
+<div id="board"></div>
+
+<div class="panel">
+    <div class="setup-row">
+        <span>黒: <span id="sb">2</span> / 白: <span id="sw">2</span></span>
+        <select id="playerSide" onchange="resetGame()" style="background:#444; color:white; border:none; border-radius:3px;">
+            <option value="1">黒 (先手)</option>
+            <option value="-1">白 (後手)</option>
+        </select>
+        <button onclick="resetGame()">リセット</button>
+    </div>
+    <div id="replay-ui" class="replay-panel">
+        <div class="setup-row">
+            振り返り: 
+            <button onclick="changeStep(-1)">前へ</button>
+            <button onclick="changeStep(1)">次へ</button>
+            <span id="step-info">0 / 0</span>
+        </div>
+        <input type="range" id="replay-range" min="0" max="0" value="0" style="width:100%" oninput="jumpToStep(this.value)">
+    </div>
+</div>
+
+<div id="modal">
+    <div class="modal-content">
+        <h3>このゲームのルール</h3>
+        <p><strong>1. 最強手禁止ルール:</strong><br>
+        6手先まで探索し、最も有利なマス（評価値最大）を常に「×」印で禁止。ただし合法手が1つの場合は例外。</p>
+        <p><strong>2. CPUレベル:</strong><br>
+        Lv1: 完全ランダム<br>
+        Lv2-4: 評価値に応じて確率選択<br>
+        Lv5: 完全最適手のみ</p>
+        <p><strong>3. 振り返り機能:</strong><br>
+        対局終了後、各ターンの評価値や盤面を表示できます。</p>
+        <button class="close-btn" onclick="hideHelp()">閉じる</button>
+    </div>
+</div>
+
+<script>
+const SIZE = 6, BLACK = 1, WHITE = -1, EMPTY = 0;
+let board = [], turn = BLACK, forbidden = null, history = [], currentStep = 0;
+let gameMode = 'PvC', isGameOver = false, lastMove = null, displayEval = false;
+let currentEvals = {};
+
+const W = [
+    [100,-20,10,10,-20,100],
+    [-20,-50,-2,-2,-50,-20],
+    [10, -2, 1, 1, -2, 10],
+    [10, -2, 1, 1, -2, 10],
+    [-20,-50,-2,-2,-50,-20],
+    [100,-20,10,10,-20,100]
+];
+
+function showHelp(){ document.getElementById('modal').style.display='flex'; }
+function hideHelp(){ document.getElementById('modal').style.display='none'; }
+function toggleEval(){ displayEval=!displayEval; document.getElementById('evalToggle').innerText="評価値: "+(displayEval?"ON":"OFF"); document.getElementById('board').classList.toggle('show-eval', displayEval); }
+
+function initBoard(){
+    board = Array(SIZE).fill().map(()=>Array(SIZE).fill(EMPTY));
+    board[2][2]=WHITE; board[3][3]=WHITE; board[2][3]=BLACK; board[3][2]=BLACK;
+    turn = BLACK; history=[]; isGameOver=false; lastMove=null;
+    document.getElementById('replay-ui').style.display='none';
+    updateLogic();
+}
+
+function setGameMode(m){ gameMode=m; document.getElementById('btnPvP').className=m==='PvP'?'active':''; document.getElementById('btnPvC').className=m==='PvC'?'active':''; resetGame(); }
+
+function findFlips(b,r,c,col){
+    if(b[r][c]!==EMPTY) return [];
+    let res=[];
+    for(let dr=-1;dr<=1;dr++) for(let dc=-1;dc<=1;dc++){
+        if(dr===0 && dc===0) continue;
+        let tmp=[], nr=r+dr, nc=c+dc;
+        while(nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE&&b[nr][nc]===-col){ tmp.push([nr,nc]); nr+=dr; nc+=dc; }
+        if(nr>=0&&nr<SIZE&&nc>=0&&nc<SIZE&&b[nr][nc]===col&&tmp.length>0) res.push(...tmp);
+    }
+    return res;
+}
+
+function getMoves(b,col){
+    let res=[];
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++){
+        let f=findFlips(b,r,c,col);
+        if(f.length>0) res.push({r,c,f});
+    }
+    return res;
+}
+
+function evaluate(b){
+    let s=0;
+    for(let r=0;r<SIZE;r++) for(let c=0;c<SIZE;c++) s+=b[r][c]*W[r][c];
+    return s;
+}
+
+function applyMoveSim(b,move,col){
+    let nb = b.map(row=>[...row]);
+    nb[move.r][move.c]=col;
+    move.f.forEach(([fr,fc])=>nb[fr][fc]=col);
+    return nb;
+}
+
+function ab(b,d,a,bv,col,player){
+    let m = getMoves(b,col);
+    if(d===0||m.length===0) return evaluate(b);
+    if(col===player){
+        let v=-Infinity;
+        for(let i of m){ v=Math.max(v,ab(applyMoveSim(b,i,col),d-1,a,bv,-col,player)); a=Math.max(a,v); if(bv<=a) break; }
+        return v;
+    }else{
+        let v=Infinity;
+        for(let i of m){ v=Math.min(v,ab(applyMoveSim(b,i,col),d-1,a,bv,-col,player)); bv=Math.min(bv,v); if(bv<=a) break; }
+        return v;
+    }
+}
+
+function updateLogic(){
+    let moves = getMoves(board, turn);
+    currentEvals={}; forbidden=null;
+    if(moves.length>1){
+        let bestScore=-Infinity, bestMoves=[];
+        for(let m of moves){
+            let s = ab(applyMoveSim(board,m,turn),6,-Infinity,Infinity,-turn,turn);
+            let score = turn===BLACK?s:-s;
+            currentEvals[`${m.r}-${m.c}`]=score;
+            if(score>bestScore){ bestScore=score; bestMoves=[m]; }
+            else if(score===bestScore) bestMoves.push(m);
+        }
+        forbidden = bestMoves.length===moves.length?null:bestMoves[0];
+    }
+
+    saveHistory(); render(currentEvals);
+
+    if(moves.length===0){
+        if(getMoves(board,-turn).length===0){ isGameOver=true; endGame(); return; }
+        alert("パスします"); turn=-turn; updateLogic(); return;
+    }
+
+    document.getElementById('status').innerText=(turn===BLACK?"黒":"白")+"の番";
+
+    if(!isGameOver && gameMode==='PvC' && turn!==parseInt(document.getElementById('playerSide').value)){
+        setTimeout(()=>cpuAction(moves,currentEvals),600);
+    }
+}
+
+function weightedRandomChoice(moves,evals){
+    // 重み付き確率選択（評価値を指数関数で正に）
+    let weights = moves.map(m=>Math.exp(Math.max(evals[`${m.r}-${m.c}`],0)/10)); // 適当スケール
+    let sum = weights.reduce((a,b)=>a+b,0);
+    let r = Math.random()*sum;
+    for(let i=0;i<moves.length;i++){ r-=weights[i]; if(r<=0) return moves[i]; }
+    return moves[moves.length-1];
+}
+
+function cpuAction(allMoves,evals){
+    let allowed = allMoves.filter(m=>!(forbidden&&m.r===forbidden.r&&m.c===forbidden.c));
+    if(allowed.length===0) allowed=allMoves;
+    allowed.sort((a,b)=>(evals[`${b.r}-${b.c}`]||0)-(evals[`${a.r}-${a.c}`]||0));
+    const lv = parseInt(document.getElementById('cpu-lv').value);
+    let target;
+    if(lv===5){
+        // 完全最適手のみ
+        let bestScore = evals[`${allowed[0].r}-${allowed[0].c}`];
+        let bestMoves = allowed.filter(m=>evals[`${m.r}-${m.c}`]===bestScore);
+        target = bestMoves[0]; // 固定選択
+    }else if(lv>=2){
+        // 重み付きランダム
+        target = weightedRandomChoice(allowed,evals);
+    }else{
+        // Lv1: 完全ランダム
+        target = allowed[Math.floor(Math.random()*allowed.length)];
+    }
+
+    executeMove(target.r,target.c,target.f);
+}
+
+function executeMove(r,c,f){ board[r][c]=turn; f.forEach(([fr,fc])=>board[fr][fc]=turn); lastMove={r,c}; turn=-turn; updateLogic(); }
+
+function saveHistory(){ history.push({b:board.map(r=>[...r]),t:turn,f:forbidden?{...forbidden}:null,l:lastMove?{...lastMove}:null,e:{...currentEvals}}); currentStep=history.length-1; }
+
+function render(evals={}){
+    const boardEl=document.getElementById('board'); boardEl.innerHTML='';
+    let bc=0,wc=0;
+    for(let r=0;r<SIZE;r++){
+        for(let c=0;c<SIZE;c++){
+            const cell=document.createElement('div'); cell.className='cell';
+            if(forbidden&&forbidden.r===r&&forbidden.c===c) cell.classList.add('forbidden');
+            if(lastMove&&lastMove.r===r&&lastMove.c===c) cell.classList.add('last-move');
+            if(evals[`${r}-${c}`]!==undefined){ const eSpan=document.createElement('span'); eSpan.className='eval-num'; eSpan.innerText=evals[`${r}-${c}`]; cell.appendChild(eSpan); }
+            cell.onclick=()=>{ if(isGameOver) return; if(gameMode==='PvC' && turn!==parseInt(document.getElementById('playerSide').value)) return; if(forbidden&&r===forbidden.r&&c===forbidden.c) return; let flips=findFlips(board,r,c,turn); if(flips.length>0) executeMove(r,c,flips); };
+            if(board[r][c]===BLACK){ const s=document.createElement('div'); s.className='stone black'; cell.appendChild(s); bc++; }
+            else if(board[r][c]===WHITE){ const s=document.createElement('div'); s.className='stone white'; cell.appendChild(s); wc++; }
+            boardEl.appendChild(cell);
+        }
+    }
+    document.getElementById('sb').innerText=bc; document.getElementById('sw').innerText=wc;
+}
+
+function endGame(){
+    let bc=parseInt(document.getElementById('sb').innerText), wc=parseInt(document.getElementById('sw').innerText);
+    let result=bc>wc?"黒の勝ち！":(wc>bc?"白の勝ち！":"引き分け");
+    document.getElementById('status').innerText=`【終局】${bc}-${wc}で${result}`;
+    showReplayUI();
+}
+
+function showReplayUI(){
+    document.getElementById('replay-ui').style.display='block';
+    const range=document.getElementById('replay-range');
+    range.max=history.length-1; range.value=history.length-1;
+    updateStepInfo();
+}
+
+function jumpToStep(s){ currentStep=parseInt(s); let data=history[currentStep]; board=data.b.map(r=>[...r]); turn=data.t; forbidden=data.f; lastMove=data.l; render(data.e); updateStepInfo(); }
+
+function changeStep(d){ let next=currentStep+d; if(next>=0 && next<history.length){ document.getElementById('replay-range').value=next; jumpToStep(next); } }
+
+function updateStepInfo(){ document.getElementById('step-info').innerText=`${currentStep} / ${history.length-1}`; }
+
+function resetGame(){ initBoard(); }
+
+initBoard();
+</script>
+
+</body>
+</html>
