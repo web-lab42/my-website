@@ -1,0 +1,535 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>自作単語帳アプリ - Flashcard & Quiz</title>
+    <style>
+        :root {
+            --primary-color: #4a90e2;
+            --success-color: #28a745;
+            --danger-color: #dc3545;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            background-color: var(--bg-color);
+            margin: 0;
+            padding: 20px;
+            display: flex;
+            justify-content: center;
+        }
+
+        #app {
+            width: 100%;
+            max-width: 600px;
+            background: var(--card-bg);
+            padding: 20px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0,0,0,0.1);
+        }
+
+        .screen { display: none; }
+        .screen.active { display: block; }
+
+        h1, h2 { color: #333; text-align: center; }
+        
+        button {
+            padding: 10px 15px;
+            border: none;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 16px;
+            margin: 5px;
+            transition: opacity 0.2s;
+        }
+
+        button:hover { opacity: 0.8; }
+        .btn-primary { background: var(--primary-color); color: white; }
+        .btn-success { background: var(--success-color); color: white; }
+        .btn-danger { background: var(--danger-color); color: white; }
+        .btn-outline { border: 1px solid #ccc; background: white; }
+
+        /* 単語リストのテーブル */
+        table { width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 14px; }
+        th, td { border-bottom: 1px solid #eee; padding: 10px; text-align: left; }
+        .filter-bar { margin: 10px 0; display: flex; gap: 5px; flex-wrap: wrap; }
+
+        /* 学習画面用 */
+        .card-container {
+            border: 2px solid #ddd;
+            border-radius: 15px;
+            padding: 40px 20px;
+            text-align: center;
+            min-height: 150px;
+            margin: 20px 0;
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+        }
+        .card-text { font-size: 28px; font-weight: bold; }
+        .card-subtext { font-size: 18px; color: #666; margin-top: 10px; }
+
+        .timer-bar-container { width: 100%; height: 10px; background: #eee; margin-top: 10px; border-radius: 5px; overflow: hidden; }
+        .timer-bar { height: 100%; background: var(--primary-color); width: 100%; transition: width 0.1s linear; }
+
+        textarea { width: 100%; height: 100px; margin-bottom: 10px; box-sizing: border-box; }
+        .error { color: var(--danger-color); font-size: 14px; margin-bottom: 10px; }
+
+        .choice-btn { width: 100%; text-align: left; margin-bottom: 8px; padding: 15px; border: 1px solid #ddd; border-radius: 8px; }
+        .choice-btn:hover { background-color: #f0f7ff; border-color: var(--primary-color); }
+
+        .history-item { display: flex; justify-content: space-between; align-items: center; border-bottom: 1px solid #eee; padding: 10px 0; }
+    </style>
+</head>
+<body>
+
+<div id="app">
+    <section id="screen-home" class="screen">
+        <h1>📚 単語帳一覧</h1>
+        <div id="book-list"></div>
+        <hr>
+        <button class="btn-primary" onclick="showScreen('screen-new-book')">新規単語帳作成</button>
+    </section>
+
+    <section id="screen-new-book" class="screen">
+        <h2>新しい単語帳</h2>
+        <input type="text" id="new-book-name" placeholder="単語帳の名前" style="width: 100%; padding: 10px; margin-bottom: 10px;">
+        <button class="btn-primary" onclick="createBook()">作成</button>
+        <button class="btn-outline" onclick="showScreen('screen-home')">戻る</button>
+    </section>
+
+    <section id="screen-book-detail" class="screen">
+        <h2 id="current-book-title">単語帳名</h2>
+        <div style="display: flex; justify-content: center; gap: 10px;">
+            <button class="btn-success" onclick="openStudyConfig()">学習開始</button>
+            <button class="btn-primary" onclick="showScreen('screen-import')">単語追加</button>
+            <button class="btn-outline" onclick="showHistoryScreen()">履歴から復習</button>
+        </div>
+        
+        <div class="filter-bar">
+            <span>フィルタ:</span>
+            <button class="btn-outline" onclick="renderWordList('all')">すべて</button>
+            <button class="btn-outline" onclick="renderWordList('unstudied')">未学習</button>
+            <button class="btn-outline" onclick="renderWordList('correct')">正解のみ</button>
+            <button class="btn-outline" onclick="renderWordList('mistakes')">ミスあり</button>
+        </div>
+
+        <div style="overflow-x: auto;">
+            <table id="word-table">
+                <thead>
+                    <tr><th>日</th><th>英</th><th>正解</th><th>ミス</th><th>最終学習</th></tr>
+                </thead>
+                <tbody id="word-list-body"></tbody>
+            </table>
+        </div>
+        <button class="btn-outline" onclick="showScreen('screen-home')" style="margin-top: 20px;">単語帳一覧へ戻る</button>
+    </section>
+
+    <section id="screen-import" class="screen">
+        <h2>単語のインポート</h2>
+        <p>日本語(左)と英語(右)を改行区切りで入力してください。</p>
+        <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 10px;">
+            <textarea id="import-jp" placeholder="犬&#13;猫"></textarea>
+            <textarea id="import-en" placeholder="dog&#13;cat"></textarea>
+        </div>
+        <div id="import-error" class="error"></div>
+        <button class="btn-primary" onclick="importWords()">登録</button>
+        <button class="btn-outline" onclick="showScreen('screen-book-detail')">キャンセル</button>
+    </section>
+
+    <section id="screen-study-config" class="screen">
+        <h2>学習設定</h2>
+        <div>
+            <label>モード:</label>
+            <select id="study-mode" style="width: 100%; padding: 10px; margin-bottom: 15px;">
+                <option value="flashcard">フラッシュカード (自動)</option>
+                <option value="choice">4択クイズ</option>
+            </select>
+        </div>
+        <div>
+            <label>出題形式:</label>
+            <select id="study-direction" style="width: 100%; padding: 10px; margin-bottom: 15px;">
+                <option value="jp-en">日本語 → 英語</option>
+                <option value="en-jp">英語 → 日本語</option>
+            </select>
+        </div>
+<div id="timer-settings">
+    <div style="margin-bottom: 10px;">
+        <label><input type="checkbox" id="manual-mode" onchange="toggleTimerInput()"> 手動でめくる (タイマー無効)</label>
+    </div>
+    <div id="timer-inputs">
+        <label>表示時間 (秒): <input type="number" id="time-front" value="3" min="1" style="width: 50px;"></label><br>
+        <label>回答期限 (秒): <input type="number" id="time-back" value="5" min="1" style="width: 50px;"></label>
+    </div>
+</div>
+        <button class="btn-success" onclick="startStudy()">開始！</button>
+        <button class="btn-outline" onclick="showScreen('screen-book-detail')">戻る</button>
+    </section>
+
+    <section id="screen-flashcard" class="screen">
+        <div id="flashcard-progress">0 / 0</div>
+        <div class="card-container" id="flash-card">
+            <div id="flash-front" class="card-text">Word</div>
+            <div id="flash-back" class="card-subtext" style="visibility: hidden;">Answer</div>
+        </div>
+        <div class="timer-bar-container"><div id="flash-timer" class="timer-bar"></div></div>
+        <div id="flash-controls" style="display: none; justify-content: center; gap: 20px; margin-top: 20px;">
+            <button class="btn-danger" onclick="handleFlashcardResult(false)">分からない</button>
+            <button class="btn-success" onclick="handleFlashcardResult(true)">分かった！</button>
+        </div>
+    </section>
+
+    <section id="screen-choice" class="screen">
+        <div id="choice-progress">0 / 0</div>
+        <div class="card-container">
+            <div id="choice-question" class="card-text">Question</div>
+        </div>
+        <div id="choice-options"></div>
+    </section>
+
+    <section id="screen-history" class="screen">
+        <h2>履歴から復習</h2>
+        <div style="background: #eee; padding: 10px; border-radius: 5px; margin-bottom: 15px;">
+            <label>範囲指定: </label><br>
+            <input type="date" id="range-start"> 〜 <input type="date" id="range-end">
+            <button class="btn-primary" onclick="studyRange()">この期間を復習</button>
+        </div>
+        <div id="history-list"></div>
+        <button class="btn-outline" onclick="showScreen('screen-book-detail')">戻る</button>
+    </section>
+</div>
+
+<script>
+    /** * データ構造 
+     */
+    let data = JSON.parse(localStorage.getItem('vocaApp')) || { books: {} };
+    let currentBookName = "";
+    let currentWordsSet = []; // 学習中の単語リスト
+    let currentIndex = 0;
+    let studySettings = {};
+    let timerId = null;
+
+    /** ユーティリティ: 保存 */
+    function saveData() {
+        localStorage.setItem('vocaApp', JSON.stringify(data));
+    }
+
+    /** 画面切り替え */
+    function showScreen(screenId) {
+        document.querySelectorAll('.screen').forEach(s => s.classList.remove('active'));
+        document.getElementById(screenId).classList.add('active');
+        if(timerId) clearInterval(timerId);
+    }
+
+    /** 1. 単語帳管理 */
+    function renderBookList() {
+        const listDiv = document.getElementById('book-list');
+        listDiv.innerHTML = "";
+        Object.keys(data.books).forEach(name => {
+            const btn = document.createElement('button');
+            btn.className = "btn-outline";
+            btn.style.width = "100%";
+            btn.innerText = `${name} (${data.books[name].words.length}語)`;
+            btn.onclick = () => openBook(name);
+            listDiv.appendChild(btn);
+        });
+        showScreen('screen-home');
+    }
+
+    function createBook() {
+        const name = document.getElementById('new-book-name').value.trim();
+        if(!name) return;
+        if(data.books[name]) return alert("同名の単語帳があります");
+        data.books[name] = { words: [], history: {} };
+        saveData();
+        document.getElementById('new-book-name').value = "";
+        renderBookList();
+    }
+
+    function openBook(name) {
+        currentBookName = name;
+        document.getElementById('current-book-title').innerText = name;
+        renderWordList('all');
+        showScreen('screen-book-detail');
+    }
+
+    /** 2. 単語インポート */
+    function importWords() {
+        const jpLines = document.getElementById('import-jp').value.trim().split('\n').filter(l => l.length > 0);
+        const enLines = document.getElementById('import-en').value.trim().split('\n').filter(l => l.length > 0);
+        const errorDiv = document.getElementById('import-error');
+
+        if(jpLines.length !== enLines.length) {
+            errorDiv.innerText = `エラー: 行数が一致しません (日:${jpLines.length} 英:${enLines.length})`;
+            return;
+        }
+
+        jpLines.forEach((jp, i) => {
+            data.books[currentBookName].words.push({
+                jp: jp.trim(),
+                en: enLines[i].trim(),
+                correct: 0,
+                wrong: 0,
+                lastStudied: null
+            });
+        });
+
+        saveData();
+        errorDiv.innerText = "";
+        document.getElementById('import-jp').value = "";
+        document.getElementById('import-en').value = "";
+        openBook(currentBookName);
+    }
+
+    /** 3. 単語リスト表示 */
+    function renderWordList(filter) {
+        const body = document.getElementById('word-list-body');
+        body.innerHTML = "";
+        const words = data.books[currentBookName].words;
+        const today = new Date();
+
+        words.forEach((w, index) => {
+// フィルタリング（直近の学習結果に基づき判定）
+            if(filter === 'unstudied' && w.lastStudied !== null) return;
+            if(filter === 'correct' && w.lastStatus !== 'correct') return;
+            if(filter === 'mistakes' && w.lastStatus !== 'wrong') return;
+
+            let daysText = "-";
+            if(w.lastStudied) {
+                const diff = Math.floor((today - new Date(w.lastStudied)) / (1000*60*60*24));
+                daysText = diff === 0 ? "今日" : `${diff}日前`;
+            }
+
+            const row = `<tr>
+                <td>${w.jp}</td><td>${w.en}</td>
+                <td>${w.correct}</td><td>${w.wrong}</td>
+                <td>${daysText}</td>
+            </tr>`;
+            body.innerHTML += row;
+        });
+    }
+
+    /** 4. 学習システム */
+    function openStudyConfig() {
+        if(data.books[currentBookName].words.length === 0) return alert("単語がありません");
+        // デフォルトは全単語
+        currentWordsSet = data.books[currentBookName].words.map((_, i) => i);
+        showScreen('screen-study-config');
+    }
+
+// 追加：チェックボックスの状態に合わせて入力可否を切り替え
+function toggleTimerInput() {
+    const isManual = document.getElementById('manual-mode').checked;
+    document.getElementById('timer-inputs').style.opacity = isManual ? "0.3" : "1";
+    document.getElementById('timer-inputs').querySelectorAll('input').forEach(i => i.disabled = isManual);
+}
+
+// startStudy関数の中の studySettings を書き換え
+function startStudy() {
+    studySettings = {
+        mode: document.getElementById('study-mode').value,
+        direction: document.getElementById('study-direction').value,
+        isManual: document.getElementById('manual-mode').checked, // ★追加
+        timeFront: parseInt(document.getElementById('time-front').value) * 1000,
+        timeBack: parseInt(document.getElementById('time-back').value) * 1000
+    };
+    // ...以下同じ
+        
+        currentIndex = 0;
+        // シャッフル
+        currentWordsSet.sort(() => Math.random() - 0.5);
+        
+        if(studySettings.mode === 'flashcard') {
+            showScreen('screen-flashcard');
+            nextFlashcard();
+        } else {
+            showScreen('screen-choice');
+            nextChoice();
+        }
+    }
+
+    /** 回答記録共通 */
+function recordResult(wordIndex, isCorrect) {
+    const book = data.books[currentBookName];
+    const word = book.words[wordIndex];
+    const today = new Date().toISOString().split('T')[0];
+
+    // 統計更新
+    if(isCorrect) word.correct++; else word.wrong++;
+    word.lastStudied = today;
+    
+    // ★追加：直近の学習結果を保存
+    word.lastStatus = isCorrect ? "correct" : "wrong";
+
+    // 履歴更新
+    if(!book.history[today]) book.history[today] = { correct: [], wrong: [] };
+    if(isCorrect) book.history[today].correct.push(wordIndex);
+    else book.history[today].wrong.push(wordIndex);
+
+    saveData();
+}
+    /** フラッシュカード制御 */
+function nextFlashcard() {
+    if(currentIndex >= currentWordsSet.length) {
+        alert("学習終了！");
+        return openBook(currentBookName);
+    }
+
+    const wordIdx = currentWordsSet[currentIndex];
+    const word = data.books[currentBookName].words[wordIdx];
+    const frontText = studySettings.direction === 'jp-en' ? word.jp : word.en;
+    const backText = studySettings.direction === 'jp-en' ? word.en : word.jp;
+
+    document.getElementById('flashcard-progress').innerText = `${currentIndex + 1} / ${currentWordsSet.length}`;
+    document.getElementById('flash-front').innerText = frontText;
+    document.getElementById('flash-back').innerText = backText;
+    document.getElementById('flash-back').style.visibility = "hidden";
+    document.getElementById('flash-controls').style.display = "none";
+    document.getElementById('flash-timer').style.width = "100%"; // バーをリセット
+
+    if (studySettings.isManual) {
+        // 手動モード：カードクリックで裏返し
+        const card = document.getElementById('flash-card');
+        card.style.cursor = "pointer";
+        card.onclick = () => {
+            document.getElementById('flash-back').style.visibility = "visible";
+            document.getElementById('flash-controls').style.display = "flex";
+            card.onclick = null; // 重複防止
+            card.style.cursor = "default";
+        };
+    } else {
+        // 自動モード：従来のタイマー処理
+        startTimer('flash-timer', studySettings.timeFront, () => {
+            document.getElementById('flash-back').style.visibility = "visible";
+            document.getElementById('flash-controls').style.display = "flex";
+            startTimer('flash-timer', studySettings.timeBack, () => {
+                handleFlashcardResult(false);
+            });
+        });
+    }
+}
+
+    function handleFlashcardResult(isCorrect) {
+        if(timerId) clearInterval(timerId);
+        recordResult(currentWordsSet[currentIndex], isCorrect);
+        currentIndex++;
+        nextFlashcard();
+    }
+
+    /** 4択クイズ制御 */
+    function nextChoice() {
+        if(currentIndex >= currentWordsSet.length) {
+            alert("学習終了！");
+            return openBook(currentBookName);
+        }
+
+        const wordIdx = currentWordsSet[currentIndex];
+        const word = data.books[currentBookName].words[wordIdx];
+        const question = studySettings.direction === 'jp-en' ? word.jp : word.en;
+        const answer = studySettings.direction === 'jp-en' ? word.en : word.jp;
+
+        document.getElementById('choice-progress').innerText = `${currentIndex + 1} / ${currentWordsSet.length}`;
+        document.getElementById('choice-question').innerText = question;
+        
+        // 選択肢作成
+        let choices = [{ text: answer, correct: true }];
+        let allWords = data.books[currentBookName].words;
+        let otherWords = allWords.filter((_, i) => i !== wordIdx).sort(() => Math.random() - 0.5);
+        
+        for(let i=0; i<Math.min(3, otherWords.length); i++) {
+            choices.push({
+                text: studySettings.direction === 'jp-en' ? otherWords[i].en : otherWords[i].jp,
+                correct: false
+            });
+        }
+        choices.sort(() => Math.random() - 0.5);
+
+        const optionsDiv = document.getElementById('choice-options');
+        optionsDiv.innerHTML = "";
+        choices.forEach(c => {
+            const btn = document.createElement('button');
+            btn.className = "choice-btn";
+            btn.innerText = c.text;
+            btn.onclick = () => {
+                recordResult(wordIdx, c.correct);
+                if(!c.correct) alert(`間違い！ 正解は: ${answer}`);
+                currentIndex++;
+                nextChoice();
+            };
+            optionsDiv.appendChild(btn);
+        });
+    }
+
+    /** タイマー処理 */
+    function startTimer(elementId, duration, onComplete) {
+        if(timerId) clearInterval(timerId);
+        const bar = document.getElementById(elementId);
+        let start = Date.now();
+        
+        timerId = setInterval(() => {
+            let elapsed = Date.now() - start;
+            let remain = Math.max(0, 100 - (elapsed / duration * 100));
+            bar.style.width = remain + "%";
+            
+            if(elapsed >= duration) {
+                clearInterval(timerId);
+                onComplete();
+            }
+        }, 50);
+    }
+
+    /** 5. 履歴からの復習 */
+    function showHistoryScreen() {
+        const historyList = document.getElementById('history-list');
+        historyList.innerHTML = "<h3>日付を選択</h3>";
+        const history = data.books[currentBookName].history;
+
+        Object.keys(history).sort().reverse().forEach(date => {
+            const count = history[date].correct.length + history[date].wrong.length;
+            const div = document.createElement('div');
+            div.className = "history-item";
+            div.innerHTML = `<span>${date} (${count}語)</span>`;
+            const btn = document.createElement('button');
+            btn.className = "btn-primary";
+            btn.innerText = "この日を復習";
+            btn.onclick = () => {
+                const set = new Set([...history[date].correct, ...history[date].wrong]);
+                currentWordsSet = Array.from(set);
+                showScreen('screen-study-config');
+            };
+            div.appendChild(btn);
+            historyList.appendChild(div);
+        });
+        showScreen('screen-history');
+    }
+
+    function studyRange() {
+        const start = document.getElementById('range-start').value;
+        const end = document.getElementById('range-end').value;
+        if(!start || !end) return alert("日付を選択してください");
+
+        const history = data.books[currentBookName].history;
+        const resultSet = new Set();
+
+        Object.keys(history).forEach(date => {
+            if(date >= start && date <= end) {
+                history[date].correct.forEach(idx => resultSet.add(idx));
+                history[date].wrong.forEach(idx => resultSet.add(idx));
+            }
+        });
+
+        if(resultSet.size === 0) return alert("該当する学習履歴がありません");
+        currentWordsSet = Array.from(resultSet);
+        showScreen('screen-study-config');
+    }
+
+    // 初期起動
+    renderBookList();
+
+</script>
+</body>
+</html>
