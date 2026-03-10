@@ -1,0 +1,1426 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+
+<title>eitango</title>
+
+<style>
+
+:root{
+--primary:#4a90e2;
+--success:#28a745;
+--danger:#dc3545;
+--bg:#f8f9fa;
+--card:#ffffff;
+}
+
+body{
+font-family:Arial;
+background:var(--bg);
+margin:0;
+padding:20px;
+display:flex;
+justify-content:center;
+}
+
+body.dark{
+background:#111;
+color:#eee;
+}
+
+#app{
+width:100%;
+max-width:700px;
+background:var(--card);
+padding:20px;
+border-radius:12px;
+box-shadow:0 4px 6px rgba(0,0,0,0.1);
+}
+
+body.dark #app{
+background:#222;
+}
+
+.screen{display:none}
+.screen.active{display:block}
+
+button{
+padding:10px;
+border:none;
+border-radius:6px;
+cursor:pointer;
+margin:4px;
+}
+
+.btn-primary{background:var(--primary);color:white}
+.btn-success{background:var(--success);color:white}
+.btn-danger{background:var(--danger);color:white}
+.btn-outline{border:1px solid #ccc;background:white}
+
+textarea{
+width:100%;
+height:100px;
+box-sizing:border-box;
+}
+
+table{
+width:100%;
+border-collapse:collapse;
+font-size:14px;
+margin-top:10px;
+}
+
+td,th{
+padding:8px;
+border-bottom:1px solid #eee;
+text-align:left;
+}
+
+.favorite{
+cursor:pointer;
+font-size:18px;
+}
+
+.card-container{
+border:2px solid #ddd;
+border-radius:15px;
+padding:40px;
+text-align:center;
+margin:20px 0;
+}
+
+.card-text{
+font-size:28px;
+font-weight:bold;
+}
+
+.card-subtext{
+font-size:20px;
+color:#666;
+}
+
+.timer-bar-container{
+height:10px;
+background:#eee;
+border-radius:5px;
+overflow:hidden;
+margin-bottom:15px;
+}
+
+.timer-bar{
+height:100%;
+background:var(--primary);
+width:100%;
+}
+
+.choice-btn{
+width:100%;
+padding:15px;
+border:1px solid #ddd;
+margin-bottom:8px;
+background:#fff;
+text-align:left;
+}
+
+.filter-bar{
+margin:10px 0;
+display:flex;
+gap:5px;
+flex-wrap:wrap;
+}
+
+.history-item{
+display:flex;
+justify-content:space-between;
+align-items:center;
+border-bottom:1px solid #eee;
+padding:10px 0;
+}
+
+</style>
+</head>
+
+<body>
+
+<div id="app">
+
+<!-- HOME -->
+
+<section id="screen-home" class="screen">
+
+<h1>📚 単語帳</h1>
+
+<div id="global-stats"></div>
+
+<div id="book-list"></div>
+
+<hr>
+
+<button class="btn-primary" onclick="showScreen('screen-new-book')">
+新規単語帳
+</button>
+
+<button onclick="toggleDark()">🌙</button>
+
+<button onclick="exportData()">バックアップ</button>
+
+<input type="file" id="import-file">
+
+<button onclick="importData()">復元</button>
+
+</section>
+
+
+<!-- NEW BOOK -->
+
+<section id="screen-new-book" class="screen">
+
+<h2>単語帳作成</h2>
+
+<input id="new-book-name" placeholder="単語帳名">
+
+<button onclick="createBook()">作成</button>
+
+<button onclick="showScreen('screen-home')">戻る</button>
+
+</section>
+
+
+
+<!-- BOOK DETAIL -->
+
+<section id="screen-book-detail" class="screen">
+
+<h2 id="current-book-title"></h2>
+
+<div>
+
+<button class="btn-success" onclick="openStudyConfig()">学習開始</button>
+
+<button onclick="showScreen('screen-import')">単語追加</button>
+
+<button onclick="studyMistakes()">ミス復習</button>
+
+<button onclick="showHistoryScreen()">履歴復習</button>
+
+</div>
+
+<div class="filter-bar">
+
+<span>フィルタ:</span>
+
+<button class="btn-outline" onclick="renderWordList('all')">すべて</button>
+
+<button class="btn-outline" onclick="renderWordList('unstudied')">未学習</button>
+
+<button class="btn-outline" onclick="renderWordList('correct')">正解</button>
+
+<button class="btn-outline" onclick="renderWordList('mistakes')">ミス</button>
+
+</div>
+
+<table>
+
+<thead>
+
+<tr>
+
+<th>★</th>
+<th>日本語</th>
+<th>英語</th>
+<th>正解</th>
+<th>ミス</th>
+<th>最終学習</th>
+<th>操作</th>
+
+</tr>
+
+</thead>
+
+<tbody id="word-list-body"></tbody>
+
+</table>
+
+<button onclick="showScreen('screen-home')">戻る</button>
+
+</section>
+
+
+
+<!-- IMPORT -->
+
+<section id="screen-import" class="screen">
+
+<h2>単語登録</h2>
+
+<p>日本語 / 英語</p>
+
+<div style="display:grid;grid-template-columns:1fr 1fr;gap:10px">
+
+<textarea id="import-jp"></textarea>
+
+<textarea id="import-en"></textarea>
+
+</div>
+
+<h3>CSV</h3>
+
+<textarea id="import-csv"></textarea>
+
+<button onclick="importCSV()">CSV登録</button>
+
+<button onclick="importWords()">通常登録</button>
+
+<button onclick="showScreen('screen-book-detail')">戻る</button>
+
+</section>
+
+
+
+<!-- STUDY CONFIG -->
+
+<section id="screen-study-config" class="screen">
+
+<h2>学習設定</h2>
+
+<select id="study-mode">
+
+<option value="flashcard">フラッシュカード</option>
+
+<option value="choice">4択クイズ</option>
+
+</select>
+
+<select id="study-direction">
+
+<option value="jp-en">日本語 → 英語</option>
+
+<option value="en-jp">英語 → 日本語</option>
+
+</select>
+
+<br><br>
+
+<label>
+
+<input type="checkbox" id="mistake-priority">
+
+ミス優先出題
+
+</label>
+
+<br><br>
+
+<label>
+
+<input type="checkbox" id="manual-mode">
+
+手動めくり
+
+</label>
+
+<br><br>
+
+<label>
+
+表示時間
+
+<input type="number" id="time-front" value="3">
+
+</label>
+
+<label>
+
+回答期限
+
+<input type="number" id="time-back" value="5">
+
+</label>
+
+<br><br>
+
+<button onclick="startStudy()" class="btn-success">
+
+開始
+
+</button>
+
+<button onclick="showScreen('screen-book-detail')">
+
+戻る
+
+</button>
+
+</section>
+
+
+
+<!-- FLASHCARD -->
+
+<section id="screen-flashcard" class="screen">
+
+<div id="flashcard-progress"></div>
+
+<div class="card-container" id="flash-card">
+
+<div id="flash-front" class="card-text"></div>
+
+<div id="flash-back" class="card-subtext" style="visibility:hidden"></div>
+
+</div>
+
+<div class="timer-bar-container">
+
+<div id="flash-timer" class="timer-bar"></div>
+
+</div>
+
+<div id="flash-controls" style="display:none">
+
+<button class="btn-danger" onclick="handleFlashcardResult(false)">
+分からない
+</button>
+
+<button class="btn-success" onclick="handleFlashcardResult(true)">
+分かった
+</button>
+
+</div>
+
+</section>
+
+
+
+<!-- CHOICE -->
+
+<section id="screen-choice" class="screen">
+
+<div id="choice-progress"></div>
+
+<div class="card-container">
+
+<div id="choice-question"></div>
+
+</div>
+
+<div id="choice-options"></div>
+
+</section>
+
+
+
+<!-- HISTORY -->
+
+<section id="screen-history" class="screen">
+
+<h2>履歴復習</h2>
+
+<input type="date" id="range-start">
+
+<input type="date" id="range-end">
+
+<button onclick="studyRange()">範囲復習</button>
+
+<div id="history-list"></div>
+
+<button onclick="showScreen('screen-book-detail')">戻る</button>
+
+</section>
+
+
+
+<!-- RESULT -->
+
+<section id="screen-result" class="screen">
+
+<h2>学習結果</h2>
+
+<div id="result-summary"></div>
+
+<button onclick="openBook(currentBookName)">戻る</button>
+
+</section>
+<script>
+
+/* ==============================
+   グローバル状態
+============================== */
+
+let data = JSON.parse(localStorage.getItem('vocaApp')) || { books:{} };
+
+let currentBookName = "";
+let currentWordsSet = [];
+let currentIndex = 0;
+
+let studySettings = {};
+let timerId = null;
+
+let sessionCorrect = 0;
+let sessionWrong = 0;
+
+
+/* ==============================
+   基本ユーティリティ
+============================== */
+
+function saveData(){
+localStorage.setItem("vocaApp",JSON.stringify(data));
+}
+
+function showScreen(id){
+document.querySelectorAll(".screen")
+.forEach(s=>s.classList.remove("active"));
+
+document.getElementById(id).classList.add("active");
+
+if(timerId) clearInterval(timerId);
+}
+
+function toggleDark(){
+document.body.classList.toggle("dark");
+}
+
+
+/* ==============================
+   統計表示
+============================== */
+
+function renderStats(){
+
+let total=0;
+let correct=0;
+let wrong=0;
+
+Object.values(data.books).forEach(book=>{
+book.words.forEach(w=>{
+total++;
+correct+=w.correct||0;
+wrong+=w.wrong||0;
+});
+});
+
+document.getElementById("global-stats").innerHTML=
+`総単語数: ${total} / 正解: ${correct} / ミス: ${wrong}`;
+}
+
+
+/* ==============================
+   単語帳一覧
+============================== */
+
+function renderBookList(){
+
+const list=document.getElementById("book-list");
+list.innerHTML="";
+
+Object.keys(data.books).forEach(name=>{
+
+const btn=document.createElement("button");
+
+btn.className="btn-outline";
+btn.style.width="100%";
+
+btn.innerText=
+`${name} (${data.books[name].words.length})`;
+
+btn.onclick=()=>openBook(name);
+
+list.appendChild(btn);
+
+});
+
+renderStats();
+showScreen("screen-home");
+}
+
+
+/* ==============================
+   単語帳作成
+============================== */
+
+function createBook(){
+
+const input=document.getElementById("new-book-name");
+
+const name=input.value.trim();
+
+if(!name) return;
+
+if(data.books[name]){
+alert("同名の単語帳があります");
+return;
+}
+
+data.books[name]={
+words:[],
+history:{}
+};
+
+saveData();
+
+input.value="";
+
+renderBookList();
+}
+
+
+/* ==============================
+   単語帳を開く
+============================== */
+
+function openBook(name){
+
+currentBookName=name;
+
+document.getElementById("current-book-title")
+.innerText=name;
+
+renderWordList("all");
+
+showScreen("screen-book-detail");
+
+}
+
+
+/* ==============================
+   単語テーブル表示
+============================== */
+
+function renderWordList(filter){
+
+const body=document.getElementById("word-list-body");
+
+body.innerHTML="";
+
+const words=data.books[currentBookName].words;
+
+const today=new Date();
+
+words.forEach((w,index)=>{
+
+if(filter==="unstudied" && w.lastStudied) return;
+
+if(filter==="correct" && w.lastStatus!=="correct") return;
+
+if(filter==="mistakes" && w.lastStatus!=="wrong") return;
+
+let days="-";
+
+if(w.lastStudied){
+
+const diff=
+Math.floor(
+(today-new Date(w.lastStudied))/
+(1000*60*60*24)
+);
+
+days= diff===0 ? "今日" : diff+"日前";
+
+}
+
+const tr=document.createElement("tr");
+
+tr.innerHTML=`
+
+<td class="favorite"
+onclick="toggleFavorite(${index})">
+
+${w.favorite?"★":"☆"}
+
+</td>
+
+<td>${w.jp}</td>
+
+<td>${w.en}</td>
+
+<td>${w.correct||0}</td>
+
+<td>${w.wrong||0}</td>
+
+<td>${days}</td>
+
+<td>
+
+<button onclick="editWord(${index})">編集</button>
+
+<button onclick="deleteWord(${index})">削除</button>
+
+</td>
+
+`;
+
+body.appendChild(tr);
+
+});
+
+}
+
+
+/* ==============================
+   単語操作
+============================== */
+
+function toggleFavorite(i){
+
+const word=data.books[currentBookName].words[i];
+
+word.favorite=!word.favorite;
+
+saveData();
+
+renderWordList("all");
+}
+
+
+function editWord(i){
+
+const w=data.books[currentBookName].words[i];
+
+const jp=prompt("日本語",w.jp);
+const en=prompt("英語",w.en);
+
+if(!jp||!en) return;
+
+w.jp=jp;
+w.en=en;
+
+saveData();
+
+renderWordList("all");
+}
+
+
+function deleteWord(i){
+
+if(!confirm("削除しますか？")) return;
+
+data.books[currentBookName].words.splice(i,1);
+
+saveData();
+
+renderWordList("all");
+}
+
+
+/* ==============================
+   重複チェック
+============================== */
+
+function findDuplicateWord(jp,en){
+
+return data.books[currentBookName]
+.words
+.findIndex(w=>w.jp===jp && w.en===en);
+
+}
+
+
+/* ==============================
+   通常インポート
+============================== */
+
+function importWords(){
+
+const jpLines=
+document.getElementById("import-jp")
+.value.trim().split("\n");
+
+const enLines=
+document.getElementById("import-en")
+.value.trim().split("\n");
+
+if(jpLines.length!==enLines.length){
+alert("行数が一致しません");
+return;
+}
+
+jpLines.forEach((jp,i)=>{
+
+const en=enLines[i].trim();
+const target=jp.trim();
+
+const dup=findDuplicateWord(target,en);
+
+if(dup!==-1){
+
+const action=prompt(
+`重複: ${target}
+
+1 上書き
+2 スキップ
+3 重複追加`
+);
+
+if(action==="1"){
+
+data.books[currentBookName].words[dup]={
+jp:target,
+en:en,
+correct:0,
+wrong:0,
+favorite:false
+};
+
+return;
+
+}
+
+if(action==="2") return;
+
+}
+
+data.books[currentBookName].words.push({
+
+jp:target,
+en:en,
+correct:0,
+wrong:0,
+favorite:false,
+lastStudied:null
+
+});
+
+});
+
+saveData();
+
+openBook(currentBookName);
+
+}
+
+
+/* ==============================
+   CSVインポート
+============================== */
+
+function importCSV(){
+
+const text=
+document.getElementById("import-csv").value.trim();
+
+const lines=text.split("\n");
+
+lines.forEach(line=>{
+
+const p=line.split(",");
+
+if(p.length!==2) return;
+
+data.books[currentBookName].words.push({
+
+en:p[0].trim(),
+jp:p[1].trim(),
+correct:0,
+wrong:0,
+favorite:false
+
+});
+
+});
+
+saveData();
+
+openBook(currentBookName);
+
+}
+
+
+/* ==============================
+   バックアップ
+============================== */
+
+function exportData(){
+
+const blob=new Blob(
+[JSON.stringify(data)],
+{type:"application/json"}
+);
+
+const a=document.createElement("a");
+
+a.href=URL.createObjectURL(blob);
+
+a.download="vocab_backup.json";
+
+a.click();
+
+}
+
+
+/* ==============================
+   復元
+============================== */
+
+function importData(){
+
+const file=
+document.getElementById("import-file").files[0];
+
+if(!file) return;
+
+const reader=new FileReader();
+
+reader.onload=function(){
+
+data=JSON.parse(reader.result);
+
+saveData();
+
+renderBookList();
+
+};
+
+reader.readAsText(file);
+
+}
+
+/* ==============================
+学習開始設定
+============================== */
+
+function openStudyConfig(){
+
+if(data.books[currentBookName].words.length===0){
+alert("単語がありません");
+return;
+}
+
+currentWordsSet =
+data.books[currentBookName].words
+.map((_,i)=>i);
+
+showScreen("screen-study-config");
+
+}
+
+function studyMistakes(){
+
+currentWordsSet =
+data.books[currentBookName].words
+.map((w,i)=>({w,i}))
+.filter(x=>x.w.wrong>0)
+.map(x=>x.i);
+
+showScreen("screen-study-config");
+
+}
+
+/* ==============================
+学習スタート
+============================== */
+
+function startStudy(){
+
+studySettings = {
+
+mode:document.getElementById("study-mode").value,
+
+direction:document.getElementById("study-direction").value,
+
+mistakePriority:
+document.getElementById("mistake-priority").checked,
+
+manual:
+document.getElementById("manual-mode").checked,
+
+timeFront:
+parseInt(document.getElementById("time-front").value)*1000,
+
+timeBack:
+parseInt(document.getElementById("time-back").value)*1000
+
+};
+
+sessionCorrect=0;
+sessionWrong=0;
+currentIndex=0;
+
+shuffle(currentWordsSet);
+
+applyMistakePriority();
+
+if(studySettings.mode==="flashcard"){
+
+showScreen("screen-flashcard");
+
+nextFlashcard();
+
+}else{
+
+showScreen("screen-choice");
+
+nextChoice();
+
+}
+
+}
+
+/* ==============================
+ミス優先出題
+============================== */
+
+function applyMistakePriority(){
+
+if(!studySettings.mistakePriority) return;
+
+currentWordsSet.sort((a,b)=>{
+
+const wa=data.books[currentBookName].words[a];
+const wb=data.books[currentBookName].words[b];
+
+const scoreA=(wa.wrong||0)-(wa.correct||0);
+const scoreB=(wb.wrong||0)-(wb.correct||0);
+
+return scoreB-scoreA;
+
+});
+
+}
+
+/* ==============================
+シャッフル
+============================== */
+
+function shuffle(arr){
+
+for(let i=arr.length-1;i>0;i--){
+
+const j=Math.floor(Math.random()*(i+1));
+
+[arr[i],arr[j]]=[arr[j],arr[i]];
+
+}
+
+}
+
+/* ==============================
+音声読み上げ
+============================== */
+
+function speakWord(text){
+
+const u=new SpeechSynthesisUtterance(text);
+
+speechSynthesis.speak(u);
+
+}
+
+/* ==============================
+回答記録
+============================== */
+
+function recordResult(wordIndex,isCorrect){
+
+const book=data.books[currentBookName];
+
+const word=book.words[wordIndex];
+
+const today=new Date().toISOString().split("T")[0];
+
+if(isCorrect){
+
+word.correct=(word.correct||0)+1;
+sessionCorrect++;
+
+word.lastStatus="correct";
+
+}else{
+
+word.wrong=(word.wrong||0)+1;
+sessionWrong++;
+
+word.lastStatus="wrong";
+
+}
+
+word.lastStudied=today;
+
+if(!book.history) book.history={};
+
+if(!book.history[today])
+book.history[today]={correct:[],wrong:[]};
+
+if(isCorrect)
+book.history[today].correct.push(wordIndex);
+else
+book.history[today].wrong.push(wordIndex);
+
+saveData();
+
+}
+
+/* ==============================
+フラッシュカード
+============================== */
+
+function nextFlashcard(){
+
+if(currentIndex>=currentWordsSet.length){
+
+showStudyResult();
+return;
+
+}
+
+const wordIdx=currentWordsSet[currentIndex];
+
+const word=data.books[currentBookName].words[wordIdx];
+
+const front =
+studySettings.direction==="jp-en"
+?word.jp:word.en;
+
+const back =
+studySettings.direction==="jp-en"
+?word.en:word.jp;
+
+document.getElementById("flashcard-progress")
+.innerText =
+`${currentIndex+1} / ${currentWordsSet.length}`;
+
+document.getElementById("flash-front")
+.innerText=front;
+
+document.getElementById("flash-back")
+.innerText=back;
+
+document.getElementById("flash-back")
+.style.visibility="hidden";
+
+document.getElementById("flash-controls")
+.style.display="none";
+
+document.getElementById("flash-timer")
+.style.width="100%";
+
+speakWord(front);
+
+if(studySettings.manual){
+
+const card=document.getElementById("flash-card");
+
+card.style.cursor="pointer";
+
+card.onclick=()=>{
+
+document.getElementById("flash-back")
+.style.visibility="visible";
+
+document.getElementById("flash-controls")
+.style.display="block";
+
+card.onclick=null;
+
+};
+
+}else{
+
+startTimer("flash-timer",
+studySettings.timeFront,
+
+()=>{
+
+document.getElementById("flash-back")
+.style.visibility="visible";
+
+document.getElementById("flash-controls")
+.style.display="block";
+
+startTimer("flash-timer",
+studySettings.timeBack,
+
+()=>handleFlashcardResult(false));
+
+});
+
+}
+
+}
+
+function handleFlashcardResult(isCorrect){
+
+if(timerId) clearInterval(timerId);
+
+recordResult(
+currentWordsSet[currentIndex],
+isCorrect
+);
+
+currentIndex++;
+
+nextFlashcard();
+
+}
+
+/* ==============================
+4択クイズ
+============================== */
+
+function nextChoice(){
+
+if(currentIndex>=currentWordsSet.length){
+
+showStudyResult();
+return;
+
+}
+
+const wordIdx=currentWordsSet[currentIndex];
+
+const word=data.books[currentBookName].words[wordIdx];
+
+const question =
+studySettings.direction==="jp-en"
+?word.jp:word.en;
+
+const answer =
+studySettings.direction==="jp-en"
+?word.en:word.jp;
+
+document.getElementById("choice-progress")
+.innerText =
+`${currentIndex+1} / ${currentWordsSet.length}`;
+
+document.getElementById("choice-question")
+.innerText=question;
+
+speakWord(question);
+
+let choices=[{text:answer,correct:true}];
+
+const all=data.books[currentBookName].words;
+
+let others=all
+.filter((_,i)=>i!==wordIdx);
+
+shuffle(others);
+
+for(let i=0;i<3 && i<others.length;i++){
+
+choices.push({
+
+text:
+studySettings.direction==="jp-en"
+?others[i].en
+:others.jp,
+
+correct:false
+
+});
+
+}
+
+shuffle(choices);
+
+const div=document.getElementById("choice-options");
+
+div.innerHTML="";
+
+choices.forEach(c=>{
+
+const btn=document.createElement("button");
+
+btn.className="choice-btn";
+
+btn.innerText=c.text;
+
+btn.onclick=()=>{
+
+recordResult(wordIdx,c.correct);
+
+if(!c.correct)
+alert("正解: "+answer);
+
+currentIndex++;
+
+nextChoice();
+
+};
+
+div.appendChild(btn);
+
+});
+
+}
+
+/* ==============================
+タイマー
+============================== */
+
+function startTimer(id,duration,onComplete){
+
+if(timerId) clearInterval(timerId);
+
+const bar=document.getElementById(id);
+
+const start=Date.now();
+
+timerId=setInterval(()=>{
+
+const elapsed=Date.now()-start;
+
+const remain=
+Math.max(0,100-(elapsed/duration*100));
+
+bar.style.width=remain+"%";
+
+if(elapsed>=duration){
+
+clearInterval(timerId);
+
+onComplete();
+
+}
+
+},50);
+
+}
+
+/* ==============================
+結果画面
+============================== */
+
+function showStudyResult(){
+
+const total=sessionCorrect+sessionWrong;
+
+const rate=
+Math.round((sessionCorrect/total)*100)||0;
+
+document.getElementById("result-summary")
+.innerHTML=`
+
+正解: ${sessionCorrect}<br>
+ミス: ${sessionWrong}<br>
+正答率: ${rate}%
+
+`;
+
+showScreen("screen-result");
+
+}
+
+/* ==============================
+履歴復習
+============================== */
+
+function showHistoryScreen(){
+
+const list=document.getElementById("history-list");
+
+list.innerHTML="";
+
+const history=
+data.books[currentBookName].history;
+
+Object.keys(history)
+.sort()
+.reverse()
+.forEach(date=>{
+
+const count=
+history[date].correct.length+
+history[date].wrong.length;
+
+const div=document.createElement("div");
+
+div.className="history-item";
+
+div.innerHTML=
+`<span>${date} (${count})</span>`;
+
+const btn=document.createElement("button");
+
+btn.className="btn-primary";
+
+btn.innerText="復習";
+
+btn.onclick=()=>{
+
+const set=new Set([
+...history[date].correct,
+...history[date].wrong
+]);
+
+currentWordsSet=Array.from(set);
+
+showScreen("screen-study-config");
+
+};
+
+div.appendChild(btn);
+
+list.appendChild(div);
+
+});
+
+showScreen("screen-history");
+
+}
+
+/* ==============================
+期間復習
+============================== */
+
+function studyRange(){
+
+const start=
+document.getElementById("range-start").value;
+
+const end=
+document.getElementById("range-end").value;
+
+if(!start||!end){
+
+alert("日付選択");
+
+return;
+
+}
+
+const history=
+data.books[currentBookName].history;
+
+const result=new Set();
+
+Object.keys(history)
+.forEach(date=>{
+
+if(date>=start && date<=end){
+
+history[date].correct
+.forEach(i=>result.add(i));
+
+history[date].wrong
+.forEach(i=>result.add(i));
+
+}
+
+});
+
+if(result.size===0){
+
+alert("履歴なし");
+
+return;
+
+}
+
+currentWordsSet=Array.from(result);
+
+showScreen("screen-study-config");
+
+}
+
+/* ==============================
+起動
+============================== */
+
+renderBookList();
+
+</script>
+</div>
+</body>
+</html>
