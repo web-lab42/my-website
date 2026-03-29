@@ -1,0 +1,351 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>Piactone</title>
+    <style>
+        :root {
+            --bg: #121212;
+            --panel: #252525;
+            --accent: #00e5ff;
+            --white: #ffffff;
+            --black: #222222;
+            --active-gradient: linear-gradient(to bottom, #fff 0%, var(--accent) 100%);
+            --black-active: linear-gradient(to bottom, #333 0%, var(--accent) 100%);
+        }
+
+        body {
+            margin: 0;
+            background: var(--bg);
+            color: white;
+            font-family: 'Helvetica Neue', Arial, sans-serif;
+            overflow: hidden;
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+        }
+
+        /* Header & Controls */
+        header {
+            padding: 10px 20px;
+            background: var(--panel);
+            display: flex;
+            align-items: center;
+            gap: 20px;
+            box-shadow: 0 2px 10px rgba(0,0,0,0.5);
+            z-index: 10;
+        }
+
+        .control-item { display: flex; flex-direction: column; gap: 4px; }
+        .label { font-size: 10px; color: var(--accent); font-weight: bold; text-transform: uppercase; }
+        
+        button {
+            background: #444; border: none; color: white; padding: 5px 12px;
+            border-radius: 4px; cursor: pointer; font-weight: bold;
+        }
+        button.active { background: var(--accent); color: #000; }
+
+        /* Piano Rack (The scrollable area) */
+        .piano-rack {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            gap: 10px;
+            padding: 10px 0;
+            background: #000;
+        }
+
+        .deck-container {
+            flex: 1;
+            position: relative;
+            overflow-x: auto;
+            overflow-y: hidden;
+            scrollbar-width: none; /* Firefox */
+            cursor: grab;
+            -webkit-overflow-scrolling: touch;
+        }
+        .deck-container::-webkit-scrollbar { display: none; }
+        .deck-container:active { cursor: grabbing; }
+
+        .piano-strip {
+            display: flex;
+            position: relative;
+            height: 100%;
+            width: fit-content;
+            padding: 0 50px; /* 余白 */
+        }
+
+        /* Keys */
+        .key {
+            position: relative;
+            border: 1px solid #ccc;
+            border-radius: 0 0 6px 6px;
+            flex-shrink: 0;
+            transition: background 0.05s;
+            display: flex;
+            flex-direction: column;
+            justify-content: flex-end;
+            align-items: center;
+            padding-bottom: 10px;
+            box-sizing: border-box;
+        }
+
+        .white-key {
+            width: 60px;
+            height: 100%;
+            background: linear-gradient(to bottom, #eee 0%, #fff 100%);
+            z-index: 1;
+        }
+
+        .black-key {
+            width: 36px;
+            height: 60%;
+            background: linear-gradient(to bottom, #444 0%, #000 100%);
+            margin-left: -18px;
+            margin-right: -18px;
+            z-index: 2;
+            border-color: #000;
+            color: #fff;
+        }
+
+        .key.active { background: var(--active-gradient) !important; transform: translateY(2px); }
+        .black-key.active { background: var(--black-active) !important; }
+
+        .key-label {
+            pointer-events: none;
+            font-size: 12px;
+            color: #888;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .assign-btn {
+            position: absolute;
+            top: 5px;
+            font-size: 9px;
+            background: rgba(0,0,0,0.1);
+            color: #aaa;
+            padding: 2px 4px;
+            border-radius: 3px;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+        .key:hover .assign-btn { opacity: 1; }
+
+        /* Binding Modal */
+        #modal {
+            display: none;
+            position: fixed;
+            top: 50%; left: 50%; transform: translate(-50%, -50%);
+            background: var(--panel); padding: 20px; border-radius: 10px;
+            z-index: 100; box-shadow: 0 0 20px rgba(0,0,0,0.8);
+            text-align: center;
+        }
+
+        @media (max-width: 768px) {
+            .white-key { width: 50px; }
+            .black-key { width: 30px; margin-left: -15px; margin-right: -15px; }
+        }
+    </style>
+</head>
+<body>
+
+<header>
+    <div class="control-item">
+        <span class="label">Master Volume</span>
+        <input type="range" id="vol" min="0" max="1" step="0.05" value="0.4">
+    </div>
+    <div class="control-item">
+        <span class="label">Sustain</span>
+        <button id="susToggle">OFF</button>
+    </div>
+    <div style="margin-left: auto; font-size: 12px; color: #666;">Drag keys to scroll &bull; Click labels to bind keys</div>
+</header>
+
+<div class="piano-rack">
+    <div class="deck-container" id="deck-upper">
+        <div class="piano-strip" id="strip-upper"></div>
+    </div>
+    <div class="deck-container" id="deck-lower">
+        <div class="piano-strip" id="strip-lower"></div>
+    </div>
+</div>
+
+<div id="modal">
+    <p>Press a key to bind for <span id="target-note"></span></p>
+    <button onclick="closeModal()">Cancel</button>
+</div>
+
+<script>
+    /**
+     * Constants & Audio Context
+     */
+    const NOTES = ['C', 'C#', 'D', 'D#', 'E', 'F', 'F#', 'G', 'G#', 'A', 'A#', 'B'];
+    const audioCtx = new (window.AudioContext || window.webkitAudioContext)();
+    const activeNodes = new Map();
+    let sustain = false;
+    let volume = 0.4;
+    
+    // Key bindings storage
+    let keyMap = JSON.parse(localStorage.getItem('piano_bindings')) || {
+        '60': 'a', '61': 'w', '62': 's', '63': 'e', '64': 'd', '65': 'f', '66': 't', '67': 'g'
+    };
+
+    /**
+     * Audio Engine
+     */
+    function playNote(midi) {
+        if (audioCtx.state === 'suspended') audioCtx.resume();
+        
+        // Accurate Frequency Calculation: f = 440 * 2^((n-69)/12)
+        const freq = 440 * Math.pow(2, (midi - 69) / 12);
+        
+        const osc = audioCtx.createOscillator();
+        const gainNode = audioCtx.createGain();
+
+        osc.type = 'triangle';
+        osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
+
+        gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
+        gainNode.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + 0.01);
+
+        osc.connect(gainNode);
+        gainNode.connect(audioCtx.destination);
+        
+        osc.start();
+        activeNodes.set(midi, { osc, gainNode });
+        visualizeKey(midi, true);
+    }
+
+    function stopNote(midi) {
+        const node = activeNodes.get(midi);
+        if (node) {
+            const release = sustain ? 1.5 : 0.1;
+            node.gainNode.gain.cancelScheduledValues(audioCtx.currentTime);
+            node.gainNode.gain.setValueAtTime(node.gainNode.gain.value, audioCtx.currentTime);
+            node.gainNode.gain.exponentialRampToValueAtTime(0.001, audioCtx.currentTime + release);
+            
+            setTimeout(() => {
+                node.osc.stop();
+                node.osc.disconnect();
+            }, release * 1000);
+            
+            activeNodes.delete(midi);
+            visualizeKey(midi, false);
+        }
+    }
+
+    /**
+     * UI Generation
+     */
+    function createDeck(containerId, startMidi, count) {
+        const strip = document.getElementById(containerId);
+        for (let i = 0; i < count; i++) {
+            const midi = startMidi + i;
+            const noteName = NOTES[midi % 12];
+            const isBlack = noteName.includes('#');
+            
+            const key = document.createElement('div');
+            key.className = `key ${isBlack ? 'black-key' : 'white-key'}`;
+            key.dataset.midi = midi;
+
+            const label = document.createElement('div');
+            label.className = 'key-label';
+            label.textContent = getKeyChar(midi);
+            key.appendChild(label);
+
+            const assignBtn = document.createElement('div');
+            assignBtn.className = 'assign-btn';
+            assignBtn.textContent = 'Edit';
+            assignBtn.onclick = (e) => { e.stopPropagation(); openModal(midi); };
+            key.appendChild(assignBtn);
+
+            // Interaction
+            key.onmousedown = () => playNote(midi);
+            key.onmouseup = () => stopNote(midi);
+            key.onmouseleave = () => stopNote(midi);
+            key.ontouchstart = (e) => { e.preventDefault(); playNote(midi); };
+            key.ontouchend = () => stopNote(midi);
+
+            strip.appendChild(key);
+        }
+    }
+
+    function visualizeKey(midi, active) {
+        const keys = document.querySelectorAll(`.key[data-midi="${midi}"]`);
+        keys.forEach(k => k.classList.toggle('active', active));
+    }
+
+    function getKeyChar(midi) {
+        return keyMap[midi] ? keyMap[midi].toUpperCase() : '';
+    }
+
+    /**
+     * Key Binding Logic
+     */
+    let bindingTarget = null;
+    function openModal(midi) {
+        bindingTarget = midi;
+        document.getElementById('target-note').textContent = `${NOTES[midi%12]}${Math.floor(midi/12)-1}`;
+        document.getElementById('modal').style.display = 'block';
+    }
+
+    function closeModal() {
+        document.getElementById('modal').style.display = 'none';
+        bindingTarget = null;
+    }
+
+    window.addEventListener('keydown', (e) => {
+        if (bindingTarget !== null) {
+            keyMap[bindingTarget] = e.key.toLowerCase();
+            localStorage.setItem('piano_bindings', JSON.stringify(keyMap));
+            updateLabels();
+            closeModal();
+            return;
+        }
+
+        // Play by bind
+        for (let midi in keyMap) {
+            if (keyMap[midi] === e.key.toLowerCase() && !activeNodes.has(parseInt(midi))) {
+                playNote(parseInt(midi));
+            }
+        }
+    });
+
+    window.addEventListener('keyup', (e) => {
+        for (let midi in keyMap) {
+            if (keyMap[midi] === e.key.toLowerCase()) {
+                stopNote(parseInt(midi));
+            }
+        }
+    });
+
+    function updateLabels() {
+        document.querySelectorAll('.key').forEach(k => {
+            const label = k.querySelector('.key-label');
+            label.textContent = getKeyChar(k.dataset.midi);
+        });
+    }
+
+    /**
+     * UI Controls
+     */
+    document.getElementById('vol').oninput = (e) => volume = parseFloat(e.target.value);
+    document.getElementById('susToggle').onclick = (e) => {
+        sustain = !sustain;
+        e.target.classList.toggle('active', sustain);
+        e.target.textContent = sustain ? 'ON' : 'OFF';
+    };
+
+    // Initialize: Upper deck (C4-C6), Lower deck (C2-C4)
+    createDeck('strip-upper', 60, 37); // C4 to C7
+    createDeck('strip-lower', 36, 37); // C2 to C5
+
+    // Initial Scroll Position
+    document.getElementById('deck-upper').scrollLeft = 0;
+    document.getElementById('deck-lower').scrollLeft = 0;
+
+</script>
+</body>
+</ht
