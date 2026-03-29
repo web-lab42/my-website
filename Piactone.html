@@ -24,10 +24,8 @@
             height: 100vh;
             display: flex;
             flex-direction: column;
-            /* テキスト選択や拡大を防ぐ */
             user-select: none;
             -webkit-user-select: none;
-            touch-action: none;
         }
 
         header {
@@ -65,14 +63,11 @@
             overflow-y: hidden;
             scrollbar-width: none;
             -webkit-overflow-scrolling: touch;
-            /* 横スクロールのみ許可 */
+            /* タッチでの横方向スクロールをブラウザに任せる */
             touch-action: pan-x; 
             cursor: grab;
         }
         .deck-container::-webkit-scrollbar { display: none; }
-
-        /* 演奏中にスクロールを完全に止める */
-        .deck-container.locking { touch-action: none; overflow-x: hidden; }
 
         .piano-strip {
             display: flex;
@@ -93,7 +88,7 @@
             align-items: center;
             padding-bottom: 12px;
             box-sizing: border-box;
-            /* ズームやデフォルト挙動の徹底排除 */
+            /* 垂直方向のスクロールやズームを防止し、演奏に集中 */
             touch-action: none; 
         }
 
@@ -151,7 +146,6 @@
         @media (max-width: 768px) {
             .white-key { width: 54px; }
             .black-key { width: 32px; margin-left: -16px; margin-right: -16px; }
-            .hint { display: none; }
         }
     </style>
 </head>
@@ -166,9 +160,7 @@
         <span class="label">Sustain</span>
         <button id="susToggle">OFF</button>
     </div>
-    <div class="hint" style="margin-left: auto; font-size: 11px; color: #777; text-align: right;">
-        Drag to Scroll / Click Label to Bind Key
-    </div>
+    <div style="margin-left: auto; font-size: 11px; color: #777;">Swipe to Scroll / Tap to Play</div>
 </header>
 
 <div class="piano-rack">
@@ -192,11 +184,8 @@
     let sustain = false;
     let volume = 0.4;
     
-    // デフォルトキーバインド
     const DEFAULT_MAP = {
-        // Lower Deck (C2-C3-C4)
         '36':'z', '37':'s', '38':'x', '39':'d', '40':'c', '41':'v', '42':'g', '43':'b', '44':'h', '45':'n', '46':'j', '47':'m', '48':',',
-        // Upper Deck (C4-C5-C6)
         '60':'a', '61':'w', '62':'s', '63':'e', '64':'d', '65':'f', '66':'t', '67':'g', '68':'y', '69':'h', '70':'u', '71':'j', '72':'k', '73':'o', '74':'l'
     };
 
@@ -205,20 +194,16 @@
     function playNote(midi) {
         if (audioCtx.state === 'suspended') audioCtx.resume();
         if (activeNodes.has(midi)) return;
-
         const freq = 440 * Math.pow(2, (midi - 69) / 12);
         const osc = audioCtx.createOscillator();
         const gainNode = audioCtx.createGain();
-
         osc.type = 'triangle';
         osc.frequency.setValueAtTime(freq, audioCtx.currentTime);
         gainNode.gain.setValueAtTime(0, audioCtx.currentTime);
         gainNode.gain.linearRampToValueAtTime(volume, audioCtx.currentTime + 0.005);
-
         osc.connect(gainNode);
         gainNode.connect(audioCtx.destination);
         osc.start();
-        
         activeNodes.set(midi, { osc, gainNode });
         visualizeKey(midi, true);
     }
@@ -231,12 +216,8 @@
             node.gainNode.gain.cancelScheduledValues(now);
             node.gainNode.gain.setValueAtTime(node.gainNode.gain.value, now);
             node.gainNode.gain.exponentialRampToValueAtTime(0.001, now + release);
-            
             const targetOsc = node.osc;
-            setTimeout(() => {
-                try { targetOsc.stop(); targetOsc.disconnect(); } catch(e){}
-            }, release * 1000);
-            
+            setTimeout(() => { try { targetOsc.stop(); targetOsc.disconnect(); } catch(e){} }, release * 1000);
             activeNodes.delete(midi);
             visualizeKey(midi, false);
         }
@@ -249,7 +230,6 @@
         for (let i = 0; i < count; i++) {
             const midi = startMidi + i;
             const isBlack = NOTES[midi % 12].includes('#');
-            
             const key = document.createElement('div');
             key.className = `key ${isBlack ? 'black-key' : 'white-key'}`;
             key.dataset.midi = midi;
@@ -264,42 +244,60 @@
             assignBtn.onpointerdown = (e) => { e.stopPropagation(); openModal(midi); };
             key.appendChild(assignBtn);
 
-            // Pointer Events API (高速反応用)
+            // スムーズなスクロールと演奏の両立ロジック
             key.addEventListener('pointerdown', (e) => {
                 if(e.target.classList.contains('assign-btn')) return;
-                e.preventDefault();
-                container.classList.add('locking');
-                key.setPointerCapture(e.pointerId); // 指が外れても離鍵を追跡
+                
+                // マウスドラッグでのスクロールを妨げないよう、右クリックなどは無視
+                if (e.pointerType === 'mouse' && e.button !== 0) return;
+
+                // 演奏開始
                 playNote(midi);
-            });
 
-            key.addEventListener('pointerup', (e) => {
-                container.classList.remove('locking');
-                stopNote(midi);
-            });
+                // 指が動いたらスクロールを優先させ、音を止めるための処理
+                const startX = e.clientX;
+                const onPointerMove = (moveEvt) => {
+                    if (Math.abs(moveEvt.clientX - startX) > 10) {
+                        // 10px以上動いたら「スクロール」と判断して音を止める
+                        stopNote(midi);
+                        key.releasePointerCapture(e.pointerId);
+                        cleanup();
+                    }
+                };
 
-            key.addEventListener('pointercancel', (e) => {
-                container.classList.remove('locking');
-                stopNote(midi);
+                const onPointerUp = () => {
+                    stopNote(midi);
+                    cleanup();
+                };
+
+                const cleanup = () => {
+                    key.removeEventListener('pointermove', onPointerMove);
+                    key.removeEventListener('pointerup', onPointerUp);
+                    key.removeEventListener('pointercancel', onPointerUp);
+                };
+
+                key.setPointerCapture(e.pointerId);
+                key.addEventListener('pointermove', onPointerMove);
+                key.addEventListener('pointerup', onPointerUp);
+                key.addEventListener('pointercancel', onPointerUp);
             });
 
             strip.appendChild(key);
         }
 
-        // スクロールロジック (PCドラッグ用)
-        let isDragging = false, startX, scrollL;
+        // PC用ドラッグスクロール
+        let isDragging = false, dragStartX, scrollL;
         container.addEventListener('mousedown', (e) => {
-            if(e.target.closest('.key')) {
-                isDragging = true;
-                startX = e.pageX - container.offsetLeft;
-                scrollL = container.scrollLeft;
-            }
+            if(!e.target.closest('.key')) return;
+            isDragging = true;
+            dragStartX = e.pageX - container.offsetLeft;
+            scrollL = container.scrollLeft;
         });
         window.addEventListener('mouseup', () => isDragging = false);
         container.addEventListener('mousemove', (e) => {
             if (!isDragging || activeNodes.size > 0) return;
             const x = e.pageX - container.offsetLeft;
-            container.scrollLeft = scrollL - (x - startX) * 1.5;
+            container.scrollLeft = scrollL - (x - dragStartX) * 1.5;
         });
     }
 
@@ -353,11 +351,9 @@
         e.target.textContent = sustain ? 'ON' : 'OFF';
     };
 
-    // 初期化
-    createDeck('strip-upper', 60, 37); // C4 - C7
-    createDeck('strip-lower', 36, 37); // C2 - C5
+    createDeck('strip-upper', 60, 37);
+    createDeck('strip-lower', 36, 37);
     updateLabels();
-
 </script>
 </body>
 </html>
