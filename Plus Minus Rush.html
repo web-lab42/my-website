@@ -134,11 +134,11 @@ function randInt() {
 function updateTitle() {
   const titles = [
     { s: 0, t: "駆け出し" },
-    { s: 10, t: "計算の見習い" },
-    { s: 20, t: "マイナスの使い手" },
-    { s: 30, t: "数式の魔術師" },
-    { s: 50, t: "正負の支配者" },
-    { s: 100, t: "数神" }
+    { s: 14, t: "計算の見習い" },
+    { s: 24, t: "マイナスの使い手" },
+    { s: 32, t: "数式の魔術師" },
+    { s: 45, t: "正負の支配者" },
+    { s: 58, t: "数神" }
   ];
   const title = titles.reverse().find(x => score >= x.s);
   document.getElementById("level-display").textContent = `称号: ${title.t}`;
