@@ -1,0 +1,315 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>3D Surface Explorer - WebGL Demo</title>
+    <style>
+        body {
+            margin: 0;
+            overflow: hidden;
+            background-color: #111;
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+        }
+        #ui-container {
+            position: absolute;
+            top: 0;
+            right: 0;
+            z-index: 100;
+        }
+        #error-msg {
+            position: absolute;
+            bottom: 20px;
+            left: 50%;
+            transform: translateX(-50%);
+            background: rgba(255, 0, 0, 0.8);
+            color: white;
+            padding: 10px 20px;
+            border-radius: 4px;
+            display: none;
+            z-index: 200;
+        }
+        canvas {
+            display: block;
+        }
+    </style>
+</head>
+<body>
+
+<div id="ui-container"></div>
+<div id="error-msg"></div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/mathjs/11.8.0/math.js"></script>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/dat-gui/0.7.7/dat.gui.min.js"></script>
+
+<script>
+/**
+ * 3D Surface Explorer
+ * 優秀なフロントエンドエンジニアによる実装
+ */
+
+class SurfaceExplorer {
+    constructor() {
+        this.params = {
+            mode: 'Explicit', // 'Explicit' or 'Parametric'
+            equationZ: 'sin(x) * cos(y)',
+            equationX: '(2 + 0.5 * cos(v)) * cos(u)',
+            equationY: '(2 + 0.5 * cos(v)) * sin(u)',
+            equationH: '0.5 * sin(v)',
+            rangeMin: -5,
+            rangeMax: 5,
+            uMin: 0,
+            uMax: Math.PI * 2,
+            vMin: 0,
+            vMax: Math.PI * 2,
+            segments: 64,
+            wireframe: false,
+            R: 2,
+            r: 0.5,
+            colorScale: true
+        };
+
+        this.initScene();
+        this.initGUI();
+        this.updateGeometry();
+        this.animate();
+
+        window.addEventListener('resize', () => this.onWindowResize());
+    }
+
+    initScene() {
+        // Scene setup
+        this.scene = new THREE.Scene();
+        this.scene.background = new THREE.Color(0x111111);
+
+        // Camera setup
+        this.camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+        this.camera.position.set(5, 5, 8);
+
+        // Renderer setup
+        this.renderer = new THREE.WebGLRenderer({ antialias: true });
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+        this.renderer.setPixelRatio(window.devicePixelRatio);
+        document.body.appendChild(this.renderer.domElement);
+
+        // Controls
+        this.controls = new THREE.OrbitControls(this.camera, this.renderer.domElement);
+        this.controls.enableDamping = true;
+
+        // Helpers
+        const axesHelper = new THREE.AxesHelper(5);
+        this.scene.add(axesHelper);
+        const gridHelper = new THREE.GridHelper(10, 10, 0x444444, 0x222222);
+        gridHelper.rotation.x = Math.PI / 2;
+        this.scene.add(gridHelper);
+
+        // Lights
+        const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+        this.scene.add(ambientLight);
+        const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+        directionalLight.position.set(1, 1, 1);
+        this.scene.add(directionalLight);
+
+        // Mesh container
+        this.mesh = null;
+    }
+
+    initGUI() {
+        this.gui = new dat.GUI({ autoPlace: false });
+        document.getElementById('ui-container').appendChild(this.gui.domElement);
+
+        const presetFolder = this.gui.addFolder('Presets');
+        presetFolder.add(this, 'setTorus').name('Torus (媒介変数)');
+        presetFolder.add(this, 'setSphere').name('Sphere (媒介変数)');
+        presetFolder.add(this, 'setWave').name('Wave (明示的)');
+        presetFolder.add(this, 'setSaddle').name('Saddle (明示的)');
+        presetFolder.open();
+
+        this.mainFolder = this.gui.addFolder('Surface Settings');
+        this.mainFolder.add(this.params, 'mode', ['Explicit', 'Parametric']).onChange(() => this.updateUIState());
+        
+        // Explicit fields
+        this.uiZ = this.mainFolder.add(this.params, 'equationZ').name('z = f(x,y)').onFinishChange(() => this.updateGeometry());
+        
+        // Parametric fields
+        this.uiX = this.mainFolder.add(this.params, 'equationX').name('x = f(u,v)').onFinishChange(() => this.updateGeometry());
+        this.uiY = this.mainFolder.add(this.params, 'equationY').name('y = g(u,v)').onFinishChange(() => this.updateGeometry());
+        this.uiH = this.mainFolder.add(this.params, 'equationH').name('z = h(u,v)').onFinishChange(() => this.updateGeometry());
+
+        this.mainFolder.add(this.params, 'segments', 10, 200, 1).name('Resolution').onFinishChange(() => this.updateGeometry());
+        this.mainFolder.add(this.params, 'wireframe').onChange(() => this.updateMaterial());
+        this.mainFolder.open();
+
+        this.rangeFolder = this.gui.addFolder('Range Settings');
+        this.rangeFolder.add(this.params, 'rangeMin').name('XY Min').onChange(() => this.updateGeometry());
+        this.rangeFolder.add(this.params, 'rangeMax').name('XY Max').onChange(() => this.updateGeometry());
+        this.rangeFolder.add(this.params, 'uMin').name('u Min').onChange(() => this.updateGeometry());
+        this.rangeFolder.add(this.params, 'uMax').name('u Max').onChange(() => this.updateGeometry());
+        this.rangeFolder.add(this.params, 'vMin').name('v Min').onChange(() => this.updateGeometry());
+        this.rangeFolder.add(this.params, 'vMax').name('v Max').onChange(() => this.updateGeometry());
+        
+        this.torusFolder = this.gui.addFolder('Constants (R, r)');
+        this.torusFolder.add(this.params, 'R', 0.1, 5).onChange(() => this.updateGeometry());
+        this.torusFolder.add(this.params, 'r', 0.1, 2).onChange(() => this.updateGeometry());
+
+        this.updateUIState();
+    }
+
+    updateUIState() {
+        const isExp = this.params.mode === 'Explicit';
+        this.uiZ.domElement.parentElement.parentElement.style.display = isExp ? '' : 'none';
+        this.uiX.domElement.parentElement.parentElement.style.display = isExp ? 'none' : '';
+        this.uiY.domElement.parentElement.parentElement.style.display = isExp ? 'none' : '';
+        this.uiH.domElement.parentElement.parentElement.style.display = isExp ? 'none' : '';
+        this.updateGeometry();
+    }
+
+    // Presets
+    setTorus() {
+        this.params.mode = 'Parametric';
+        this.params.equationX = '(R + r * cos(v)) * cos(u)';
+        this.params.equationY = '(R + r * cos(v)) * sin(u)';
+        this.params.equationH = 'r * sin(v)';
+        this.params.uMin = 0; this.params.uMax = Math.PI * 2;
+        this.params.vMin = 0; this.params.vMax = Math.PI * 2;
+        this.refreshGUI();
+    }
+
+    setSphere() {
+        this.params.mode = 'Parametric';
+        this.params.equationX = '2 * sin(u) * cos(v)';
+        this.params.equationY = '2 * sin(u) * sin(v)';
+        this.params.equationH = '2 * cos(u)';
+        this.params.uMin = 0; this.params.uMax = Math.PI;
+        this.params.vMin = 0; this.params.vMax = Math.PI * 2;
+        this.refreshGUI();
+    }
+
+    setWave() {
+        this.params.mode = 'Explicit';
+        this.params.equationZ = 'sin(x) * cos(y)';
+        this.params.rangeMin = -5; this.params.rangeMax = 5;
+        this.refreshGUI();
+    }
+
+    setSaddle() {
+        this.params.mode = 'Explicit';
+        this.params.equationZ = '(x^2 - y^2) / 4';
+        this.params.rangeMin = -4; this.params.rangeMax = 4;
+        this.refreshGUI();
+    }
+
+    refreshGUI() {
+        for (let i in this.gui.__folders) {
+            for (let j in this.gui.__folders[i].__controllers) {
+                this.gui.__folders[i].__controllers[j].updateDisplay();
+            }
+        }
+        this.updateUIState();
+    }
+
+    updateGeometry() {
+        try {
+            document.getElementById('error-msg').style.display = 'none';
+            if (this.mesh) {
+                this.scene.remove(this.mesh);
+                this.mesh.geometry.dispose();
+            }
+
+            const self = this;
+            const compiledX = math.compile(this.params.equationX);
+            const compiledY = math.compile(this.params.equationY);
+            const compiledH = math.compile(this.params.equationH);
+            const compiledZ = math.compile(this.params.equationZ);
+
+            const geometry = new THREE.ParametricBufferGeometry((u, v, target) => {
+                let x, y, z;
+                const scope = { 
+                    u: self.params.uMin + u * (self.params.uMax - self.params.uMin),
+                    v: self.params.vMin + v * (self.params.vMax - self.params.vMin),
+                    x: self.params.rangeMin + u * (self.params.rangeMax - self.params.rangeMin),
+                    y: self.params.rangeMin + v * (self.params.rangeMax - self.params.rangeMin),
+                    R: self.params.R,
+                    r: self.params.r,
+                    pi: Math.PI
+                };
+
+                if (self.params.mode === 'Explicit') {
+                    x = scope.x;
+                    y = scope.y;
+                    z = compiledZ.evaluate(scope);
+                } else {
+                    x = compiledX.evaluate(scope);
+                    y = compiledY.evaluate(scope);
+                    z = compiledH.evaluate(scope);
+                }
+                target.set(x, y, z);
+            }, this.params.segments, this.params.segments);
+
+            // Compute vertex colors based on Z height
+            geometry.computeBoundingBox();
+            const minZ = geometry.boundingBox.min.z;
+            const maxZ = geometry.boundingBox.max.z;
+            const range = maxZ - minZ || 1;
+
+            const count = geometry.attributes.position.count;
+            const colors = new Float32Array(count * 3);
+            const pos = geometry.attributes.position.array;
+
+            for (let i = 0; i < count; i++) {
+                const zVal = pos[i * 3 + 2];
+                const normalized = (zVal - minZ) / range;
+                const color = new THREE.Color();
+                color.setHSL(0.7 * (1 - normalized), 0.8, 0.5); // Hue based on height
+                colors[i * 3] = color.r;
+                colors[i * 3 + 1] = color.g;
+                colors[i * 3 + 2] = color.b;
+            }
+            geometry.setAttribute('color', new THREE.BufferAttribute(colors, 3));
+
+            const material = new THREE.MeshPhongMaterial({
+                side: THREE.DoubleSide,
+                vertexColors: true,
+                wireframe: this.params.wireframe,
+                flatShading: false
+            });
+
+            this.mesh = new THREE.Mesh(geometry, material);
+            this.scene.add(this.mesh);
+
+        } catch (err) {
+            console.error(err);
+            const errorDiv = document.getElementById('error-msg');
+            errorDiv.innerText = "数式エラー: " + err.message;
+            errorDiv.style.display = 'block';
+        }
+    }
+
+    updateMaterial() {
+        if (this.mesh) {
+            this.mesh.material.wireframe = this.params.wireframe;
+        }
+    }
+
+    onWindowResize() {
+        this.camera.aspect = window.innerWidth / window.innerHeight;
+        this.camera.updateProjectionMatrix();
+        this.renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+
+    animate() {
+        requestAnimationFrame(() => this.animate());
+        this.controls.update();
+        this.renderer.render(this.scene, this.camera);
+    }
+}
+
+// Start Application
+window.onload = () => {
+    new SurfaceExplorer();
+};
+</script>
+</body>
+</html>
