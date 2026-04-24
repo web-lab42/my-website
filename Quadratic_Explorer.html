@@ -153,32 +153,40 @@ function drawAxes() {
 }
 
 function drawGraph(f, L, R, A) {
-    // 点線：全体像
+    // 全体の点線
     ctx.setLineDash([5, 5]);
-    ctx.strokeStyle = "#bbb";
+    ctx.strokeStyle = "#ccc";
     ctx.beginPath();
     for (let i = 0; i <= 200; i++) {
         const x = view.xmin + (view.xmax - view.xmin) * (i / 200);
         const y = f(x);
-        if (i === 0) ctx.moveTo(cx(x), cy(y));
-        else ctx.lineTo(cx(x), cy(y));
+        if (i === 0) ctx.moveTo(cx(x), cy(y)); else ctx.lineTo(cx(x), cy(y));
     }
     ctx.stroke();
 
-    // 実線：定義域内
+    // 定義域内の実線 (フリーズ対策版)
     ctx.setLineDash([]);
     ctx.lineWidth = 3;
-    ctx.strokeStyle = A > 0 ? "#333" : "#555";
-    ctx.beginPath();
-    const step = (R - L) / 200;
-    for (let x = L; x <= R + 0.00001; x += step) {
-        const y = f(x);
-        if (x === L) ctx.moveTo(cx(x), cy(y));
-        else ctx.lineTo(cx(x), cy(y));
+    ctx.strokeStyle = "#333";
+    
+    if (Math.abs(R - L) < 0.0001) {
+        // LとRがほぼ同じなら点だけ描画
+        ctx.beginPath();
+        ctx.arc(cx(L), cy(f(L)), 3, 0, Math.PI*2);
+        ctx.fill();
+    } else {
+        ctx.beginPath();
+        const numSteps = 200;
+        const stepSize = (R - L) / numSteps;
+        for (let i = 0; i <= numSteps; i++) {
+            const x = L + (stepSize * i);
+            const y = f(x);
+            if (i === 0) ctx.moveTo(cx(x), cy(y));
+            else ctx.lineTo(cx(x), cy(y));
+        }
+        ctx.stroke();
     }
-    ctx.stroke();
 }
-
 function drawMarker(x, y, color, label) {
     if (x < view.xmin || x > view.xmax || y < view.ymin || y > view.ymax) return;
     ctx.fillStyle = color;
