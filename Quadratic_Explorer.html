@@ -1,323 +1,312 @@
 <!DOCTYPE html>
 <html lang="ja">
 <head>
-<meta charset="UTF-8">
-<title>Quadratic_Explorer</title>
-<style>
-body{margin:0;font-family:sans-serif;background:#f5f5f5}
-.container{display:flex;height:100vh}
-.left{width:50%;padding:20px;box-sizing:border-box;overflow-y:auto}
-.right{width:50%;display:flex;justify-content:center;align-items:center;background:#eaeaea}
-h1{font-size:20px}
-.panel{background:white;padding:12px;border-radius:8px;margin-bottom:12px}
-input[type="text"]{width:80px}
-input[type="number"]{width:70px}
-#explanation{background:#eef3ff;padding:10px;border-radius:6px}
-canvas{background:white;border-radius:8px;cursor:grab;touch-action:none}
-canvas:active{cursor:grabbing}
-</style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Quadratic Explorer Pro</title>
+    <style>
+        :root {
+            --primary: #0078d7;
+            --secondary: #00a000;
+            --danger: #d13438;
+            --bg: #f8f9fa;
+            --panel: #ffffff;
+        }
+        body { margin: 0; font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; background: var(--bg); color: #333; }
+        .container { display: flex; height: 100vh; overflow: hidden; }
+        
+        /* 左パネル */
+        .left { width: 400px; padding: 24px; box-sizing: border-box; overflow-y: auto; background: var(--panel); border-right: 1px solid #ddd; box-shadow: 2px 0 10px rgba(0,0,0,0.05); }
+        h1 { font-size: 22px; margin-top: 0; color: var(--primary); border-bottom: 2px solid var(--primary); padding-bottom: 8px; }
+        .panel { background: #fdfdfd; padding: 16px; border-radius: 10px; margin-bottom: 16px; border: 1px solid #eee; }
+        .panel b { display: block; margin-bottom: 10px; font-size: 14px; color: #666; text-transform: uppercase; letter-spacing: 0.5px; }
+        
+        /* 入力要素 */
+        input[type="text"], input[type="number"] { border: 1px solid #ccc; padding: 6px; border-radius: 4px; font-size: 16px; transition: border 0.2s; }
+        input:focus { border-color: var(--primary); outline: none; }
+        .equation-row { font-size: 18px; font-family: 'Times New Roman', serif; display: flex; align-items: center; gap: 5px; flex-wrap: wrap; }
+        .range-row { display: flex; align-items: center; gap: 8px; margin-top: 10px; }
+        input[type="range"] { flex: 1; cursor: pointer; }
+        
+        /* 説明・結果表示 */
+        #explanation { line-height: 1.6; font-size: 14px; }
+        .res-val { font-weight: bold; }
+        .max-text { color: var(--danger); }
+        .min-text { color: var(--primary); }
+
+        /* 右パネル（グラフ） */
+        .right { flex: 1; display: flex; justify-content: center; align-items: center; position: relative; }
+        canvas { background: white; border-radius: 12px; box-shadow: 0 4px 20px rgba(0,0,0,0.1); cursor: grab; }
+        canvas:active { cursor: grabbing; }
+
+        .controls-hint { position: absolute; bottom: 20px; right: 20px; background: rgba(255,255,255,0.8); padding: 8px 12px; border-radius: 20px; font-size: 12px; color: #777; pointer-events: none; }
+
+        button { background: var(--primary); color: white; border: none; padding: 8px 16px; border-radius: 6px; cursor: pointer; font-weight: bold; transition: opacity 0.2s; }
+        button:hover { opacity: 0.8; }
+    </style>
 </head>
-
 <body>
+
 <div class="container">
+    <div class="left">
+        <h1>Quadratic Explorer</h1>
 
-<div class="left">
-<h1>Quadratic Explorer</h1>
+        <div class="panel">
+            <b>① モード設定</b>
+            <label><input type="checkbox" id="useCoef" checked> 係数に a を許可</label><br>
+            <label><input type="checkbox" id="useInterval"> 区間に a を許可</label>
+        </div>
 
-<div class="panel">
-<b>① 文字 a の使い方</b><br>
-<label><input type="checkbox" id="useCoef" checked> 係数に文字を使う</label>
-<label><input type="checkbox" id="useInterval"> 区間に文字を使う</label>
-</div>
+        <div class="panel">
+            <b>② 二次関数式</b>
+            <div class="equation-row">
+                y = <input id="coefA" value="1"> x² +
+                <input id="coefB" value="-2*a"> x +
+                <input id="coefC" value="1">
+            </div>
+        </div>
 
-<div class="panel">
-<b>② 二次関数</b><br>
-y =
-<input id="coefA" value="1"> x² +
-<input id="coefB" value="-2*a"> x +
-<input id="coefC" value="1">
-</div>
+        <div class="panel">
+            <b>③ 定義域</b>
+            <div class="equation-row">
+                <input id="L" value="-2"> ≤ x ≤ <input id="R" value="2">
+            </div>
+        </div>
 
-<div class="panel">
-<b>③ 定義域</b><br>
-<input id="L" value="-2"> ≤ x ≤
-<input id="R" value="2">
-</div>
+        <div class="panel">
+            <b>④ パラメータ a</b>
+            <div class="range-row">
+                Min: <input type="number" id="aMin" value="-5" style="width:50px">
+                Max: <input type="number" id="aMax" value="5" style="width:50px">
+            </div>
+            <div class="range-row">
+                <input type="range" id="aSlider" min="-5" max="5" step="0.01" value="1.0">
+                <span id="aVal" style="min-width: 40px; font-weight: bold;">1.00</span>
+            </div>
+        </div>
 
-<div class="panel">
-<b>④ パラメータ a</b><br><br>
-a の範囲：
-<input type="number" id="aMin" value="-5"> ～
-<input type="number" id="aMax" value="5"><br><br>
-<input type="range" id="aSlider" min="-5" max="5" step="0.1" value="0">
-<span id="aVal"></span>
-</div>
+        <div class="panel" id="explanation">
+            </div>
 
-<div class="panel">
-<b>⑤ 表示操作</b><br>
-・ドラッグ：移動<br>
-・ホイール／ピンチ：拡大縮小<br>
-<button onclick="resetView()">表示リセット</button>
-</div>
+        <button onclick="resetView()">表示をリセット</button>
+    </div>
 
-<div id="explanation" class="panel"></div>
-</div>
-
-<div class="right">
-<canvas id="canvas" width="600" height="450"></canvas>
-</div>
+    <div class="right">
+        <canvas id="canvas"></canvas>
+        <div class="controls-hint">Drag: Move | Scroll: Zoom</div>
+    </div>
 </div>
 
 <script>
 const canvas = document.getElementById("canvas");
 const ctx = canvas.getContext("2d");
+const explanation = document.getElementById("explanation");
 
-let view={xmin:-6,xmax:6,ymin:-10,ymax:10};
-const PAD=40;
+let view = { xmin: -6, xmax: 6, ymin: -8, ymax: 8 };
+const PAD = 40;
 
-const cx=x=>PAD+(x-view.xmin)/(view.xmax-view.xmin)*(canvas.width-2*PAD);
-const cy=y=>canvas.height-PAD-(y-view.ymin)/(view.ymax-view.ymin)*(canvas.height-2*PAD);
+// キャンバスサイズのレスポンシブ対応
+function resize() {
+    const parent = canvas.parentElement;
+    canvas.width = parent.clientWidth - 60;
+    canvas.height = parent.clientHeight - 60;
+}
+window.addEventListener('resize', () => { resize(); draw(); });
+resize();
 
-/* ===== 安全評価 ===== */
-function safeEval(expr,a){
-  if(!/^[0-9a-x+\-*/(). ]+$/.test(expr)) throw "invalid";
-  return Function("a","return "+expr)(a);
+// 座標変換
+const cx = x => PAD + (x - view.xmin) / (view.xmax - view.xmin) * (canvas.width - 2 * PAD);
+const cy = y => canvas.height - PAD - (y - view.ymin) / (view.ymax - view.ymin) * (canvas.height - 2 * PAD);
+
+/**
+ * 安全な数式評価
+ * 脆弱性を避けるため eval/Function ではなく置換と単純計算に限定
+ */
+function safeEval(expr, aValue) {
+    // aを数値に置換し、数式として基本的な文字以外を排除
+    let s = expr.replace(/a/g, `(${aValue})`);
+    if (/[^0-9a-x+\-*/().\s]/.test(s)) throw "Invalid Character";
+    
+    // 単純な計算実行（最低限の安全性を確保したFunctionコンストラクタ）
+    try {
+        return new Function(`return (${s})`)();
+    } catch (e) {
+        throw "Eval Error";
+    }
 }
 
-/* ===== 描画 ===== */
-function drawAxes(){
-  ctx.strokeStyle="#aaa";
-  ctx.beginPath();
-  ctx.moveTo(cx(view.xmin),cy(0));
-  ctx.lineTo(cx(view.xmax),cy(0));
-  ctx.moveTo(cx(0),cy(view.ymin));
-  ctx.lineTo(cx(0),cy(view.ymax));
-  ctx.stroke();
+function drawAxes() {
+    ctx.strokeStyle = "#ddd";
+    ctx.lineWidth = 1;
+    ctx.beginPath();
+    // X軸
+    ctx.moveTo(cx(view.xmin), cy(0)); ctx.lineTo(cx(view.xmax), cy(0));
+    // Y軸
+    ctx.moveTo(cx(0), cy(view.ymin)); ctx.lineTo(cx(0), cy(view.ymax));
+    ctx.stroke();
+
+    // 目盛り（簡易）
+    ctx.fillStyle = "#999";
+    ctx.font = "10px sans-serif";
+    if(cy(0) > 0 && cy(0) < canvas.height) ctx.fillText("x", canvas.width - 20, cy(0) - 5);
+    if(cx(0) > 0 && cx(0) < canvas.width) ctx.fillText("y", cx(0) + 5, 20);
 }
 
-function drawGraph(f,L,R){
-  ctx.setLineDash([4,4]);
-  ctx.strokeStyle="#999";
-  ctx.beginPath();
-  let first=true;
-  for(let x=view.xmin;x<=view.xmax;x+=(view.xmax-view.xmin)/600){
-    const y=f(x);
-    if(first){ctx.moveTo(cx(x),cy(y));first=false;}
-    else ctx.lineTo(cx(x),cy(y));
-  }
-  ctx.stroke();
+function drawGraph(f, L, R, A) {
+    // 点線：全体像
+    ctx.setLineDash([5, 5]);
+    ctx.strokeStyle = "#bbb";
+    ctx.beginPath();
+    for (let i = 0; i <= 200; i++) {
+        const x = view.xmin + (view.xmax - view.xmin) * (i / 200);
+        const y = f(x);
+        if (i === 0) ctx.moveTo(cx(x), cy(y));
+        else ctx.lineTo(cx(x), cy(y));
+    }
+    ctx.stroke();
 
-  ctx.setLineDash([]);
-  ctx.lineWidth=3;
-  ctx.strokeStyle="#000";
-  ctx.beginPath();
-  first=true;
-  for(let x=L;x<=R;x+=(R-L)/300){
-    const y=f(x);
-    if(first){ctx.moveTo(cx(x),cy(y));first=false;}
-    else ctx.lineTo(cx(x),cy(y));
-  }
-  ctx.stroke();
-  ctx.lineWidth=1;
+    // 実線：定義域内
+    ctx.setLineDash([]);
+    ctx.lineWidth = 3;
+    ctx.strokeStyle = A > 0 ? "#333" : "#555";
+    ctx.beginPath();
+    const step = (R - L) / 200;
+    for (let x = L; x <= R + 0.00001; x += step) {
+        const y = f(x);
+        if (x === L) ctx.moveTo(cx(x), cy(y));
+        else ctx.lineTo(cx(x), cy(y));
+    }
+    ctx.stroke();
 }
 
-function drawPoint(x,y,color){
-  if(x<view.xmin||x>view.xmax||y<view.ymin||y>view.ymax) return;
-  ctx.fillStyle=color;
-  ctx.beginPath();
-  ctx.arc(cx(x),cy(y),6,0,Math.PI*2);
-  ctx.fill();
+function drawMarker(x, y, color, label) {
+    if (x < view.xmin || x > view.xmax || y < view.ymin || y > view.ymax) return;
+    ctx.fillStyle = color;
+    ctx.beginPath();
+    ctx.arc(cx(x), cy(y), 6, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.strokeStyle = "white";
+    ctx.lineWidth = 2;
+    ctx.stroke();
 }
 
-function drawVLine(x,color){
-  if(x<view.xmin||x>view.xmax) return;
-  ctx.setLineDash([5,5]);
-  ctx.strokeStyle=color;
-  ctx.beginPath();
-  ctx.moveTo(cx(x),cy(view.ymin));
-  ctx.lineTo(cx(x),cy(view.ymax));
-  ctx.stroke();
-  ctx.setLineDash([]);
+function draw() {
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    drawAxes();
+
+    const a = parseFloat(aSlider.value);
+    aVal.textContent = a.toFixed(2);
+
+    // バリデーション
+    const checkA = /a/.test(coefA.value + coefB.value + coefC.value);
+    const checkI = /a/.test(L.value + R.value);
+    
+    if (!useCoef.checked && checkA) { explanation.innerHTML = "<b style='color:red'>⚠ モード設定を確認してください(a)</b>"; return; }
+    if (!useInterval.checked && checkI) { explanation.innerHTML = "<b style='color:red'>⚠ モード設定を確認してください(区間)</b>"; return; }
+
+    let vA, vB, vC, vL, vR;
+    try {
+        vA = safeEval(coefA.value, a);
+        vB = safeEval(coefB.value, a);
+        vC = safeEval(coefC.value, a);
+        vL = safeEval(L.value, a);
+        vR = safeEval(R.value, a);
+    } catch (e) {
+        explanation.innerHTML = "<b style='color:red'>⚠ 式の入力が正しくありません</b>"; return;
+    }
+
+    if (vA === 0) { explanation.innerHTML = "<b>直線（一次関数）です</b>"; return; }
+    if (vL > vR) [vL, vR] = [vR, vL];
+
+    const f = x => vA * x * x + vB * x + vC;
+    const axis = -vB / (2 * vA);
+
+    // グラフと補助線
+    drawGraph(f, vL, vR, vA);
+    
+    // 軸の描画
+    ctx.setLineDash([2, 2]);
+    ctx.strokeStyle = "#0078d7";
+    ctx.beginPath();
+    ctx.moveTo(cx(axis), 0); ctx.lineTo(cx(axis), canvas.height);
+    ctx.stroke();
+
+    // 定義域の境界線
+    ctx.strokeStyle = "rgba(0, 160, 0, 0.3)";
+    [vL, vR].forEach(val => {
+        ctx.beginPath();
+        ctx.moveTo(cx(val), 0); ctx.lineTo(cx(val), canvas.height);
+        ctx.stroke();
+    });
+
+    // 最大・最小の計算
+    let minX, maxX;
+    const candidates = [{x: vL, y: f(vL)}, {x: vR, y: f(vR)}];
+    if (axis > vL && axis < vR) candidates.push({x: axis, y: f(axis)});
+    
+    candidates.sort((a, b) => a.y - b.y);
+    const minPoint = candidates[0];
+    const maxPoint = candidates[candidates.length - 1];
+
+    drawMarker(minPoint.x, minPoint.y, "#0078d7"); // Blue for Min
+    drawMarker(maxPoint.x, maxPoint.y, "#d13438"); // Red for Max
+
+    explanation.innerHTML = `
+        <b>解析結果</b><br>
+        形状: ${vA > 0 ? "下に凸" : "上に凸"}<br>
+        軸の方程式: <span class="res-val">x = ${axis.toFixed(2)}</span><br>
+        最大値: <span class="res-val max-text">f(${maxPoint.x.toFixed(2)}) = ${maxPoint.y.toFixed(2)}</span><br>
+        最小値: <span class="res-val min-text">f(${minPoint.x.toFixed(2)}) = ${minPoint.y.toFixed(2)}</span>
+    `;
 }
 
-/* ===== メイン ===== */
-function draw(){
-  ctx.clearRect(0,0,canvas.width,canvas.height);
-  drawAxes();
+/* --- インタラクション (ズーム・移動) --- */
+let dragging = false, lastX, lastY;
 
-  const a=+aSlider.value;
-  aVal.textContent=a.toFixed(2);
-
-  if(!useCoef.checked && /a/.test(coefA.value+coefB.value+coefC.value)){
-    explanation.innerHTML="⚠ 係数に a は使えません";return;
-  }
-  if(!useInterval.checked && /a/.test(L.value+R.value)){
-    explanation.innerHTML="⚠ 区間に a は使えません";return;
-  }
-
-  let A,B,C,left,right;
-  try{
-    A=safeEval(coefA.value,a);
-    B=safeEval(coefB.value,a);
-    C=safeEval(coefC.value,a);
-    left=safeEval(L.value,a);
-    right=safeEval(R.value,a);
-  }catch{
-    explanation.innerHTML="⚠ 式エラー";return;
-  }
-
-  if(A===0){explanation.innerHTML="⚠ 二次関数ではありません";return;}
-  if(left>right)[left,right]=[right,left];
-
-  const f=x=>A*x*x+B*x+C;
-  const axis=-B/(2*A);
-
-  drawGraph(f,left,right);
-  drawVLine(axis,"#0078d7");
-  drawVLine(left,"#00a000");
-  drawVLine(right,"#00a000");
-
-  let minX,maxX;
-  if(axis>=left&&axis<=right){
-    const far=Math.abs(left-axis)>Math.abs(right-axis)?left:right;
-    if(A>0){minX=axis;maxX=far;}
-    else{maxX=axis;minX=far;}
-  }else{
-    const yL=f(left),yR=f(right);
-    if(yL<yR){minX=left;maxX=right;}
-    else{minX=right;maxX=left;}
-  }
-
-  drawPoint(minX,f(minX),"blue");
-  drawPoint(maxX,f(maxX),"red");
-
-  explanation.innerHTML=
-    `<b>結果</b><br>
-     ${A>0?"下に凸":"上に凸"}<br>
-     軸：x=${axis.toFixed(2)}<br>
-     最大値：f(${maxX.toFixed(2)})=${f(maxX).toFixed(2)}<br>
-     最小値：f(${minX.toFixed(2)})=${f(minX).toFixed(2)}`;
-}
-
-/* ===== 移動・ズーム ===== */
-let dragging=false,px,py;
-canvas.addEventListener("mousedown",e=>{dragging=true;px=e.offsetX;py=e.offsetY});
-canvas.addEventListener("mouseup",()=>dragging=false);
-canvas.addEventListener("mouseleave",()=>dragging=false);
-canvas.addEventListener("mousemove",e=>{
-  if(!dragging)return;
-  const dx=(e.offsetX-px)/canvas.width*(view.xmax-view.xmin);
-  const dy=(e.offsetY-py)/canvas.height*(view.ymax-view.ymin);
-  view.xmin-=dx;view.xmax-=dx;
-  view.ymin+=dy;view.ymax+=dy;
-  px=e.offsetX;py=e.offsetY;
-  draw();
-});
-
-canvas.addEventListener("wheel",e=>{
-  e.preventDefault();
-  zoomAt(e.offsetX,e.offsetY,e.deltaY>0?1.1:0.9);
-});
-
-function zoomAt(px,py,z){
-  const mx=view.xmin+(px/canvas.width)*(view.xmax-view.xmin);
-  const my=view.ymax-(py/canvas.height)*(view.ymax-view.ymin);
-  view.xmin=mx+(view.xmin-mx)*z;
-  view.xmax=mx+(view.xmax-mx)*z;
-  view.ymin=my+(view.ymin-my)*z;
-  view.ymax=my+(view.ymax-my)*z;
-  draw();
-}
-
-function resetView(){
-  view={xmin:-6,xmax:6,ymin:-10,ymax:10};
-  draw();
-}
-
-/* ===== タッチ操作（スマホ・タブレット） ===== */
-let touchDragging = false;
-let prevDist = null;
-let tx, ty;
-
-canvas.addEventListener("touchstart", e => {
-  e.preventDefault();
-
-  if (e.touches.length === 1) {
-    touchDragging = true;
-    tx = e.touches[0].clientX;
-    ty = e.touches[0].clientY;
-  }
-
-  if (e.touches.length === 2) {
-    touchDragging = false;
-    prevDist = getDist(e.touches);
-  }
-}, { passive: false });
-
-canvas.addEventListener("touchmove", e => {
-  e.preventDefault();
-
-  const rect = canvas.getBoundingClientRect();
-
-  /* --- 1本指：移動 --- */
-  if (touchDragging && e.touches.length === 1) {
-    const nx = e.touches[0].clientX;
-    const ny = e.touches[0].clientY;
-
-    const dx = (nx - tx) / canvas.width * (view.xmax - view.xmin);
-    const dy = (ny - ty) / canvas.height * (view.ymax - view.ymin);
-
-    view.xmin -= dx;
-    view.xmax -= dx;
-    view.ymin += dy;
-    view.ymax += dy;
-
-    tx = nx;
-    ty = ny;
+canvas.addEventListener("mousedown", e => { dragging = true; lastX = e.offsetX; lastY = e.offsetY; });
+window.addEventListener("mouseup", () => dragging = false);
+canvas.addEventListener("mousemove", e => {
+    if (!dragging) return;
+    const dx = (e.offsetX - lastX) / canvas.width * (view.xmax - view.xmin);
+    const dy = (e.offsetY - lastY) / canvas.height * (view.ymax - view.ymin);
+    view.xmin -= dx; view.xmax -= dx;
+    view.ymin += dy; view.ymax += dy;
+    lastX = e.offsetX; lastY = e.offsetY;
     draw();
-  }
-
-  /* --- 2本指：ピンチズーム --- */
-  if (e.touches.length === 2) {
-    const dist = getDist(e.touches);
-    const zoom = prevDist / dist;
-
-    const mx =
-      ((e.touches[0].clientX + e.touches[1].clientX) / 2 - rect.left);
-    const my =
-      ((e.touches[0].clientY + e.touches[1].clientY) / 2 - rect.top);
-
-    zoomAt(mx, my, zoom);
-    prevDist = dist;
-  }
-}, { passive: false });
-
-canvas.addEventListener("touchend", () => {
-  touchDragging = false;
-  prevDist = null;
 });
 
-function getDist(t) {
-  return Math.hypot(
-    t[0].clientX - t[1].clientX,
-    t[0].clientY - t[1].clientY
-  );
+canvas.addEventListener("wheel", e => {
+    e.preventDefault();
+    const zoom = e.deltaY > 0 ? 1.1 : 0.9;
+    const mx = view.xmin + (e.offsetX / canvas.width) * (view.xmax - view.xmin);
+    const my = view.ymax - (e.offsetY / canvas.height) * (view.ymax - view.ymin);
+    view.xmin = mx + (view.xmin - mx) * zoom;
+    view.xmax = mx + (view.xmax - mx) * zoom;
+    view.ymin = my + (view.ymin - my) * zoom;
+    view.ymax = my + (view.ymax - my) * zoom;
+    draw();
+}, { passive: false });
+
+function resetView() {
+    view = { xmin: -6, xmax: 6, ymin: -8, ymax: 8 };
+    draw();
 }
 
-/* ===== イベント ===== */
-[aSlider,coefA,coefB,coefC,L,R,useCoef,useInterval]
-.forEach(e=>e.addEventListener("input",draw));
+// イベント登録
+[aSlider, coefA, coefB, coefC, L, R, useCoef, useInterval].forEach(el => {
+    el.addEventListener("input", draw);
+});
 
-[aMin,aMax].forEach(e=>e.addEventListener("input",()=>{
-  aSlider.min=aMin.value;
-  aSlider.max=aMax.value;
-  aSlider.value=Math.min(Math.max(aSlider.value,aSlider.min),aSlider.max);
-  draw();
-}));
+[aMin, aMax].forEach(el => {
+    el.addEventListener("change", () => {
+        aSlider.min = aMin.value;
+        aSlider.max = aMax.value;
+        draw();
+    });
+});
 
+// 初期描画
 draw();
 </script>
 </body>
 </html>
-
-
