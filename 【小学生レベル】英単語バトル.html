@@ -194,114 +194,236 @@
 
     <script>
         // 単語データのサンプル (実際には埋める)
+
 const wordLists = {
   stage_01: {
-    name: "家族・人・職業",
+    name: "家族・人・代名詞",
     words: [
-      { en: "family", ja: "家族" }, { en: "father", ja: "父親" }, { en: "mother", ja: "母" },
-      { en: "brother", ja: "兄弟" }, { en: "sister", ja: "姉妹" }, { en: "grandfather", ja: "祖父" },
-      { en: "grandmother", ja: "祖母" }, { en: "boy", ja: "少年" }, { en: "girl", ja: "少女" },
-      { en: "friend", ja: "友達" }, { en: "classmate", ja: "同級生" }, { en: "everyone", ja: "みんな" },
-      { en: "doctor", ja: "医者" }, { en: "nurse", ja: "看護師" }, { en: "teacher", ja: "先生" },
-      { en: "farmer", ja: "農家" }, { en: "musician", ja: "音楽家" }, { en: "scientist", ja: "科学者" }
+      { en: "I", ja: "私は" }, { en: "you", ja: "あなたは" }, { en: "he", ja: "彼は" },
+      { en: "she", ja: "彼女は" }, { en: "it", ja: "それは" }, { en: "we", ja: "私たちは" },
+      { en: "they", ja: "彼らは" }, { en: "family", ja: "家族" }, { en: "father", ja: "父" },
+      { en: "mother", ja: "母" }, { en: "brother", ja: "兄、弟" }, { en: "sister", ja: "姉、妹" },
+      { en: "grandfather", ja: "祖父" }, { en: "grandmother", ja: "祖母" }, { en: "uncle", ja: "おじ" },
+      { en: "aunt", ja: "おば" }, { en: "son", ja: "息子" }, { en: "daughter", ja: "娘" },
+      { en: "baby", ja: "赤ちゃん" }, { en: "cousin", ja: "いとこ" }, { en: "people", ja: "人々" },
+      { en: "person", ja: "1人" }, { en: "man", ja: "男の人" }, { en: "woman", ja: "女の人" },
+      { en: "boy", ja: "男の子" }, { en: "girl", ja: "女の子" }, { en: "friend", ja: "友達" },
+      { en: "classmate", ja: "クラスメート" }, { en: "neighbor", ja: "隣人" }, { en: "adult", ja: "大人" }
     ]
-  },
+  }, // 参照
   stage_02: {
-    name: "動物・生き物",
+    name: "数・色・形",
     words: [
-      { en: "animal", ja: "動物" }, { en: "dog", ja: "イヌ" }, { en: "cat", ja: "猫" },
-      { en: "bird", ja: "鳥" }, { en: "fish", ja: "魚" }, { en: "bear", ja: "クマ" },
-      { en: "monkey", ja: "サル" }, { en: "rabbit", ja: "ウサギ" }, { en: "tiger", ja: "トラ" },
-      { en: "horse", ja: "馬" }, { en: "cow", ja: "ウシ" }, { en: "pig", ja: "ブタ" },
-      { en: "mouse", ja: "ネズミ" }, { en: "snake", ja: "蛇" }, { en: "frog", ja: "カエル" },
-      { en: "zoo", ja: "動物園" }
+      { en: "one", ja: "1" }, { en: "two", ja: "2" }, { en: "three", ja: "3" },
+      { en: "four", ja: "4" }, { en: "five", ja: "5" }, { en: "six", ja: "6" },
+      { en: "seven", ja: "7" }, { en: "eight", ja: "8" }, { en: "nine", ja: "9" },
+      { en: "ten", ja: "10" }, { en: "twenty", ja: "20" }, { en: "thirty", ja: "30" },
+      { en: "hundred", ja: "100" }, { en: "thousand", ja: "1000" }, { en: "million", ja: "100万" },
+      { en: "first", ja: "最初の" }, { en: "second", ja: "2番目の" }, { en: "third", ja: "3番目の" },
+      { en: "color", ja: "色" }, { en: "white", ja: "白" }, { en: "black", ja: "黒" },
+      { en: "red", ja: "赤" }, { en: "blue", ja: "青" }, { en: "yellow", ja: "黄色" },
+      { en: "green", ja: "緑" }, { en: "brown", ja: "茶色" }, { en: "orange", ja: "オレンジ" },
+      { en: "gold", ja: "金" }, { en: "circle", ja: "円" }, { en: "shape", ja: "形" }
     ]
-  },
+  }, // 参照
   stage_03: {
+    name: "時間・月・曜日・季節",
+    words: [
+      { en: "time", ja: "時間" }, { en: "clock", ja: "時計" }, { en: "hour", ja: "1時間" },
+      { en: "minute", ja: "分" }, { en: "second", ja: "秒" }, { en: "day", ja: "日" },
+      { en: "week", ja: "週" }, { en: "month", ja: "月" }, { en: "year", ja: "年" },
+      { en: "Sunday", ja: "日曜日" }, { en: "Monday", ja: "月曜日" }, { en: "Tuesday", ja: "火曜日" },
+      { en: "Wednesday", ja: "水曜日" }, { en: "Thursday", ja: "木曜日" }, { en: "Friday", ja: "金曜日" },
+      { en: "Saturday", ja: "土曜日" }, { en: "January", ja: "1月" }, { en: "February", ja: "2月" },
+      { en: "March", ja: "3月" }, { en: "April", ja: "4月" }, { en: "May", ja: "5月" },
+      { en: "June", ja: "6月" }, { en: "July", ja: "7月" }, { en: "August", ja: "8月" },
+      { en: "September", ja: "9月" }, { en: "October", ja: "10月" }, { en: "November", ja: "11月" },
+      { en: "December", ja: "12月" }, { en: "season", ja: "季節" }, { en: "spring", ja: "春" },
+      { en: "summer", ja: "夏" }, { en: "autumn", ja: "秋" }, { en: "winter", ja: "冬" },
+      { en: "morning", ja: "朝" }, { en: "afternoon", ja: "午後" }, { en: "evening", ja: "夕方" },
+      { en: "night", ja: "夜" }, { en: "today", ja: "今日" }, { en: "yesterday", ja: "昨日" },
+      { en: "tomorrow", ja: "明日" }
+    ]
+  }, // 参照
+  stage_04: {
+    name: "学校・教科・文房具",
+    words: [
+      { en: "school", ja: "学校" }, { en: "elementary school", ja: "小学校" }, { en: "junior high school", ja: "中学校" },
+      { en: "class", ja: "授業、クラス" }, { en: "classroom", ja: "教室" }, { en: "gym", ja: "体育館" },
+      { en: "library", ja: "図書館" }, { en: "subject", ja: "教科" }, { en: "math", ja: "数学" },
+      { en: "science", ja: "理科" }, { en: "English", ja: "英語" }, { en: "art", ja: "美術" },
+      { en: "music", ja: "音楽" }, { en: "homework", ja: "宿題" }, { en: "test", ja: "テスト" },
+      { en: "student", ja: "生徒" }, { en: "teacher", ja: "教師" }, { en: "pencil", ja: "鉛筆" },
+      { en: "pen", ja: "ペン" }, { en: "notebook", ja: "ノート" }, { en: "textbook", ja: "教科書" },
+      { en: "dictionary", ja: "辞書" }, { en: "page", ja: "ページ" }, { en: "ruler", ja: "定規" },
+      { en: "bag", ja: "カバン" }, { en: "board", ja: "黒板、板" }, { en: "uniform", ja: "制服" },
+      { en: "lesson", ja: "レッスン" }, { en: "question", ja: "質問" }, { en: "answer", ja: "答え" }
+    ]
+  }, // 参照
+  stage_05: {
     name: "食べ物・飲み物",
     words: [
-      { en: "food", ja: "食べ物" }, { en: "apple", ja: "リンゴ" }, { en: "grape", ja: "ブドウ" },
-      { en: "fruit", ja: "果物" }, { en: "vegetable", ja: "野菜" }, { en: "egg", ja: "卵" },
-      { en: "bean", ja: "豆" }, { en: "beef", ja: "牛肉" }, { en: "chicken", ja: "鶏肉" },
-      { en: "bread", ja: "パン" }, { en: "rice", ja: "米（ソース2参照）" }, { en: "cake", ja: "ケーキ" },
-      { en: "soup", ja: "スープ" }, { en: "salad", ja: "サラダ" }, { en: "milk", ja: "牛乳（ソース7参照）" },
-      { en: "tea", ja: "お茶" }, { en: "water", ja: "水" }, { en: "delicious", ja: "おいしい" }
+      { en: "food", ja: "食べ物" }, { en: "meal", ja: "食事" }, { en: "breakfast", ja: "朝食" },
+      { en: "lunch", ja: "昼食" }, { en: "dinner", ja: "夕食" }, { en: "rice", ja: "米、ご飯" },
+      { en: "bread", ja: "パン" }, { en: "meat", ja: "肉" }, { en: "beef", ja: "牛肉" },
+      { en: "chicken", ja: "鶏肉" }, { en: "fish", ja: "魚" }, { en: "egg", ja: "卵" },
+      { en: "vegetable", ja: "野菜" }, { en: "potato", ja: "じゃがいも" }, { en: "onion", ja: "玉ねぎ" },
+      { en: "fruit", ja: "果物" }, { en: "apple", ja: "リンゴ" }, { en: "banana", ja: "バナナ" },
+      { en: "orange", ja: "オレンジ" }, { en: "cherry", ja: "さくらんぼ" }, { en: "grape", ja: "ブドウ" },
+      { en: "milk", ja: "牛乳" }, { en: "tea", ja: "お茶" }, { en: "juice", ja: "ジュース" },
+      { en: "water", ja: "水" }, { en: "coffee", ja: "コーヒー" }, { en: "cake", ja: "ケーキ" },
+      { en: "chocolate", ja: "チョコレート" }, { en: "pizza", ja: "ピザ" }, { en: "soup", ja: "スープ" },
+      { en: "salt", ja: "塩" }, { en: "delicious", ja: "美味しい" }, { en: "hungry", ja: "空腹の" }
     ]
-  },
-  stage_04: {
-    name: "学校・勉強・スポーツ",
-    words: [
-      { en: "school", ja: "学校" }, { en: "elementary school", ja: "小学校" }, { en: "classroom", ja: "教室" },
-      { en: "subject", ja: "科目" }, { en: "math", ja: "数学" }, { en: "science", ja: "科学" },
-      { en: "English", ja: "英語" }, { en: "homework", ja: "宿題" }, { en: "textbook", ja: "教科書" },
-      { en: "dictionary", ja: "辞書" }, { en: "pencil", ja: "鉛筆" }, { en: "ruler", ja: "定規" },
-      { en: "library", ja: "図書館" }, { en: "sport", ja: "スポーツ" }, { en: "baseball", ja: "野球" },
-      { en: "practice", ja: "練習する" }
-    ]
-  },
-  stage_05: {
-    name: "場所・建物・乗り物",
-    words: [
-      { en: "house", ja: "家" }, { en: "room", ja: "部屋" }, { en: "station", ja: "駅" },
-      { en: "park", ja: "公園" }, { en: "hospital", ja: "病院" }, { en: "museum", ja: "博物館" },
-      { en: "store", ja: "店" }, { en: "supermarket", ja: "スーパー" }, { en: "bridge", ja: "橋" },
-      { en: "tower", ja: "塔" }, { en: "airplane", ja: "飛行機" }, { en: "car", ja: "自動車" },
-      { en: "train", ja: "列車" }, { en: "bicycle", ja: "自転車" }, { en: "subway", ja: "地下鉄" }
-    ]
-  },
+  }, // 参照
   stage_06: {
-    name: "自然・天気・世界",
+    name: "自然・天気・宇宙",
     words: [
       { en: "nature", ja: "自然" }, { en: "mountain", ja: "山" }, { en: "river", ja: "川" },
-      { en: "sea", ja: "海" }, { en: "lake", ja: "湖" }, { en: "island", ja: "島" },
-      { en: "beach", ja: "砂浜" }, { en: "flower", ja: "花" }, { en: "tree", ja: "木" },
-      { en: "star", ja: "星" }, { en: "weather", ja: "天気" }, { en: "sunny", ja: "晴れた" },
-      { en: "cloudy", ja: "曇った" }, { en: "rainy", ja: "雨降りの" }, { en: "snowy", ja: "雪の降る" },
-      { en: "world", ja: "世界" }
+      { en: "sea", ja: "海" }, { en: "ocean", ja: "大洋" }, { en: "lake", ja: "湖" },
+      { en: "island", ja: "島" }, { en: "beach", ja: "浜辺" }, { en: "forest", ja: "森" },
+      { en: "tree", ja: "木" }, { en: "flower", ja: "花" }, { en: "grass", ja: "草" },
+      { en: "leaf", ja: "葉" }, { en: "sky", ja: "空" }, { en: "sun", ja: "太陽" },
+      { en: "moon", ja: "月" }, { en: "star", ja: "星" }, { en: "earth", ja: "地球" },
+      { en: "world", ja: "世界" }, { en: "space", ja: "宇宙" }, { en: "weather", ja: "天気" },
+      { en: "rain", ja: "雨" }, { en: "snow", ja: "雪" }, { en: "cloud", ja: "雲" },
+      { en: "wind", ja: "風" }, { en: "sunny", ja: "晴れた" }, { en: "cloudy", ja: "曇りの" },
+      { en: "rainy", ja: "雨の" }, { en: "hot", ja: "暑い" }, { en: "cold", ja: "寒い" }
     ]
-  },
+  }, // 参照
   stage_07: {
-    name: "時間・月・曜日",
+    name: "動物・生き物",
     words: [
-      { en: "time", ja: "時" }, { en: "year", ja: "年" }, { en: "month", ja: "月" },
-      { en: "day", ja: "日" }, { en: "morning", ja: "朝" }, { en: "afternoon", ja: "午後" },
-      { en: "evening", ja: "夕方" }, { en: "night", ja: "夜" }, { en: "Sunday", ja: "日曜日" },
-      { en: "Monday", ja: "月曜日" }, { en: "Tuesday", ja: "火曜日" }, { en: "Wednesday", ja: "水曜日" },
-      { en: "Thursday", ja: "木曜日" }, { en: "Friday", ja: "金曜日" }, { en: "Saturday", ja: "土曜日" },
-      { en: "January", ja: "1月" }, { en: "February", ja: "2月" }, { en: "December", ja: "12月" }
+      { en: "animal", ja: "動物" }, { en: "zoo", ja: "動物園" }, { en: "pet", ja: "ペット" },
+      { en: "dog", ja: "犬" }, { en: "cat", ja: "猫" }, { en: "bird", ja: "鳥" },
+      { en: "fish", ja: "魚" }, { en: "bear", ja: "クマ" }, { en: "monkey", ja: "猿" },
+      { en: "rabbit", ja: "ウサギ" }, { en: "tiger", ja: "トラ" }, { en: "lion", ja: "ライオン" },
+      { en: "elephant", ja: "ゾウ" }, { en: "horse", ja: "馬" }, { en: "cow", ja: "牛" },
+      { en: "pig", ja: "ブタ" }, { en: "sheep", ja: "羊" }, { en: "mouse", ja: "ネズミ" },
+      { en: "snake", ja: "蛇" }, { en: "frog", ja: "カエル" }, { en: "duck", ja: "アヒル" },
+      { en: "insect", ja: "昆虫" }, { en: "whale", ja: "クジラ" }, { en: "dolphin", ja: "イルカ" },
+      { en: "penguin", ja: "ペンギン" }, { en: "koala", ja: "コアラ" }, { en: "panda", ja: "パンダ" },
+      { en: "living thing", ja: "生物" }
     ]
-  },
+  }, // 参照
   stage_08: {
-    name: "体・健康",
+    name: "街・場所・乗り物",
     words: [
-      { en: "body", ja: "身体" }, { en: "head", ja: "頭" }, { en: "face", ja: "顔" },
-      { en: "eye", ja: "目" }, { en: "ear", ja: "耳" }, { en: "nose", ja: "鼻" },
-      { en: "mouth", ja: "口" }, { en: "tooth", ja: "歯" }, { en: "shoulder", ja: "肩" },
-      { en: "arm", ja: "腕（ソース7参照）" }, { en: "hand", ja: "手" }, { en: "finger", ja: "指（ソース7参照）" },
-      { en: "leg", ja: "脚" }, { en: "knee", ja: "ひざ" }, { en: "heart", ja: "心" }
+      { en: "town", ja: "町" }, { en: "city", ja: "市、都会" }, { en: "village", ja: "村" },
+      { en: "place", ja: "場所" }, { en: "house", ja: "家" }, { en: "home", ja: "わが家" },
+      { en: "station", ja: "駅" }, { en: "park", ja: "公園" }, { en: "hospital", ja: "病院" },
+      { en: "museum", ja: "博物館" }, { en: "store", ja: "店" }, { en: "shop", ja: "お店" },
+      { en: "supermarket", ja: "スーパー" }, { en: "restaurant", ja: "レストラン" },
+      { en: "bank", ja: "銀行" }, { en: "post office", ja: "郵便局" }, { en: "airport", ja: "空港" },
+      { en: "bridge", ja: "橋" }, { en: "tower", ja: "塔" }, { en: "street", ja: "通り" },
+      { en: "road", ja: "道路" }, { en: "car", ja: "車" }, { en: "bus", ja: "バス" },
+      { en: "train", ja: "電車" }, { en: "bicycle", ja: "自転車" }, { en: "bike", ja: "自転車" },
+      { en: "airplane", ja: "飛行機" }, { en: "ship", ja: "船" }, { en: "boat", ja: "ボート" },
+      { en: "taxi", ja: "タクシー" }, { en: "subway", ja: "地下鉄" }
     ]
-  },
+  }, // 参照
   stage_09: {
-    name: "色・数",
+    name: "体・服・身の回りのもの",
     words: [
-      { en: "color", ja: "色" }, { en: "white", ja: "白" }, { en: "black", ja: "黒い" },
-      { en: "red", ja: "赤い" }, { en: "blue", ja: "青い" }, { en: "yellow", ja: "黄色" },
-      { en: "green", ja: "緑" }, { en: "one", ja: "1つの" }, { en: "two", ja: "2" },
-      { en: "three", ja: "3" }, { en: "ten", ja: "10" }, { en: "hundred", ja: "百" },
-      { en: "first", ja: "1番目" }, { en: "second", ja: "秒（または2番目）" }, { en: "third", ja: "3番目" }
+      { en: "body", ja: "体" }, { en: "head", ja: "頭" }, { en: "face", ja: "顔" },
+      { en: "eye", ja: "目" }, { en: "ear", ja: "耳" }, { en: "nose", ja: "鼻" },
+      { en: "mouth", ja: "口" }, { en: "tooth", ja: "歯" }, { en: "hair", ja: "髪" },
+      { en: "hand", ja: "手" }, { en: "finger", ja: "指" }, { en: "arm", ja: "腕" },
+      { en: "leg", ja: "足（上部）" }, { en: "foot", ja: "足（先）" }, { en: "heart", ja: "心臓、心" },
+      { en: "clothes", ja: "衣服" }, { en: "shirt", ja: "シャツ" }, { en: "T-shirt", ja: "Tシャツ" },
+      { en: "pants", ja: "ズボン" }, { en: "dress", ja: "ドレス" }, { en: "coat", ja: "コート" },
+      { en: "hat", ja: "帽子" }, { en: "shoes", ja: "靴" }, { en: "socks", ja: "靴下" },
+      { en: "bag", ja: "バッグ" }, { en: "umbrella", ja: "傘" }, { en: "cup", ja: "カップ" },
+      { en: "glass", ja: "グラス" }, { en: "box", ja: "箱" }, { en: "key", ja: "鍵" }
     ]
-  },
+  }, // 参照
   stage_10: {
-    name: "動作（動詞）",
+    name: "職業・スポーツ・趣味",
     words: [
-      { en: "go", ja: "行く" }, { en: "come", ja: "来る（ソース3参照）" }, { en: "eat", ja: "食べる" },
-      { en: "drink", ja: "飲む" }, { en: "see", ja: "見る" }, { en: "look", ja: "見る" },
-      { en: "watch", ja: "見る" }, { en: "listen", ja: "聴く" }, { en: "speak", ja: "話す" },
-      { en: "talk", ja: "話す" }, { en: "write", ja: "書く" }, { en: "read", ja: "読む" },
-      { en: "run", ja: "走る" }, { en: "swim", ja: "泳ぐ" }, { en: "study", ja: "勉強する" },
-      { en: "play", ja: "（スポーツや楽器を）する" }
+      { en: "job", ja: "仕事" }, { en: "doctor", ja: "医者" }, { en: "nurse", ja: "看護師" },
+      { en: "dentist", ja: "歯医者" }, { en: "farmer", ja: "農家" }, { en: "singer", ja: "歌手" },
+      { en: "artist", ja: "芸術家" }, { en: "musician", ja: "音楽家" }, { en: "pilot", ja: "操縦士" },
+      { en: "sport", ja: "スポーツ" }, { en: "soccer", ja: "サッカー" }, { en: "baseball", ja: "野球" },
+      { en: "tennis", ja: "テニス" }, { en: "basketball", ja: "バスケ" }, { en: "volleyball", ja: "バレー" },
+      { en: "swimming", ja: "水泳" }, { en: "running", ja: "走ること" }, { en: "game", ja: "ゲーム" },
+      { en: "hobby", ja: "趣味" }, { en: "music", ja: "音楽" }, { en: "piano", ja: "ピアノ" },
+      { en: "guitar", ja: "ギター" }, { en: "reading", ja: "読書" }, { en: "movie", ja: "映画" },
+      { en: "cooking", ja: "料理" }, { en: "travel", ja: "旅行" }, { en: "dance", ja: "踊り" }
     ]
-  }
+  }, // 参照
+  stage_11: {
+    name: "基本の動作（動詞）",
+    words: [
+      { en: "do", ja: "する" }, { en: "go", ja: "行く" }, { en: "come", ja: "来る" },
+      { en: "eat", ja: "食べる" }, { en: "drink", ja: "飲む" }, { en: "see", ja: "見る" },
+      { en: "look", ja: "見る" }, { en: "watch", ja: "見る" }, { en: "hear", ja: "聞こえる" },
+      { en: "listen", ja: "聴く" }, { en: "speak", ja: "話す" }, { en: "talk", ja: "話す" },
+      { en: "say", ja: "言う" }, { en: "write", ja: "書く" }, { en: "read", ja: "読む" },
+      { en: "run", ja: "走る" }, { en: "walk", ja: "歩く" }, { en: "swim", ja: "泳ぐ" },
+      { en: "play", ja: "遊ぶ、演奏する" }, { en: "study", ja: "勉強する" }, { en: "learn", ja: "学ぶ" },
+      { en: "teach", ja: "教える" }, { en: "make", ja: "作る" }, { en: "use", ja: "使う" },
+      { en: "buy", ja: "買う" }, { en: "give", ja: "与える" }, { en: "take", ja: "取る" },
+      { en: "help", ja: "助ける" }, { en: "open", ja: "開ける" }, { en: "close", ja: "閉める" }
+    ]
+  }, // 参照
+  stage_12: {
+    name: "気持ち・状態（動詞・形容詞）",
+    words: [
+      { en: "like", ja: "好き" }, { en: "love", ja: "愛する" }, { en: "want", ja: "欲しい" },
+      { en: "have", ja: "持っている" }, { en: "know", ja: "知っている" }, { en: "think", ja: "思う" },
+      { en: "understand", ja: "理解する" }, { en: "remember", ja: "覚えている" }, { en: "feel", ja: "感じる" },
+      { en: "hope", ja: "望む" }, { en: "happy", ja: "幸せな" }, { en: "glad", ja: "うれしい" },
+      { en: "sad", ja: "悲しい" }, { en: "angry", ja: "怒った" }, { en: "surprised", ja: "驚いた" },
+      { en: "tired", ja: "疲れた" }, { en: "busy", ja: "忙しい" }, { en: "free", ja: "暇な、自由な" },
+      { en: "good", ja: "良い" }, { en: "bad", ja: "悪い" }, { en: "nice", ja: "素敵な" },
+      { en: "great", ja: "素晴らしい" }, { en: "beautiful", ja: "美しい" }, { en: "favorite", ja: "お気に入りの" },
+      { en: "funny", ja: "面白い" }, { en: "interesting", ja: "興味深い" }, { en: "difficult", ja: "難しい" },
+      { en: "easy", ja: "簡単な" }
+    ]
+  }, // 参照
+  stage_13: {
+    name: "様子・位置・その他（形容詞・副詞・前置詞）",
+    words: [
+      { en: "big", ja: "大きい" }, { en: "small", ja: "小さい" }, { en: "long", ja: "長い" },
+      { en: "short", ja: "短い" }, { en: "tall", ja: "高い（身長）" }, { en: "high", ja: "高い" },
+      { en: "low", ja: "低い" }, { en: "new", ja: "新しい" }, { en: "old", ja: "古い" },
+      { en: "hot", ja: "熱い" }, { en: "cold", ja: "冷たい" }, { en: "fast", ja: "速い" },
+      { en: "slow", ja: "遅い" }, { en: "many", ja: "たくさんの" }, { en: "some", ja: "いくつかの" },
+      { en: "all", ja: "すべての" }, { en: "very", ja: "とても" }, { en: "always", ja: "いつも" },
+      { en: "often", ja: "しばしば" }, { en: "sometimes", ja: "時々" }, { en: "now", ja: "今" },
+      { en: "here", ja: "ここに" }, { en: "there", ja: "そこに" }, { en: "near", ja: "近くに" },
+      { en: "in", ja: "〜の中に" }, { en: "on", ja: "〜の上に" }, { en: "under", ja: "〜の下に" },
+      { en: "at", ja: "〜で" }, { en: "with", ja: "〜と一緒に" }, { en: "for", ja: "〜のために" }
+    ]
+  }, // 参照
+  stage_14: {
+    name: "疑問詞・挨拶・重要フレーズ",
+    words: [
+      { en: "what", ja: "何" }, { en: "who", ja: "誰" }, { en: "where", ja: "どこ" },
+      { en: "when", ja: "いつ" }, { en: "why", ja: "なぜ" }, { en: "how", ja: "どうやって、どれくらい" },
+      { en: "which", ja: "どちら" }, { en: "Hello / Hi", ja: "こんにちは" }, { en: "Good morning", ja: "おはよう" },
+      { en: "Good afternoon", ja: "こんにちは（昼）" }, { en: "Good evening", ja: "こんばんは" },
+      { en: "Good night", ja: "おやすみなさい" }, { en: "Goodbye", ja: "さようなら" },
+      { en: "Thank you", ja: "ありがとう" }, { en: "You're welcome", ja: "どういたしまして" },
+      { en: "Please", ja: "お願いします" }, { en: "Sorry", ja: "ごめんなさい" }, { en: "Excuse me", ja: "すみません" },
+      { en: "Yes", ja: "はい" }, { en: "No", ja: "いいえ" }, { en: "I see", ja: "なるほど" },
+      { en: "I don't know", ja: "わかりません" }, { en: "Nice to meet you", ja: "はじめまして" }
+    ]
+  }, // 参照
+  final_stage: {
+    name: "熟語・連語",
+    words: [
+      { en: "be good at", ja: "〜が得意だ" }, { en: "be interested in", ja: "〜に興味がある" },
+      { en: "come from", ja: "〜の出身だ" }, { en: "get up", ja: "起きる" },
+      { en: "go to bed", ja: "寝る" }, { en: "listen to", ja: "〜を聴く" },
+      { en: "look at", ja: "〜を見る" }, { en: "look for", ja: "〜を探す" },
+      { en: "take a picture", ja: "写真を撮る" }, { en: "a lot of", ja: "たくさんの" },
+      { en: "of course", ja: "もちろん" }, { en: "for example", ja: "例えば" },
+      { en: "after school", ja: "放課後" }, { en: "all over the world", ja: "世界中" },
+      { en: "in front of", ja: "〜の前で" }, { en: "next to", ja: "〜の隣に" },
+      { en: "wait for", ja: "〜を待つ" }, { en: "would like to", ja: "〜したい" }
+    ]
+  } // 参照
 };
  
         // 初期化：チェックボックス生成
