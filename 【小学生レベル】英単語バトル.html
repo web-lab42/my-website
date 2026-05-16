@@ -113,7 +113,7 @@
         <h1 style="margin-bottom: 10px;">【小学生レベル】英単語バトル</h1>
         
         <div class="setup-group">
-            <label>1. 出題レベル選択 (複数可)</label>
+            <label>1. 出題カテゴリー選択 (複数可)</label>
             <div style="margin-bottom: 8px;">
                 <button onclick="toggleAllLevels(true)">全選択</button>
                 <button onclick="toggleAllLevels(false)">解除</button>
@@ -458,7 +458,7 @@ const shuffle = (array) => [...array].sort(() => Math.random() - 0.5);
 
 function startGame() {
     const selectedLevels = Array.from(document.querySelectorAll('.level-chk:checked')).map(c => c.value);
-    if(selectedLevels.length === 0) { alert("レベルを1つ以上選択してください"); return; }
+    if(selectedLevels.length === 0) { alert("カテゴリーを1つ以上選択してください"); return; }
     
     currentDictionary = [];
     selectedLevels.forEach(lv => { currentDictionary = currentDictionary.concat(wordLists[lv].words); });
