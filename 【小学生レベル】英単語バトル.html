@@ -87,7 +87,7 @@
         }
 
         .level-grid {
-            display: grid; grid-template-columns: repeat(auto-fill, minmax(70px, 1fr));
+            display: grid; grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
             gap: 8px; max-height: 200px; overflow-y: auto; background: #1e272e; padding: 10px; border-radius: 8px;
         }
 
@@ -431,7 +431,7 @@ const wordLists = {
         Object.keys(wordLists).forEach(key => {
             const div = document.createElement('div');
             div.className = 'level-item';
-            div.innerHTML = `<label><input type="checkbox" value="${key}" class="level-chk"> ${key.replace('level_','L')}</label>`;
+            wordLists[key].name = `<label><input type="checkbox" value="${key}" class="level-chk"> ${key.replace('level_','L')}</label>`;
             levelContainer.appendChild(div);
         });
 
