@@ -1,0 +1,959 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>中学数学用語 マッチング学習</title>
+    <style>
+        :root {
+            --primary-color: #3498db;
+            --success-color: #2ecc71;
+            --error-color: #e74c3c;
+            --text-color: #2c3e50;
+            --bg-color: #f8f9fa;
+            --card-bg: #ffffff;
+            --border-color: #bdc3c7;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            line-height: 1.6;
+            padding: 20px;
+        }
+
+        .container {
+            max-width: 1000px;
+            margin: 0 auto;
+            background: var(--card-bg);
+            padding: 30px;
+            border-radius: 12px;
+            box-shadow: 0 4px 6px rgba(0, 0, 0, 0.1);
+        }
+
+        header {
+            text-align: center;
+            margin-bottom: 30px;
+            border-bottom: 2px solid var(--bg-color);
+            padding-bottom: 15px;
+        }
+
+        h1 {
+            font-size: 24px;
+            color: var(--text-color);
+            margin-bottom: 10px;
+        }
+
+        .instructions {
+            font-size: 14px;
+            color: #7f8c8d;
+        }
+
+        /* コントロールボタンエリア */
+        .controls {
+            display: flex;
+            justify-content: center;
+            gap: 15px;
+            margin-bottom: 30px;
+            flex-wrap: wrap;
+        }
+
+        button {
+            padding: 12px 24px;
+            font-size: 16px;
+            font-weight: bold;
+            border: none;
+            border-radius: 6px;
+            cursor: pointer;
+            transition: all 0.2s ease;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        button:active {
+            transform: translateY(1px);
+            box-shadow: none;
+        }
+
+        .btn-score { background-color: var(--primary-color); color: white; }
+        .btn-score:hover { background-color: #2980b9; }
+
+        .btn-reset { background-color: #95a5a6; color: white; }
+        .btn-reset:hover { background-color: #7f8c8d; }
+
+        .btn-shuffle { background-color: #e67e22; color: white; }
+        .btn-shuffle:hover { background-color: #d35400; }
+
+        /* 結果表示エリア */
+        .result-panel {
+            display: none;
+            text-align: center;
+            padding: 20px;
+            margin-bottom: 25px;
+            border-radius: 8px;
+            background-color: #f0f4f8;
+            border: 2px solid var(--primary-color);
+        }
+
+        .result-score {
+            font-size: 28px;
+            font-weight: bold;
+            margin-bottom: 5px;
+        }
+
+        .result-percentage {
+            font-size: 20px;
+            color: #555;
+        }
+
+        /* ゲームボード（左右2カラム） */
+        .game-board {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 30px;
+            margin-bottom: 30px;
+        }
+
+        .column {
+            display: flex;
+            flex-direction: column;
+            gap: 15px;
+        }
+
+        .column-title {
+            font-size: 18px;
+            font-weight: bold;
+            text-align: center;
+            padding-bottom: 10px;
+            border-bottom: 2px solid var(--border-color);
+            color: #34495e;
+        }
+
+        /* カードの基本構造 */
+        .card-slot {
+            display: flex;
+            align-items: stretch;
+            min-height: 80px;
+            background-color: #fafafa;
+            border: 2px dashed var(--border-color);
+            border-radius: 8px;
+            position: relative;
+        }
+
+        .term-label {
+            width: 120px;
+            background-color: #edf2f7;
+            border-right: 1px solid var(--border-color);
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            font-weight: bold;
+            padding: 10px;
+            text-align: center;
+            font-size: 15px;
+            border-top-left-radius: 6px;
+            border-bottom-left-radius: 6px;
+            flex-shrink: 0;
+        }
+
+        .drop-zone {
+            flex-grow: 1;
+            display: flex;
+            align-items: center;
+            justify-content: center;
+            padding: 5px;
+            transition: background-color 0.2s;
+            border-top-right-radius: 6px;
+            border-bottom-right-radius: 6px;
+        }
+
+        .drop-zone.drag-over {
+            background-color: #e3f2fd;
+        }
+
+        /* ドラッグ可能なカード */
+        .draggable-card {
+            background-color: var(--card-bg);
+            border: 2px solid var(--border-color);
+            border-radius: 6px;
+            padding: 12px 15px;
+            cursor: grab;
+            width: 100%;
+            height: 100%;
+            display: flex;
+            align-items: center;
+            font-size: 14px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.05);
+            user-select: none;
+            transition: transform 0.1s, box-shadow 0.1s;
+        }
+
+        .draggable-card:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 4px 8px rgba(0,0,0,0.1);
+            border-color: var(--primary-color);
+        }
+
+        .draggable-card:active {
+            cursor: grabbing;
+        }
+
+        .draggable-card.dragging {
+            opacity: 0.5;
+        }
+
+        /* 正誤判定用のスタイル */
+        .correct {
+            border: 2px solid var(--success-color) !important;
+            background-color: #e8f8f5 !important;
+        }
+
+        .incorrect {
+            border: 2px solid var(--error-color) !important;
+            background-color: #fdedec !important;
+        }
+
+        .feedback-msg {
+            display: none;
+            font-size: 12px;
+            color: var(--error-color);
+            margin-top: 4px;
+            font-weight: bold;
+        }
+
+        .right-column .card-slot {
+            border: none;
+            background: transparent;
+        }
+
+        /* レスポンシブ対応 */
+        @media (max-width: 768px) {
+            body {
+                padding: 10px;
+            }
+
+            .container {
+                padding: 15px;
+            }
+
+            .game-board {
+                grid-template-columns: 1fr;
+                gap: 20px;
+            }
+
+            .card-slot {
+                min-height: 70px;
+            }
+
+            .term-label {
+                width: 90px;
+                font-size: 13px;
+            }
+
+            .draggable-card {
+                font-size: 13px;
+                padding: 8px 10px;
+            }
+        }
+    </style>
+</head>
+<body>
+
+<div class="container">
+    <header>
+        <h1>中学数学用語 マッチング学習</h1>
+        <p class="instructions">左側の用語に合う正しい説明文を、右側からドラッグ＆ドロップして組み合わせましょう。スマホではタップによる入れ替えも可能です。</p>
+    </header>
+
+    <div class="controls">
+        <button class="btn-score" id="scoreBtn">採点する</button>
+        <button class="btn-reset" id="resetBtn">リセット</button>
+        <button class="btn-shuffle" id="shuffleBtn">問題シャッフル (再生成)</button>
+    </div>
+
+    <div class="result-panel" id="resultPanel">
+        <div class="result-score" id="resultScore">0 / 10問 正解</div>
+        <div class="result-percentage" id="resultPercentage">正答率: 0%</div>
+    </div>
+
+    <div class="game-board">
+        <div class="column" id="leftColumn">
+            <div class="column-title">数学用語</div>
+            </div>
+
+        <div class="column" id="rightColumn">
+            <div class="column-title">説明文 (ドラッグ可能)</div>
+            </div>
+    </div>
+</div>
+
+<script>
+    // 問題データ（この配列を書き換えるだけでカスタマイズ可能）
+const terms = [
+// ==========================================
+    // 【1年】数と式
+    // ==========================================
+    { term: "正の数", description: "0より大きい数。プラスの符号「＋」をつけて表すことがある。" },
+    { term: "負の数", description: "0より小さい数。マイナスの符号「－」をつけて表す。" },
+    { term: "符号", description: "数の正負を表す「＋（プラス）」や「－（マイナス）」の記号。" },
+    { term: "絶対値", description: "数直線上において、ある数に対応する点と原点（0）との間の距離。" },
+    { term: "自然数", description: "1, 2, 3, 4…のような、個数を数えるのに使う正の整数。" },
+    { term: "加法", description: "たし算のこと。加法の結果を「和」という。" },
+    { term: "減法", description: "ひき算のこと。減法の結果を「差」という。" },
+    { term: "乗法", description: "かけ算のこと。乗法の結果を「積」という。" },
+    { term: "除法", description: "わり算のこと。除法の結果を「商」という。" },
+    { term: "四則", description: "加法、減法、乗法、除法の4つの計算（加減乗除）の総称。" },
+    { term: "交換法則", description: "たし算やかけ算で、数の順序を入れ替えて計算しても結果が同じになるという法則。" },
+    { term: "結合法則", description: "3つの数の計算で、前の2つ、後ろの2つのどちらを先に計算しても結果が同じになるという法則。" },
+    { term: "逆数", description: "ある数に掛け合わせたときに、積が1になる数。" },
+    { term: "累乗", description: "同じ数をいくつか掛け合わせたもの。右肩に添え字（指数）をつけて表す。" },
+    { term: "指数", description: "累乗において、同じ数を何回掛け合わせたかを示す、数の右肩に小さく書く数字。" },
+    { term: "分配法則", description: "a(b + c) = ab + ac のように、括弧の外の数を中の各項に掛けて外す計算規則。" },
+    { term: "素数", description: "1とその数のほかに約数をもたない、1より大きい自然数。" },
+    { term: "素因数分解", description: "ある自然数を、素数だけの積の形で表すこと。" },
+    { term: "文字式", description: "具体的な数の代わりに、a, x, y などの文字を組み合わせて数量を表した式。" },
+    { term: "代入", description: "式の中の文字を、具体的な数に置き換えること。" },
+    { term: "式の値", description: "式の中の文字に特定の数を代入して計算した結果の数値。" },
+    { term: "項", description: "文字式や多項式において、加法の記号「＋」で結ばれた1つ1つのパーツ。" },
+    { term: "係数", description: "文字を含む項において、文字の前に掛けられている数字の部分。" },
+    { term: "1次式", description: "含まれる文字の最大の次数（掛けられている文字の個数）が1である式。" },
+    { term: "等式", description: "数量の大きさが等しい関係を表す、等号「＝」を用いた式。" },
+    { term: "左辺", description: "等式や不等式において、記号の左側にある数や式のこと。" },
+    { term: "右辺", description: "等式や不等式において、記号の右側にある数や式のこと。" },
+    { term: "両辺", description: "等式や不等式における、左辺と右辺の総称。" },
+    { term: "方程式", description: "文字に代入する値によって、成り立ったり成り立たなかったりする等式。" },
+    { term: "解", description: "方程式を成り立たせる文字の値のこと。" },
+    { term: "方程式を解く", description: "方程式を成り立たせる文字の値（解）をすべて求めること。" },
+    { term: "移項", description: "方程式を解くために、等号をまたいで項の符号を変えて反対側に移動させること。" },
+
+    // ==========================================
+    // 【1年】関数
+    // ==========================================
+    { term: "変数", description: "xやyのように、いろいろな値をとることができる文字のこと。" },
+    { term: "関数", description: "ともなって変わる2つの変数x, yがあり、xの値を決めるとyの値がただ一つに決まる関係。" },
+    { term: "比例", description: "2つの変数x, yで、y ＝ ax (aは定数) の関係が成り立つとき、yはxに〇〇するという。" },
+    { term: "比例定数", description: "比例 y ＝ ax や反比例 y ＝ a/x における、決まった数（定数）aのこと。" },
+    { term: "変域", description: "変数（xやyなど）がとることのできる、値の範囲。" },
+    { term: "数直線", description: "直線の上に基準となる点（原点）を決め、数を対応させた直線。" },
+    { term: "原点", description: "数直線や座標平面において、基準となる「0」の位置にある点。" },
+    { term: "座標平面", description: "平面上に互いに垂直に交わる2つの数直線（軸）を引いて、点（x, y）の位置を表せるようにしたもの。" },
+    { term: "x軸", description: "座標平面において、横方向に引かれた基準となる数直線のこと。" },
+    { term: "y軸", description: "座標平面において、縦方向に引かれた基準となる数直線のこと。" },
+    { term: "座標軸", description: "座標平面を構成するx軸とy軸の総称。" },
+    { term: "x座標", description: "座標平面上の点（x, y）において、x軸上での位置を表す左側の数値。" },
+    { term: "y座標", description: "座標平面上の点（x, y）において、y軸上での位置を表す右側の数値。" },
+    { term: "反比例", description: "2つの変数x, yで、y ＝ a/x (aは定数) の関係が成り立つとき、yはxに〇〇するという。" },
+    { term: "双曲線", description: "反比例のグラフが描く、原点に対して対称な2つのなめらかな曲線。" },
+
+    // ==========================================
+    // 【1年】図形
+    // ==========================================
+    { term: "直線", description: "両方の方向に限りなくまっすぐ延びている線のこと。端がない。" },
+    { term: "線分", description: "直線の一部分で、2つの端の点によって区切られたまっすぐな線。" },
+    { term: "半直線", description: "1つの点から始まり、片方の方向へ限りなくまっすぐ延びている線。" },
+    { term: "距離", description: "2つの点を結ぶ最短の線（線分）の長さ。" },
+    { term: "垂直", description: "2つの直線が交わってできる角が直角（90度）であるとき、その2直線の関係のこと。" },
+    { term: "垂線", description: "ある直線に対して、垂直に交わっているもう1つの直線のこと。" },
+    { term: "平行", description: "1つの平面上で、2つの直線をどこまで延ばしても交わらない関係。" },
+    { term: "角", description: "1つの頂点から出る2本の半直線によって作られる図形。" },
+    { term: "頂点", description: "角を作っている角の尖った点や、多角形・立体を構成するカドの点。" },
+    { term: "動点", description: "問題の中で、時間の経過などにあわせて図形の上を移動していく点のこと。" },
+    { term: "対頂角", description: "2つの直線が交わってできる4つの角のうち、向かい合っている2つの角。大きさは常に等しい。" },
+    { term: "平行移動", description: "図形を、その向きを変えずに、一定の方向に一定の距離だけずらす移動。" },
+    { term: "回転移動", description: "図形を、1つの点（回転の中心）を中心として、一定の角度だけ回転させる移動。" },
+    { term: "対称移動", description: "図形を、1つの直線（対称の軸）を折り目として裏返すように裏返す移動。" },
+    { term: "作図", description: "定規（直線を引くため）とコンパス（円を描くため）だけを用いて、正確に図形を描くこと。" },
+    { term: "垂直二等分線", description: "ある線分の中点を通り、その線分に垂直な直線のこと。" },
+    { term: "角の二等分線", description: "1つの角の頂点を通り、その角の大きさをちょうど半分（2等分）にする半直線。" },
+    { term: "円", description: "平面上で、ある1つの点から等しい距離にある点の集まりでできた図形。" },
+    { term: "弧", description: "円周の上の、切り取られた一部（曲線部分）のこと。記号「⌒」で表す。" },
+    { term: "弦", description: "円周上の相異なる2つの点を結んだ直線（線分）のこと。" },
+    { term: "中心角", description: "円のおうぎ形において、2本の半径が中心で作る角。" },
+    { term: "接線", description: "円と1つの点だけで交わる（触れている）直線。接点を通る半径と垂直に交わる。" },
+    { term: "接点", description: "円と接線が交わっている（触れ合っている）ただ1つの点のこと。" },
+    { term: "おうぎ形", description: "円の2本の半径と、その間にある円周の一部（弧）で囲まれた図形。" },
+    { term: "多面体", description: "いくつかの平面の多角形だけで囲まれた立体のこと。" },
+    { term: "柱体", description: "底面が2つあり、それらが互いに合同で平行な立体（角柱や円柱）。" },
+    { term: "錐体", description: "底面が1つあり、もう一方の先端が1つの点（頂点）に集まっている尖った立体（角錐や円錐）。" },
+    { term: "回転体", description: "1つの直線を軸として、平面図形を1回転させてできる立体（円柱、円錐、球など）。" },
+    { term: "見取図", description: "立体を斜め上などから見て、その全体の形がわかりやすいように描いた図。" },
+    { term: "展開図", description: "立体の面を切り開いて、1つの平面上に広げた図。" },
+    { term: "投影図", description: "立体を正面から見た図（立面図）と、真上から見た図（平面図）を組み合わせて表した図。" },
+    { term: "表面積", description: "立体の外側の面すべての広さ（底面積と側面積の合計）の総和。" },
+    { term: "底面積", description: "柱体や錐体において、基準となる底（そこ）の面の面積。" },
+    { term: "側面積", description: "立体のまわりの面（側面）全体の面積。" },
+    { term: "体積", description: "立体が占める空間の大きさの尺度。" },
+
+    // ==========================================
+    // 【1年】データの活用
+    // ==========================================
+    { term: "度数分布表", description: "集めたデータをいくつかの区間（階級）に分け、それぞれの区間に含まれるデータの個数（度数）をまとめた表。" },
+    { term: "階級", description: "度数分布表において、データを分類するために区切った区間のこと。" },
+    { term: "階級の幅", description: "区切られた階級の、最大の値と最小の値の差（区間の広さ）。" },
+    { term: "階級値", description: "各階級の中央の（真ん中の）値。（階級の上限値＋下限値）÷ 2 で求める。" },
+    { term: "度数", description: "度数分布表において、各階級に含まれるデータの個数（人数や個数など）のこと。" },
+    { term: "ヒストグラム", description: "度数分布表をグラフ化したもの。横軸に階級、縦軸に度数をとり、柱状の長方形で表した図（柱状グラフ）。" },
+    { term: "度数折れ線", description: "ヒストグラムの各長方形の上の辺の中点を結んで作った折れ線グラフ。" },
+    { term: "相対度数", description: "全体のデータ数に対する、各階級の度数の割合（各階級の度数 ÷ 全体の度数の合計）。" },
+    { term: "平均値", description: "代表値の1つ。すべてのデータの値の合計を、データの総数で割って得られる値。" },
+    { term: "中央値", description: "代表値の1つ。データを値の大きさの順に並べたとき、中央（真ん中）にくる値。メジアン。" },
+    { term: "最頻値", description: "代表値の1つ。データの中で、最も頻繁に現れる（度数が最も多い）値。モード。" },
+
+    // ==========================================
+    // 【2年】数と式
+    // ==========================================
+    { term: "単項式", description: "数や文字の掛け算だけで表される式のこと（例：3x, -2ab^2）。" },
+    { term: "多項式", description: "いくつかの単項式の和（足し算）の形で表される式のこと（例：2x + 3y）。" },
+    { term: "次数", description: "単項式で掛け合わされている文字の個数。多項式では最も次数が高い項の次数を指す。" },
+    { term: "同類項", description: "多項式の中で、文字の部分とその次数が全く同じである項。" },
+    { term: "連立方程式", description: "2つ以上の方程式を組み合わせ、それらを同時に満たす文字の値を求めるもの。" },
+    { term: "加減法", description: "連立方程式を解く際に、左辺同士・右辺同士を足したり引いたりして、特定の文字を消去する手法。" },
+    { term: "代入法", description: "連立方程式を解く際に、一方の式を「x ＝」の形に変形し、それをもう一方の式に当てはめて解く手法。" },
+    { term: "等式の変形", description: "与えられた等式を、「x ＝ （x以外の式）」のように特定の文字について解いた形に書き換えること。" },
+
+    // ==========================================
+    // 【2年】関数
+    // ==========================================
+    { term: "1次関数", description: "yがxの1次式（y ＝ ax + b）で表され、グラフに表すと直線になる関数。" },
+    { term: "変化の割合", description: "関数の（yの増加量）÷（xの増加量）で表される比率。1次関数では常に一定で比例定数aに等しい。" },
+    { term: "傾き", description: "1次関数 y ＝ ax + b のグラフにおいて、直線の傾き具合を表す定数aのこと。" },
+    { term: "切片", description: "1次関数 y ＝ ax + b のグラフがy軸と交わる点のy座標である、定数bのこと。" },
+    { term: "交点", description: "2つ以上の線が交わってできる点。" },
+    { term: "ダイヤグラム", description: "時間と移動距離などの関係を視覚的に分かりやすく表した、運行図や進行状況のグラフ。" },
+
+    // ==========================================
+    // 【2年】図形
+    // ==========================================
+    { term: "同位角", description: "2つの直線に1つの直線が交わるとき、同じ位置関係にある2つの角。直線が平行なら大きさは等しい。" },
+    { term: "錯角", description: "2つの直線に1つの直線が交わるとき、斜め向かい（Zの文字の形）の位置関係にある角。直線が平行なら等しい。" },
+    { term: "内角", description: "多角形の内側にある角のこと。" },
+    { term: "外角", description: "多角形の各頂点で、1つの辺と、隣り合う辺の延長線とが作る外側の角。" },
+    { term: "合同", description: "形も大きさも全く同じで、ぴったり重ね合わせることができる2つの図形の関係。" },
+    { term: "定義", description: "言葉の意味や用語の範囲を、誤解のないように明確に定めたもの。" },
+    { term: "定理", description: "正しいことが証明された事柄のうち、他の性質を証明するときの基準としてよく使われる重要なもの。" },
+    { term: "仮定", description: "ある事柄を証明するときに、あらかじめ前提（正しいこと）として認められている条件。" },
+    { term: "結論", description: "ある事柄を証明するときに、仮定を根拠として最終的に導き出したい事柄。" },
+    { term: "証明", description: "ある事柄が正しいことを、すでに正しいと認められている事実や定理を根拠にして論理的に説明すること。" },
+    { term: "二等辺三角形", description: "3つの辺のうち、2つの辺の長さが等しい三角形。2つの底角も等しくなる。" },
+    { term: "正三角形", description: "3つの辺の長さがすべて等しい三角形。3つの内角もすべて60度で等しくなる。" },
+    { term: "逆", description: "「pならばqである」という事柄に対して、「qならばpである」と前提と結論を入れ替えた事柄。" },
+    { term: "平行四辺形", description: "2組の向かい合う辺（対辺）が、それぞれ平行である四角形。" },
+    { term: "長方形", description: "4つの内角がすべて直角（等しい）である四角形。" },
+    { term: "ひし形", description: "4つの辺の長さがすべて等しい四角形。" },
+    { term: "正方形", description: "4つの辺がすべて等しく、4つの角もすべて直角である四角形（長方形とひし形の両方の性質を持つ）。" },
+    { term: "等積変形", description: "図形の面積を変えずに、その形だけを別の形（三角形など）に変形すること。" },
+
+    // ==========================================
+    // 【2年】確率
+    // ==========================================
+    { term: "同様に確からしい", description: "確率において、どの結果が起こることも同じ程度に期待できるということ（サイコロの目の出方など）。" },
+    { term: "確率", description: "ある事象（出来事）が、起こることが期待される程度を数で表したもの。0から1（0%から100%）の間になる。" },
+    { term: "樹形図", description: "場合の数を数え上げるために、枝分かれする木のような形で可能性をすべて書き出した図。" },
+
+    // ==========================================
+    // 【3年】数と式
+    // ==========================================
+    { term: "展開", description: "いくつかの多項式の積の形で表された式を、計算して一つの多項式の和の形に直すこと（カッコを外すこと）。" },
+    { term: "因数", description: "1つの数や多項式が、いくつかの数や式の積で表されるとき、その1つ1つの数や式のこと。" },
+    { term: "因数分解", description: "一つの多項式を、いくつかの単項式や多項式の積の形に書き換えること（展開の逆の計算）。" },
+    { term: "共通因数", description: "多項式のすべての項に共通して含まれている、数字や文字の因数（かけ算の共通パーツ）。" },
+    { term: "平方根", description: "2乗（平方）すると元の数になるような数。根号（√）を使って表す。" },
+    { term: "根号", description: "平方根を表すために用いる記号「√（ルート）」のこと。" },
+    { term: "有理数", description: "整数aと、0でない整数bを使って、分数 b/a の形で表すことができる数。" },
+    { term: "無理数", description: "有理数ではない数。分数 b/a の形で表すことができず、循環しない無限小数になる数（√2やπなど）。" },
+    { term: "有理化", description: "分数の分母に根号（√）が含まれているとき、分母と分子に同じ数を掛けて分母に根号を含まない形に直すこと。" },
+    { term: "2次方程式", description: "整理したときに、未知数の最高次数が2次（xの2乗の項を含む）になる方程式。" },
+    { term: "解の公式", description: "2次方程式 ax^2 + bx + c = 0 の解を機械的に求めることができる決まった式。" },
+
+    // ==========================================
+    // 【3年】関数
+    // ==========================================
+    { term: "2乗に比例する関数", description: "yがxの2乗に比例し、y ＝ ax^2 という式で表される関数。" },
+    { term: "放物線", description: "2乗に比例する関数のグラフが描く、U字（または逆U字）型の左右対称ななめらかな曲線。" },
+
+    // ==========================================
+    // 【3年】図形
+    // ==========================================
+    { term: "相似", description: "1つの図形を拡大または縮小した関係にある、形が全く同じである2つの図形の関係。" },
+    { term: "相似比", description: "相似な2つの図形において、対応する線分の長さの比のこと。" },
+    { term: "中点連結定理", description: "三角形の2辺の中点を結ぶ線分は、底辺と平行になり、長さは底辺の半分になるという定理。" },
+    { term: "面積比", description: "2つ以上の図形における、それぞれの面積の大きさの割合（相似比が m:n なら面積比は m^2:n^2）。" },
+    { term: "体積比", description: "2つ以上の立体における、それぞれの体積の大きさの割合（相似比が m:n なら体積比は m^3:n^3）。" },
+    { term: "円周角", description: "円周上の1つの点から引いた2本の弦が作る角。" },
+    { term: "中心角", description: "円の中心から、2本の半径を引いてできる角（同じ弧に対する円周角の2倍の大きさになる）。" },
+    { term: "円周角の定理", description: "1つの弧に対する円周角の大きさは常に一定であり、その弧に対する中心角の大きさの半分であるという定理。" },
+    { term: "三平方の定理", description: "直角三角形において、直角をはさむ2辺の長さを2乗したものの和は、斜辺の長さを2乗したものに等しいという定理。ピタゴラスの定理。" },
+
+    // ==========================================
+    // 【3年】データの活用
+    // ==========================================
+    { term: "四分位数", description: "データを値の大きさの順に並べたとき、全体を4等分する位置にくる3つの値（第1、第2、第3四分位数）。" },
+    { term: "四分位範囲", description: "データの散らばり具合を表す指標。第3四分位数から第1四分位数を引いた値。" },
+    { term: "箱ひげ図", description: "データの散らばり具合を、最大値・最小値・四分位数を使って「箱」と「ひげ」の形で表した図。" },
+    { term: "母集団", description: "統計学（標本調査）において、調査・推測をしたい対象となる集団全体のこと。" },
+    { term: "標本", description: "母集団から、調査のためにランダムに抽出された（取り出された）一部のデータの集まり。" },
+    { term: "全数調査", description: "母集団に含まれるすべての対象を、残さず一つずつ調査する方法（国勢調査など）。" },
+    { term: "標本調査", description: "母集団から一部の標本を抜き出して調べ、それをもとに全体（母集団）の性質を確率的に推測する調査方法。" },
+// ==========================================
+    // 数と式・集合と命題（数学I・A）
+    // ==========================================
+    { term: "実数", description: "有理数と無理数を合わせた、数直線上のすべての点に対応する数。" },
+    { term: "虚数", description: "2乗するとマイナスになる数（i^2 ＝ -1）を含む、実数ではない数。" },
+    { term: "複素数", description: "a + bi（a, bは実数、iは虚数単位）の形で表される数の総称。" },
+    { term: "虚数単位", description: "2乗すると -1 になる数。記号 i で表される。" },
+    { term: "共役な複素数", description: "a + bi に対して、虚部符号を反転させた a - bi のこと。" },
+    { term: "絶対値（複素数の）", description: "複素数平面上において、原点から複素数 a + bi を表す点までの距離。" },
+    { term: "集合", description: "範囲が明確に決まっていて、属するものがはっきりと区別できる集まり。" },
+    { term: "要素（元）", description: "集合を構成している、1つ1つの具体的な対象（数や図形など）。" },
+    { term: "部分集合", description: "2つの集合A, Bで、Aの要素がすべてBの要素でもあるとき、AはBの〇〇という。" },
+    { term: "共通部分", description: "2つの集合A, Bのどちらにも共通して属している要素全体の集合（かつ、∩）。" },
+    { term: "和集合", description: "2つの集合A, Bの少なくとも一方に属している要素全体の集合（または、∪）。" },
+    { term: "補集合", description: "全体集合の中で、ある集合Aに属さない要素全体の集合（Aバー）。" },
+    { term: "空集合", description: "要素を1つももたない集合。記号「∅（ファイ）」で表す。" },
+    { term: "命題", description: "正しい（真）か、正しくない（偽）かが客観的に完全に定まる主張や式。" },
+    { term: "条件", description: "変数xを含み、xに値を代入することで真偽が決まる文や式。" },
+    { term: "真・偽", description: "命題や条件が、正しいことを「真」、正しくないことを「偽」という。" },
+    { term: "反例", description: "ある命題が成り立たない（偽である）ことを証明するために挙げる、ただ1つの例外。" },
+    { term: "必要条件", description: "命題「pならばq」が真であるとき、qはpであるための〇〇条件という。" },
+    { term: "十分条件", description: "命題「pならばq」が真であるとき、pはqであるための〇〇条件という。" },
+    { term: "必要十分条件", description: "命題「pならばq」と「qならばp」が共に真であるとき、pとqは互いに〇〇条件という（同値）。" },
+    { term: "逆・裏・対偶", description: "命題「p⇒q」に対し、「q⇒p」を〇〇、「Not p⇒Not q」を〇〇、「Not q⇒Not p」を〇〇という。" },
+    { term: "背理法", description: "ある事柄が正しいことを証明するために、あえて結論を否定して矛盾を導く証明方法。" },
+
+    // ==========================================
+    // 2次関数・方程式（数学I）
+    // ==========================================
+    { term: "定義域", description: "関数において、独立変数（通常はx）がとることができる値の範囲（変域）。" },
+    { term: "値域", description: "変数xが定義域全体の値を調べたときに、関数yが実際にとりうる値の範囲。" },
+    { term: "頂点（放物線の）", description: "放物線の軸と放物線が交わる点。グラフの凸のいちばん尖った部分。" },
+    { term: "軸（放物線の）", description: "放物線が左右対称になる基準となる中心の直線。" },
+    { term: "平方完成", description: "2次式 ax^2 + bx + c を、a(x - p)^2 + q の形に変形し、放物線の頂点を求める作業。" },
+    { term: "判別式", description: "2次方程式の解の個数や種類を、実際に解を求めずに判定するための式（D ＝ b^2 - 4ac）。" },
+
+    // ==========================================
+    // 図形と計量・三角関数（数学I・II）
+    // ==========================================
+    { term: "三角比", description: "直角三角形の2辺の長さの比。サイン(sin)、コサイン(cos)、タンジェント(tan)のこと。" },
+    { term: "正弦定理", description: "三角形の辺の長さと向かい合う角の正弦（sin）、外接円の半径Rの間に成り立つ公式。" },
+    { term: "余弦定理", description: "三角形の3辺の長さと1つの角の余弦（cos）の間に成り立つ、三平方の定理を拡張した公式。" },
+    { term: "一般角", description: "360度以上の角や負の角まで含めるように、回転の向きと大きさを拡張した角の概念。" },
+    { term: "動径", description: "座標平面上で角を表すために、原点を中心に回転する半直線のこと。" },
+    { term: "弧度法", description: "弧の長さが半径と等しくなる扇形の中心角を1（ラジアン）とする、角度の表し方。" },
+    { term: "ラジアン", description: "弧度法における角度の単位。πラジアン ＝ 180度。" },
+    { term: "加法定理", description: "sin(α + β) や cos(α + β) を、それぞれの角の三角関数に分解して計算する基本公式。" },
+
+    // ==========================================
+    // 幾何学・図形と方程式（数学A・II・C）
+    // ==========================================
+    { term: "外心", description: "三角形の3辺の垂直二等分線が交わる点。三角形の外接円の中心となる。" },
+    { term: "内心", description: "三角形の3つの内角の二等分線が交わる点。三角形の内接円の中心となる。" },
+    { term: "重心", description: "三角形の3つの中線が交わる点。各中線を頂点から 2 : 1 に内分する。" },
+    { term: "垂心", description: "三角形の3つの頂点から、それぞれ向かい合う辺に下ろした垂線が交わる点。" },
+    { term: "傍心", description: "三角形の1つの内角の二等分線と、他の2つの外角の二等分線が交わる点（1つの三角形に3つある）。" },
+    { term: "内分", description: "線分AB上の点Pが、AP : PB ＝ m : n を満たすとき、点Pは線分ABを m : n に〇〇するという。" },
+    { term: "外分", description: "線分ABの延長上の点Qが、AQ : QB ＝ m : n を満たすとき、点Qは線分ABを m : n に〇〇するという。" },
+    { term: "軌跡", description: "与えられた条件を満たしながら動く点全体が、平面上や空間上に描く図形（線）。" },
+    { term: "楕円", description: "平面上の2つの定点（焦点）からの距離の和が一定であるような点の軌跡。" },
+    { term: "双曲線（二次曲線）", description: "平面上の2つの定点（焦点）からの距離の差が一定であるような点の軌跡。" },
+    { term: "漸近線", description: "曲線が限りなく近づくが、決して交わることのない直線のこと（双曲線などで登場）。" },
+
+    // ==========================================
+    // 順列・組合せ・確率（数学A）
+    // ==========================================
+    { term: "階乗", description: "1からnまでのすべての自然数を掛け合わせたもの。記号 n! で表す。" },
+    { term: "順列", description: "いくつかの異なるものから、順番（列）を区別して取り出して並べる方法の数（nPr）。" },
+    { term: "組合せ", description: "いくつかの異なるものから、順番を区別せずにグループとして取り出す方法の数（nCr）。" },
+    { term: "円順列", description: "異なるものを円形に並べる並べ方。特定の1つを固定して考える。" },
+    { term: "重複順列", description: "同じものを何度も繰り返し使うことを許して、一列に並べる順列（n^r通り）。" },
+    { term: "排反事象", description: "2つの事象A, Bが、同時に起こることが絶対にない関係のこと。" },
+    { term: "余事象", description: "ある事象Aに対して、Aが「起こらない」という事象のこと。" },
+    { term: "条件付き確率", description: "事象Aが起こったという前提（条件）のもとで、事象Bが起こる確率。P_A(B)と表す。" },
+    { term: "独立な試行", description: "2つの試行において、一方の結果がもう一方の確率にまったく影響を与えない関係。" },
+
+    // ==========================================
+    // 指数関数・対数関数（数学II）
+    // ==========================================
+    { term: "対数", description: "aを何乗するとMになるかを表す数（log_a M）。指数の逆の概念。" },
+    { term: "底（てい）", description: "累乗 a^p や対数 log_a M における、基準となる数aのこと。" },
+    { term: "真数", description: "対数 log_a M におけるMの部分。常に正の実数でなければならない（真数条件）。" },
+    { term: "常用対数", description: "底が 10 である対数（log_10 M）。桁数などを求めるのに使われる。" },
+
+    // ==========================================
+    // 数列（数学B）
+    // ==========================================
+    { term: "等差数列", description: "隣り合う項の差が常に一定である数列。その一定の差を公差という。" },
+    { term: "等比数列", description: "隣り合う項の比が常に一定である数列。その一定の比を公比という。" },
+    { term: "階差数列", description: "ある数列の隣り合う項の差を、順番に並べて作った新しい数列。" },
+    { term: "シグマ（Σ）", description: "数列の和を表すために用いる、ギリシャ文字の記号。" },
+    { term: "漸化式", description: "数列において、隣り合う項の間に成り立つ関係を示した等式。" },
+    { term: "数学的帰納法", description: "自然数nに関する主張がすべてのnで成り立つことを、「n=1」と「n=k⇒k+1」の2段階で証明する手法。" },
+
+    // ==========================================
+    // ベクトル・複素数平面（数学C）
+    // ==========================================
+    { term: "ベクトル", description: "大きさと向きを同時に持つ量。矢印を使って図示される。" },
+    { term: "内積", description: "2つのベクトルのなす角や大きさを利用して計算されるスカラー量（演算）。" },
+    { term: "単位ベクトル", description: "大きさが「1」であるベクトルのこと。" },
+    { term: "成分表示", description: "ベクトルを、座標平面上の座標の増減（x成分, y成分）を使って表したもの。" },
+    { term: "複素数平面", description: "横軸を実軸、縦軸を虚軸とし、複素数 a + bi を平面上の点（a, b）として表した平面。" },
+    { term: "極形式", description: "複素数を、原点からの距離 r と動径の表す角（偏角θ）を用いて表した形式（r(cosθ + isinθ)）。" },
+    { term: "偏角", description: "複素数平面上で、原点から複素数へのベクトルが実軸の正の方向となす角。argと表す。" },
+
+    // ==========================================
+    // 微分法・積分法・極限（数学II・III）
+    // ==========================================
+    { term: "極限値", description: "ある変数を特定の数値や無限大に近づけたとき、関数や数列の値が限りなく近づく目標値。" },
+    { term: "収束", description: "数列や関数の値が、ある一定の確定した値に限りなく近づいていく状態。" },
+    { term: "発散", description: "数列や関数の値が、1つの値に落ち着かず、正の無限大や負の無限大に大きくなったり振動したりする状態。" },
+    { term: "微分係数", description: "関数 y = f(x) のグラフ上のある点における、接線の傾き（瞬間の変化の割合）を表す数値。" },
+    { term: "導関数", description: "元の関数から微分によって導き出された、各点での接線の傾きを関数として表したもの。" },
+    { term: "極大・極小", description: "関数の値が、増加から減少に転じる局所的な山（極大）、または減少から増加に転じる局所的な谷（極小）。" },
+    { term: "変曲点", description: "関数のグラフの凹凸（上に凸と下に凸）の向きが切り替わる点（数学III）。" },
+    { term: "不定積分", description: "微分の逆演算。微分すると元の関数になるような関数（原始関数）の全体を求めること。" },
+    { term: "定積分", description: "積分区間（[a, b]など）が指定された積分。グラフと軸で囲まれた部分の面積などを表す数値となる。" },
+    { term: "積分定数", description: "不定積分を求めたときに、微分して消えてしまう定数項を表すために添える記号C。" },
+    { term: "部分積分法", description: "積の微分公式の逆を利用した、複雑な関数の積分を行うための重要な技法。" },
+    { term: "置換積分法", description: "合成関数の微分公式の逆を利用し、変数を別の文字に置き換えて積分を計算する技法。" },
+    { term: "区分求積法", description: "図形の領域を細い長方形に細分化し、その面積の和の極限として、曲線の囲む面積や定積分を定義・計算する手法。" },
+
+    // ==========================================
+    // 統計的な推測（数学B）
+    // ==========================================
+    { term: "確率変数", description: "試行の結果によって、とる値が確率的に決まる変数のこと。" },
+    { term: "確率分布", description: "確率変数がとる値と、その値をとる確率との対応関係を表したもの。" },
+    { term: "期待値", description: "確率変数がとる値とその確率を掛け合わせ、すべて足し合わせた平均的な見込み値。" },
+    { term: "分散", description: "データの散らばり具合を表す指標。「（各データの値 － 平均値）の2乗」の平均値。" },
+    { term: "標準偏差", description: "分散の正の平方根。データの散らばり具合を元のデータと同じ単位で表した指標。" },
+    { term: "正規分布", description: "自然界や統計データで最もよく現れる、平均値を中心に左右対称な左右になだらかな釣鐘型の確率分布。" },
+    { term: "信頼区間", description: "標本データから母数を推定する際に、ある確率（95%など）で母数が含まれると判断される数値の範囲。" },
+// ==========================================
+    // 線形代数学（行列・空間の抽象化）
+    // ==========================================
+    { term: "線形独立（一次独立）", description: "ベクトルの集合において、どのベクトルも他のベクトルの線形結合（定数倍の和）として表すことができない状態。" },
+    { term: "基底", description: "ベクトル空間を構成する骨組み。空間内のすべてのベクトルを「ただ一通り」の線形結合で表すことができる、線形独立なベクトルの組。" },
+    { term: "次元（ベクトル空間の）", description: "あるベクトル空間における、基底を構成するベクトルの個数のこと。" },
+    { term: "線形写像", description: "写像（関数）のうち、和を保つ性質（加法性）と、定数倍を保つ性質（斉次性）の2つを満たす変換。" },
+    { term: "正方行列", description: "行の数と列の数が等しい、正方形の形に数や文字を並べた行列。" },
+    { term: "単位行列", description: "正方行列のうち、主対角成分（左上から右下への対角線）がすべて1で、それ以外の成分がすべて0の行列。掛け算の「1」に相当する。" },
+    { term: "逆行列", description: "正方行列 A に対して、掛けると単位行列 I になるような行列 A^-1 のこと。数の世界における逆数に相当する。" },
+    { term: "行列式", description: "正方行列に対して定義されるスカラー値。線形変換による空間の体積拡大率や、逆行列の存在判定（非ゼロ）に用いられる。デターミナント。" },
+    { term: "階数（ランク）", description: "行列の行ベクトル（または列ベクトル）のうち、線形独立なものの最大個数。連立一次方程式の解の自由度や存在判定に直結する。" },
+    { term: "固有値", description: "線形変換において、変換前後で方向が変わらないベクトル（固有ベクトル）の、変換による長さのスケール倍率（λ）のこと。" },
+    { term: "固有ベクトル", description: "線形変換（行列の掛け算）を施しても、その向きが変わらず、定数倍（固有値倍）されるだけに留まる特別なベクトルのこと。" },
+    { term: "対角化", description: "適切な基底を選ぶ（座標変換する）ことで、与えられた正方行列を、対角成分以外がすべて0である「対角行列」に変形する操作。" },
+    { term: "カーネル（核）", description: "線形写像によって、移動先の空間のゼロ（零ベクトル）に移されるような、移動前の空間の元（要素）全体の集合。" },
+
+    // ==========================================
+    // 微分積分学・解析学（極限の厳密化と多変数拡張）
+    // ==========================================
+    { term: "イプシロン・デルタ論法", description: "極限の概念（「限りなく近づく」という直観的表現）を、実数の性質に基づき、不等式を用いて論理的に厳密に定義する手法。" },
+    { term: "偏微分", description: "多変数関数において、特定の1つの変数だけに着目し、他の変数をすべて定数（動かないもの）とみなして行う微分演算。" },
+    { term: "全微分", description: "多変数関数において、すべての変数が同時に微小変化したときの、関数値の厳密な変化（一次近似の全量）をとらえる微分演算。" },
+    { term: "勾配（グラディエント）", description: "多変数関数において、各変数による偏微分を成分とするベクトル。関数値がその点で「最も急激に増加する方向とその大きさ」を表す。" },
+    { term: "ヤコビ行列（ヤコビアン）", description: "多変数多値関数（ベクトルの行き先がベクトルになる写像）の偏導関数を並べた行列。多変数における座標変換の際の局所的な拡大率を表す。" },
+    { term: "テイラー展開", description: "無限回微分可能な関数を、特定の点のまわりで、その点における微分係数を用いた無限級数（多項式の和）の形に表現（近似）すること。" },
+    { term: "マクローリン展開", description: "テイラー展開の特例であり、特定の点 x ＝ 0 のまわりで関数を無限級数（多項式の和）に展開すること。" },
+    { term: "広義積分", description: "積分領域が無限大である場合（[0, ∞)など）や、関数が領域内で無限大に発散する場合に対象とする、極限を用いた積分演算。" },
+    { term: "重積分", description: "2次元以上の領域（平面や空間）において、多変数関数を対象に行う多重の積分演算。曲面の囲む体積の計算などに用いられる。" },
+    { term: "常微分方程式", description: "未知の関数が1変数関数であり、その変数に関する導関数（微分したもの）だけを含む微分方程式。" },
+    { term: "変数分離形", description: "微分方程式のパターンのひとつ。xの関数とyの関数を等式の左右に完全に分離して、両辺をそれぞれ積分することで解く基本手法。" },
+
+    // ==========================================
+    // 集合論・確率統計・その他
+    // ==========================================
+    { term: "全射", description: "写像（関数）において、移動先の集合（余域）のどの要素に対しても、それを指す移動前の要素が「少なくとも1つ以上」存在するような写像。" },
+    { term: "単射", description: "写像（関数）において、異なる要素は必ず異なる要素に移動するという、行き先の重複が絶対にない写像（1対1の変形）。" },
+    { term: "全単射", description: "全射であり、かつ単射でもある写像。移動前と移動後の集合の要素が「完全に1対1」に対応するため、逆写像（逆関数）が必ず定義できる。" },
+    { term: "集合の濃度", description: "有限集合における「要素の個数」の概念を、無限集合に対しても比較・適用できるように拡張した、集合の大きさの指標。" },
+    { term: "全確率の定理", description: "ある試行の結果を互いに排反な事象に漏れなく分割し、それぞれの条件付き確率を利用して、ある特定の事象が起こる確率を計算する定理。" },
+    { term: "ベイズの定理", description: "ある事象が起きたという結果（条件）のもとで、その原因がどの事象に由来するかの確率（事後確率）を逆算するための定理。" },
+    { term: "不偏分散", description: "標本から母集団の分散を推定する際、データの数 n ではなく n-1 で割ることで、推定値の偏り（バイアス）をなくした分散。" }
+];
+
+    // 状態管理用変数
+    let currentData = [];
+    let selectedLeftSlot = null; // スマホ/タップ操作用の選択状態管理
+
+    // 要素の取得
+    const leftColumn = document.getElementById('leftColumn');
+    const rightColumn = document.getElementById('rightColumn');
+    const scoreBtn = document.getElementById('scoreBtn');
+    const resetBtn = document.getElementById('resetBtn');
+    const shuffleBtn = document.getElementById('shuffleBtn');
+    const resultPanel = document.getElementById('resultPanel');
+    const resultScore = document.getElementById('resultScore');
+    const resultPercentage = document.getElementById('resultPercentage');
+
+    // 初期化処理
+    function initGame() {
+        // 元データからランダムに10個抽出（今回は元の配列が10個なのでそのままシャッフルして利用可能）
+        // 将来的にデータが増えた場合を考慮し、ランダムに10個選定するロジック
+        currentData = [...terms].sort(() => Math.random() - 0.5).slice(0, 10);
+        renderBoard();
+        hideResults();
+    }
+
+    // 盤面の描画
+    function renderBoard() {
+        // カラムタイトルの残しつつクリア
+        leftColumn.innerHTML = '<div class="column-title">数学用語</div>';
+        rightColumn.innerHTML = '<div class="column-title">説明文 (ドラッグ/タップ)</div>';
+
+        // 1. 左側：用語スロットの生成（表示順は固定）
+        currentData.forEach((item, index) => {
+            const slot = document.createElement('div');
+            slot.className = 'card-slot';
+            slot.dataset.correctTerm = item.term;
+            slot.dataset.index = index;
+
+            const label = document.createElement('div');
+            label.className = 'term-label';
+            label.textContent = item.term;
+
+            const dropZone = document.createElement('div');
+            dropZone.className = 'drop-zone';
+            dropZone.dataset.index = index;
+
+            // フィードバックテキスト（採点時の正解表示用）
+            const feedback = document.createElement('div');
+            feedback.className = 'feedback-msg';
+            feedback.id = `feedback-${index}`;
+
+            slot.appendChild(label);
+            slot.appendChild(dropZone);
+            // フィードバックはスロットの階層下に配置（css調整のため外側か調整）
+            const wrapper = document.createElement('div');
+            wrapper.style.display = 'flex';
+            wrapper.style.flexDirection = 'column';
+            wrapper.style.width = '100%';
+            wrapper.appendChild(slot);
+            wrapper.appendChild(feedback);
+
+            leftColumn.appendChild(wrapper);
+
+            // ドロップゾーンのイベント設定
+            setupDropZoneEvents(dropZone);
+            
+            // スマホ対応：左スロットタップイベント
+            slot.addEventListener('click', () => handleLeftSlotClick(slot));
+        });
+
+        // 2. 右側：説明文カードの生成（シャッフルして配置）
+        const shuffledDescriptions = [...currentData].sort(() => Math.random() - 0.5);
+
+        shuffledDescriptions.forEach((item, index) => {
+            const rightSlot = document.createElement('div');
+            rightSlot.className = 'card-slot';
+
+            const card = document.createElement('div');
+            card.className = 'draggable-card';
+            card.draggable = true;
+            card.id = `card-${index}`;
+            card.textContent = item.description;
+            card.dataset.term = item.term; // 正誤判定のために保持
+
+            setupCardDragEvents(card);
+            // スマホ対応：右カードタップイベント
+            card.addEventListener('click', (e) => handleRightCardClick(e, card));
+
+            rightSlot.appendChild(card);
+            rightColumn.appendChild(rightSlot);
+        });
+    }
+
+    // --- ドラッグ＆ドロップ イベント処理 ---
+
+    function setupCardDragEvents(card) {
+        card.addEventListener('dragstart', (e) => {
+            card.classList.add('dragging');
+            e.dataTransfer.setData('text/plain', card.id);
+        });
+
+        card.addEventListener('dragend', () => {
+            card.classList.remove('dragging');
+        });
+    }
+
+    function setupDropZoneEvents(dropZone) {
+        dropZone.addEventListener('dragover', (e) => {
+            e.preventDefault(); // ドロップを受け入れるために必要
+            dropZone.classList.add('drag-over');
+        });
+
+        dropZone.addEventListener('dragleave', () => {
+            dropZone.classList.remove('drag-over');
+        });
+
+        dropZone.addEventListener('drop', (e) => {
+            e.preventDefault();
+            dropZone.classList.remove('drag-over');
+            
+            const cardId = e.dataTransfer.getData('text/plain');
+            const card = document.getElementById(cardId);
+            
+            if (card) {
+                handleCardPlacement(card, dropZone);
+            }
+        });
+    }
+
+    // カードが特定のドロップエリアに配置される際の共通処理
+    function handleCardPlacement(card, targetZone) {
+        // もし移動先ゾーンにすでにカードがある場合は、そのカードを元の右側カラムの空きスロットに戻す
+        if (targetZone.children.length > 0) {
+            const existingCard = targetZone.children[0];
+            returnCardToRightColumn(existingCard);
+        }
+
+        // カードを新しいゾーンに移動
+        targetZone.appendChild(card);
+        clearSelectionStyles();
+    }
+
+    // カードを右側の空いている初期スロットに戻す補助関数
+    function returnCardToRightColumn(card) {
+        const rightSlots = rightColumn.querySelectorAll('.card-slot');
+        for (let slot of rightSlots) {
+            if (slot.children.length === 0) {
+                slot.appendChild(card);
+                break;
+            }
+        }
+    }
+
+    // --- タップ（スマホ用）操作処理 ---
+
+    function handleLeftSlotClick(slot) {
+        // すでに採点済みの場合は操作を受け付けない
+        if (resultPanel.style.display === 'block') return;
+
+        // 選択反転
+        if (selectedLeftSlot === slot) {
+            slot.style.border = '';
+            selectedLeftSlot = null;
+        } else {
+            if (selectedLeftSlot) {
+                selectedLeftSlot.style.border = '';
+            }
+            selectedLeftSlot = slot;
+            slot.style.border = '2px solid var(--primary-color)';
+        }
+    }
+
+    function handleRightCardClick(e, card) {
+        // すでに採点済みの場合は操作を受け付けない
+        if (resultPanel.style.display === 'block') return;
+        
+        // 左側のスロットが選択されている状態で右のカードがタップされた場合
+        if (selectedLeftSlot) {
+            e.stopPropagation(); // 親スロットのクリック連動を防ぐ
+            const targetZone = selectedLeftSlot.querySelector('.drop-zone');
+            handleCardPlacement(card, targetZone);
+        } else {
+            // 左が選ばれておらず、すでに左側に配置されているカードをタップした場合は右側に戻す
+            if (card.parentElement.classList.contains('drop-zone')) {
+                e.stopPropagation();
+                returnCardToRightColumn(card);
+            }
+        }
+    }
+
+    function clearSelectionStyles() {
+        if (selectedLeftSlot) {
+            selectedLeftSlot.style.border = '';
+            selectedLeftSlot = null;
+        }
+    }
+
+
+    // --- ボタンアクション処理 ---
+
+    // 採点
+    function gradeGame() {
+        const dropZones = leftColumn.querySelectorAll('.drop-zone');
+        let score = 0;
+        const total = currentData.length;
+
+        dropZones.forEach((zone) => {
+            const parentSlot = zone.parentElement;
+            const correctTerm = parentSlot.dataset.correctTerm;
+            const index = parentSlot.dataset.index;
+            const feedbackText = document.getElementById(`feedback-${index}`);
+            
+            const placedCard = zone.querySelector('.draggable-card');
+
+            if (placedCard) {
+                const placedTerm = placedCard.dataset.term;
+
+                if (placedTerm === correctTerm) {
+                    // 正解
+                    placedCard.classList.add('correct');
+                    score++;
+                    feedbackText.style.display = 'none';
+                } else {
+                    // 不正解
+                    placedCard.classList.add('incorrect');
+                    // 正しい用語解説の紐付けを探して表示
+                    const correctInfo = currentData.find(item => item.term === correctTerm);
+                    feedbackText.textContent = `【不一致】 正解：${correctTerm} の説明です`;
+                    feedbackText.style.display = 'block';
+                }
+            } else {
+                // 未配置の場合も不正解扱い
+                parentSlot.classList.add('incorrect');
+                feedbackText.textContent = `【未回答】 正解の解説を配置してください`;
+                feedbackText.style.display = 'block';
+            }
+        });
+
+        // スコア表示
+        resultScore.textContent = `${score} / ${total}問 正解`;
+        const percentage = Math.round((score / total) * 100);
+        resultPercentage.textContent = `正答率: ${percentage}%`;
+        resultPanel.style.display = 'block';
+        
+        // 画面上部へスクロール
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+    }
+
+    // 表示上の結果を隠す
+    function hideResults() {
+        resultPanel.style.display = 'none';
+        clearSelectionStyles();
+    }
+
+    // リセット（現在の問題のまま配置を初期状態に戻す）
+    function resetGame() {
+        const cards = leftColumn.querySelectorAll('.draggable-card');
+        cards.forEach(card => {
+            returnCardToRightColumn(card);
+            card.className = 'draggable-card'; // クラスの初期化(correct/incorrect削除)
+        });
+
+        // 枠線の初期化
+        const slots = leftColumn.querySelectorAll('.card-slot');
+        slots.forEach(slot => slot.classList.remove('incorrect', 'correct'));
+
+        const feedbacks = leftColumn.querySelectorAll('.feedback-msg');
+        feedbacks.forEach(fb => fb.style.display = 'none');
+
+        hideResults();
+    }
+
+    // イベントリスナーの登録
+    scoreBtn.addEventListener('click', gradeGame);
+    resetBtn.addEventListener('click', resetGame);
+    shuffleBtn.addEventListener('click', initGame);
+
+    // 起動時実行
+    window.onload = initGame;
+</script>
+
+</body>
+</html>
