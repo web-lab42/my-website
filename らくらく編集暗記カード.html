@@ -1,0 +1,1149 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>らくらく編集暗記カード</title>
+    <style>
+        /* --- デザインシステム & 変数 --- */
+        :root {
+            --bg-main: #121212;
+            --bg-sidebar: #1e1e1e;
+            --bg-card: #252525;
+            --bg-input: #2d2d2d;
+            --text-main: #e0e0e0;
+            --text-muted: #a0a0a0;
+            --accent: #3b82f6;
+            --accent-hover: #2563eb;
+            --success: #10b981;
+            --danger: #ef4444;
+            --warning: #f59e0b;
+            --border: #333333;
+            --radius: 8px;
+            --font: 'Helvetica Neue', Arial, sans-serif;
+        }
+
+        /* --- 基本リセット --- */
+        * { box-sizing: border-box; margin: 0; padding: 0; }
+        body {
+            font-family: var(--font);
+            background-color: var(--bg-main);
+            color: var(--text-main);
+            display: flex;
+            height: 100vh;
+            overflow: hidden;
+        }
+
+        button, input, textarea {
+            font-family: inherit;
+            color: inherit;
+            background: none;
+            border: none;
+        }
+
+        button { cursor: pointer; transition: background 0.2s, transform 0.1s; }
+        button:active { transform: scale(0.98); }
+
+        /* --- 全体レイアウト --- */
+        .app-container {
+            display: flex;
+            width: 100%;
+            height: 100%;
+        }
+
+        /* --- 左側：サイドバー (単語帳管理) --- */
+        .sidebar {
+            width: 320px;
+            background-color: var(--bg-sidebar);
+            border-right: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            flex-shrink: 0;
+        }
+
+        .sidebar-header {
+            padding: 16px;
+            border-bottom: 1px solid var(--border);
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+        }
+
+        .sidebar-header h1 { font-size: 1.2rem; font-weight: bold; color: var(--accent); }
+
+        .deck-actions {
+            padding: 12px;
+            display: grid;
+            grid-template-columns: 2fr 1fr 1fr;
+            gap: 8px;
+            border-bottom: 1px solid var(--border);
+        }
+
+        .btn-action {
+            padding: 8px;
+            background-color: var(--bg-input);
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 0.85rem;
+            text-align: center;
+        }
+        .btn-action:hover { background-color: var(--border); }
+        .btn-create { background-color: var(--accent); color: white; border: none; }
+        .btn-create:hover { background-color: var(--accent-hover); }
+
+        .deck-list-container {
+            flex: 1;
+            overflow-y: auto;
+            padding: 8px;
+        }
+
+        .deck-item {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 12px;
+            margin-bottom: 6px;
+            border-radius: var(--radius);
+            cursor: pointer;
+            background-color: transparent;
+        }
+        .deck-item:hover { background-color: rgba(255,255,255,0.03); }
+        .deck-item.active { background-color: var(--bg-card); border-left: 4px solid var(--accent); }
+        .deck-name { font-weight: 500; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; max-width: 180px; }
+        .deck-count { font-size: 0.8rem; color: var(--text-muted); background: var(--bg-input); padding: 2px 6px; border-radius: 12px; }
+
+        /* --- 右側：メインコンテンツ領域 --- */
+        .main-content {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            background-color: var(--bg-main);
+        }
+
+        /* タブナビゲーション */
+        .tab-bar {
+            display: flex;
+            background-color: var(--bg-sidebar);
+            border-bottom: 1px solid var(--border);
+            overflow-x: auto;
+        }
+        .tab-btn {
+            flex: 1;
+            padding: 14px;
+            text-align: center;
+            font-weight: bold;
+            color: var(--text-muted);
+            border-bottom: 2px solid transparent;
+            white-space: nowrap;
+        }
+        .tab-btn:hover { color: var(--text-main); background-color: rgba(255,255,255,0.01); }
+        .tab-btn.active { color: var(--accent); border-bottom-color: var(--accent); background-color: var(--bg-main); }
+
+        /* ビューコンテナ */
+        .view-panel {
+            flex: 1;
+            display: none;
+            overflow-y: auto;
+            padding: 20px;
+            position: relative;
+        }
+        .view-panel.active { display: flex; flex-direction: column; }
+
+        /* --- 編集タブ用のUI --- */
+        .editor-container {
+            display: flex;
+            flex-direction: column;
+            height: 100%;
+            gap: 10px;
+        }
+        .editor-wrapper {
+            position: relative;
+            flex: 1;
+            display: flex;
+            background-color: #1a1a1a;
+            border: 1px solid var(--border);
+            border-radius: var(--radius);
+            font-family: 'Courier New', Courier, monospace;
+            overflow: hidden;
+        }
+        .line-numbers {
+            width: 40px;
+            padding: 12px 0;
+            text-align: right;
+            padding-right: 8px;
+            color: #555;
+            background-color: #151515;
+            user-select: none;
+            font-size: 0.95rem;
+            line-height: 1.5;
+        }
+        .main-textarea {
+            flex: 1;
+            resize: none;
+            padding: 12px;
+            background: transparent;
+            border: none;
+            outline: none;
+            line-height: 1.5;
+            font-size: 0.95rem;
+            overflow-y: auto;
+            white-space: pre;
+        }
+        .editor-statusbar {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            font-size: 0.8rem;
+            color: var(--text-muted);
+            padding: 4px 8px;
+            background: var(--bg-sidebar);
+            border-radius: var(--radius);
+        }
+        .error-log {
+            color: var(--danger);
+            font-weight: bold;
+            max-width: 60%;
+            white-space: nowrap;
+            overflow: hidden;
+            text-overflow: ellipsis;
+        }
+
+        /* --- 学習タブ用のUI --- */
+        .learn-container, .test-container {
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            justify-content: space-between;
+            height: 100%;
+            max-width: 600px;
+            margin: 0 auto;
+            width: 100%;
+        }
+        .control-bar {
+            width: 100%;
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            margin-bottom: 10px;
+        }
+        .toggle-group button {
+            padding: 6px 12px;
+            background: var(--bg-input);
+            border: 1px solid var(--border);
+            font-size: 0.8rem;
+        }
+        .toggle-group button:first-child { border-radius: var(--radius) 0 0 var(--radius); }
+        .toggle-group button:last-child { border-radius: 0 var(--radius) var(--radius) 0; }
+        .toggle-group button.active { background: var(--accent); color: white; border-color: var(--accent); }
+
+        .card-display {
+            width: 100%;
+            flex: 1;
+            background-color: var(--bg-card);
+            border-radius: 16px;
+            border: 1px solid var(--border);
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            padding: 30px;
+            text-align: center;
+            margin: 20px 0;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            position: relative;
+            min-height: 250px;
+        }
+        .card-text { font-size: 1.8rem; font-weight: bold; word-break: break-all; margin-bottom: 20px; }
+        .card-hint { font-size: 1.1rem; color: var(--text-muted); border-top: 1px dashed var(--border); padding-top: 20px; width: 100%; display: none; word-break: break-all;}
+        .card-hint.visible { display: block; }
+        
+        .huge-btn {
+            width: 100%;
+            padding: 20px;
+            font-size: 1.3rem;
+            font-weight: bold;
+            border-radius: var(--radius);
+            background-color: var(--accent);
+            color: white;
+            margin-top: 10px;
+        }
+        .huge-btn:hover { background-color: var(--accent-hover); }
+
+        .action-grid {
+            display: grid;
+            grid-template-columns: 1fr 1fr;
+            gap: 15px;
+            width: 100%;
+            margin-top: 10px;
+        }
+        .btn-choice { padding: 18px; font-size: 1.2rem; font-weight: bold; border-radius: var(--radius); color: white; }
+        .btn-correct { background-color: var(--success); }
+        .btn-incorrect { background-color: var(--danger); }
+
+        .nav-grid {
+            display: grid;
+            grid-template-columns: 1fr auto 1fr;
+            gap: 20px;
+            width: 100%;
+            align-items: center;
+            margin-top: 15px;
+        }
+        .btn-nav { padding: 10px; background: var(--bg-input); border-radius: var(--radius); border: 1px solid var(--border); }
+
+        /* --- テストタブ用のUI --- */
+        .test-input-wrapper { width: 100%; margin: 15px 0; }
+        .test-input {
+            width: 100%;
+            padding: 16px;
+            background-color: var(--bg-input);
+            border: 2px solid var(--border);
+            border-radius: var(--radius);
+            font-size: 1.2rem;
+            text-align: center;
+            outline: none;
+        }
+        .test-input:focus { border-color: var(--accent); }
+        .test-feedback { font-size: 1.3rem; font-weight: bold; margin: 15px 0; display: none; }
+        .test-feedback.correct { color: var(--success); display: block; }
+        .test-feedback.incorrect { color: var(--danger); display: block; }
+
+        /* --- 統計タブ用のUI --- */
+        .stats-container { max-width: 800px; margin: 0 auto; width: 100%; }
+        .stats-header { margin-bottom: 20px; font-size: 1.2rem; font-weight: bold; border-bottom: 1px solid var(--border); padding-bottom: 8px;}
+        .stats-table {
+            width: 100%;
+            border-collapse: collapse;
+            text-align: left;
+            background: var(--bg-sidebar);
+            border-radius: var(--radius);
+            overflow: hidden;
+        }
+        .stats-table th, .stats-table td { padding: 12px 16px; border-bottom: 1px solid var(--border); }
+        .stats-table th { background-color: rgba(255,255,255,0.02); font-weight: bold; color: var(--text-muted); }
+        .stats-table tr:last-child td { border-bottom: none; }
+        .btn-reset-stats {
+            margin-top: 20px;
+            padding: 8px 16px;
+            background-color: rgba(239, 68, 68, 0.1);
+            color: var(--danger);
+            border: 1px solid rgba(239, 68, 68, 0.2);
+            border-radius: var(--radius);
+            font-size: 0.85rem;
+        }
+        .btn-reset-stats:hover { background-color: rgba(239, 68, 68, 0.2); }
+
+        /* 状態プレースホルダー表示 */
+        .empty-state {
+            display: flex;
+            flex-direction: column;
+            justify-content: center;
+            align-items: center;
+            height: 100%;
+            color: var(--text-muted);
+            text-align: center;
+            gap: 10px;
+        }
+
+        /* --- レスポンシブ対応 (スマートフォン最優先) --- */
+        @media (max-width: 768px) {
+            .app-container { flex-direction: column; }
+            .sidebar {
+                width: 100%;
+                height: 220px;
+                border-right: none;
+                border-bottom: 1px solid var(--border);
+            }
+            .deck-list-container { flex: 1; height: auto; }
+            .main-content { flex: 1; height: calc(100vh - 220px); }
+            .card-text { font-size: 1.5rem; }
+            .huge-btn, .btn-choice { padding: 16px; font-size: 1.1rem; }
+            .error-log { max-width: 40%; }
+        }
+    </style>
+</head>
+<body>
+
+    <div class="app-container">
+        <aside class="sidebar">
+            <div class="sidebar-header">
+                <h1>らくらく編集</h1>
+            </div>
+            <div class="deck-actions">
+                <button class="btn-action btn-create" id="btn-new-deck">＋ 新規</button>
+                <button class="btn-action" id="btn-dup-deck">複製</button>
+                <button class="btn-action" id="btn-del-deck" style="color:var(--danger)">削除</button>
+            </div>
+            <div class="deck-list-container" id="deck-list">
+                </div>
+        </aside>
+
+        <main class="main-content">
+            <nav class="tab-bar">
+                <button class="tab-btn active" data-tab="edit">編集</button>
+                <button class="tab-btn" data-tab="learn">学習</button>
+                <button class="tab-btn" data-tab="test">テスト</button>
+                <button class="tab-btn" data-tab="stats">統計</button>
+            </nav>
+
+            <section id="view-edit" class="view-panel active">
+                <div class="editor-container">
+                    <div class="editor-wrapper">
+                        <div class="line-numbers" id="line-numbers">1</div>
+                        <textarea class="main-textarea" id="text-editor" spellcheck="false" placeholder="# 単語帳名&#10;問題,答え&#10;問題2,答え2"></textarea>
+                    </div>
+                    <div class="editor-statusbar">
+                        <div class="error-log" id="editor-error"></div>
+                        <div id="editor-info">行: 1 | 文字: 0 | 単語: 0</div>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-learn" class="view-panel">
+                <div class="learn-container" id="learn-container">
+                    <div class="control-bar">
+                        <div class="toggle-group">
+                            <button id="learn-mode-order" class="active">正順</button>
+                            <button id="learn-mode-random">ランダム</button>
+                        </div>
+                        <button class="btn-action" id="btn-shuffle-learn">シャッフル</button>
+                    </div>
+
+                    <div class="card-display" id="learn-card">
+                        <div class="card-text" id="learn-question">問題がありません</div>
+                        <div class="card-hint" id="learn-answer">答え</div>
+                    </div>
+
+                    <div id="learn-action-area" style="width: 100%;">
+                        <button class="huge-btn" id="btn-show-answer">答えを見る</button>
+                        <div class="action-grid" id="learn-score-buttons" style="display: none;">
+                            <button class="btn-choice btn-incorrect" id="btn-learn-wrong">不正解</button>
+                            <button class="btn-choice btn-correct" id="btn-learn-right">正解</button>
+                        </div>
+                    </div>
+
+                    <div class="nav-grid">
+                        <button class="btn-nav" id="btn-learn-prev">前へ</button>
+                        <span id="learn-progress">0 / 0</span>
+                        <button class="btn-nav" id="btn-learn-next">次へ</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-test" class="view-panel">
+                <div class="test-container" id="test-container">
+                    <div class="control-bar">
+                        <span style="font-size:0.9rem; color:var(--text-muted)">一問一答テスト</span>
+                        <span id="test-progress">0 / 0</span>
+                    </div>
+
+                    <div class="card-display" id="test-card">
+                        <div class="card-text" id="test-question">問題がありません</div>
+                        <div class="test-feedback" id="test-feedback">正解！</div>
+                    </div>
+
+                    <div class="test-input-wrapper">
+                        <input type="text" class="test-input" id="test-user-input" placeholder="答えを入力してください" autocomplete="off">
+                    </div>
+
+                    <div style="width:100%">
+                        <button class="huge-btn" id="btn-test-submit">採点する</button>
+                        <button class="huge-btn" id="btn-test-next" style="display:none; background-color:var(--bg-input);">次へ</button>
+                    </div>
+                </div>
+            </section>
+
+            <section id="view-stats" class="view-panel">
+                <div class="stats-container">
+                    <h2 class="stats-header">単語帳別データ統計</h2>
+                    <table class="stats-table">
+                        <thead>
+                            <tr>
+                                <th>単語帳名</th>
+                                <th>カード数</th>
+                                <th>学習回数</th>
+                                <th>正解数</th>
+                                <th>不正解数</th>
+                                <th>正答率</th>
+                            </tr>
+                        </thead>
+                        <tbody id="stats-table-body">
+                            </tbody>
+                    </table>
+                    <button class="btn-reset-stats" id="btn-reset-stats">すべての統計履歴をリセット</button>
+                </div>
+            </section>
+        </main>
+    </div>
+
+    <script>
+        document.addEventListener('DOMContentLoaded', () => {
+
+            // ==========================================
+            // 1. データモデル & ストレージ管理 (Storage Module)
+            // ==========================================
+            const Storage = {
+                KEY_TEXT: 'textdeck_raw_text',
+                KEY_STATS: 'textdeck_stats_data',
+                
+                // デフォルト初期データ
+                DEFAULT_TEXT: `# 英単語\n犬,dog\n猫,cat\n赤,red\n\n# 世界史\nナポレオン,フランス皇帝\nルイ16世,フランス国王\n\n# 化学\nNa,ナトリウム\nK,カリウム`,
+
+                loadRawText() {
+                    try {
+                        const txt = localStorage.getItem(this.KEY_TEXT);
+                        return txt !== null ? txt : this.DEFAULT_TEXT;
+                    } catch (e) {
+                        alert("LocalStorageの読み込みに失敗しました。デフォルトデータで起動します。");
+                        return this.DEFAULT_TEXT;
+                    }
+                },
+
+                saveRawText(text) {
+                    try {
+                        localStorage.setItem(this.KEY_TEXT, text);
+                    } catch (e) {
+                        console.error("保存失敗", e);
+                    }
+                },
+
+                loadStats() {
+                    try {
+                        const stats = localStorage.getItem(this.KEY_STATS);
+                        return stats ? JSON.parse(stats) : {};
+                    } catch (e) {
+                        return {};
+                    }
+                },
+
+                saveStats(stats) {
+                    try {
+                        localStorage.setItem(this.KEY_STATS, JSON.stringify(stats));
+                    } catch (e) {
+                        console.error("統計保存失敗", e);
+                    }
+                }
+            };
+
+            // ==========================================
+            // 2. テキスト解析エンジン (Parser Module)
+            // ==========================================
+            const Parser = {
+                parse(rawText) {
+                    const lines = rawText.split('\n');
+                    const decks = [];
+                    let currentDeck = null;
+
+                    lines.forEach((line, index) => {
+                        const trimmed = line.trim();
+                        if (!trimmed) return; // 空行無視
+
+                        // 新しい単語帳の開始定義
+                        if (trimmed.startsWith('#')) {
+                            const name = trimmed.replace(/^#\s*/, '');
+                            currentDeck = {
+                                name: name || `無題の単語帳 (${index + 1})`,
+                                startLine: index,
+                                cards: []
+                            };
+                            decks.push(currentDeck);
+                        } else {
+                            // カンマ区切りのデータ解析
+                            if (!currentDeck) {
+                                // 最初のアウトライン宣言がない場合のフォールバック
+                                currentDeck = { name: "デフォルト単語帳", startLine: 0, cards: [] };
+                                decks.push(currentDeck);
+                            }
+
+                            const commaIndex = trimmed.indexOf(',');
+                            if (commaIndex !== -1) {
+                                const question = trimmed.substring(0, commaIndex).trim();
+                                const answer = trimmed.substring(commaIndex + 1).trim();
+                                currentDeck.cards.push({ question, answer, lineIndex: index });
+                            } else {
+                                // 構文エラーを保持
+                                currentDeck.cards.push({ 
+                                    question: trimmed, 
+                                    answer: null, 
+                                    lineIndex: index,
+                                    error: "カンマ(,)が見つかりません" 
+                                });
+                            }
+                        }
+                    });
+                    return decks;
+                },
+
+                validate(rawText) {
+                    const lines = rawText.split('\n');
+                    const errors = [];
+                    lines.forEach((line, idx) => {
+                        const t = line.trim();
+                        if (t && !t.startsWith('#') && !t.includes(',')) {
+                            errors.push(`行 ${idx + 1}: 「,」がありません (${t.substring(0,10)})`);
+                        }
+                    });
+                    return errors;
+                }
+            };
+
+            // ==========================================
+            // 3. アプリケーション状態管理 (State Module)
+            // ==========================================
+            const AppState = {
+                rawText: "",
+                decks: [],
+                currentDeckIndex: 0,
+                stats: {},
+
+                // 学習・テストセッション状態
+                session: {
+                    cards: [],
+                    currentIndex: 0,
+                    isRandom: false,
+                    showAnswer: false
+                },
+
+                init() {
+                    this.rawText = Storage.loadRawText();
+                    this.stats = Storage.loadStats();
+                    this.refreshDecks();
+                    
+                    // 初期インデックス安全処理
+                    if (this.decks.length === 0) {
+                        this.rawText = "# 新しい単語帳\n問題,答え";
+                        this.refreshDecks();
+                    }
+                    this.currentDeckIndex = 0;
+                },
+
+                refreshDecks() {
+                    this.decks = Parser.parse(this.rawText);
+                    // 統計スキーマの同期化
+                    this.decks.forEach(d => {
+                        if (!this.stats[d.name]) {
+                            this.stats[d.name] = { count: 0, learned: 0, right: 0, wrong: 0 };
+                        }
+                    });
+                },
+
+                save() {
+                    Storage.saveRawText(this.rawText);
+                    Storage.saveStats(this.stats);
+                },
+
+                getCurrentDeck() {
+                    return this.decks[this.currentDeckIndex] || null;
+                },
+
+                initSession(isRandom = false) {
+                    const deck = this.getCurrentDeck();
+                    if (!deck || deck.cards.length === 0) {
+                        this.session.cards = [];
+                        return;
+                    }
+                    
+                    // エラーのない有効なカードのみ抽出
+                    const validCards = deck.cards.filter(c => !c.error);
+                    
+                    if (isRandom) {
+                        this.session.cards = [...validCards].sort(() => Math.random() - 0.5);
+                    } else {
+                        this.session.cards = [...validCards];
+                    }
+                    this.session.currentIndex = 0;
+                    this.session.isRandom = isRandom;
+                    this.session.showAnswer = false;
+                },
+
+                shuffleSession() {
+                    this.session.cards.sort(() => Math.random() - 0.5);
+                    this.session.currentIndex = 0;
+                    this.session.showAnswer = false;
+                },
+
+                recordStat(deckName, isRight) {
+                    if (!this.stats[deckName]) {
+                        this.stats[deckName] = { count: 0, learned: 0, right: 0, wrong: 0 };
+                    }
+                    this.stats[deckName].learned += 1;
+                    if (isRight) {
+                        this.stats[deckName].right += 1;
+                    } else {
+                        this.stats[deckName].wrong += 1;
+                    }
+                    this.save();
+                }
+            };
+
+            // ==========================================
+            // 4. UIレンダリング & インタラクション (UI Module)
+            // ==========================================
+            
+            // DOM要素群のキャッシュ
+            const DOM = {
+                deckList: document.getElementById('deck-list'),
+                btnNewDeck: document.getElementById('btn-new-deck'),
+                btnDupDeck: document.getElementById('btn-dup-deck'),
+                btnDelDeck: document.getElementById('btn-del-deck'),
+                tabs: document.querySelectorAll('.tab-btn'),
+                panels: document.querySelectorAll('.view-panel'),
+                textEditor: document.getElementById('text-editor'),
+                lineNumbers: document.getElementById('line-numbers'),
+                editorError: document.getElementById('editor-error'),
+                editorInfo: document.getElementById('editor-info'),
+                
+                // 学習コンポーネント
+                learnContainer: document.getElementById('learn-container'),
+                learnQuestion: document.getElementById('learn-question'),
+                learnAnswer: document.getElementById('learn-answer'),
+                learnProgress: document.getElementById('learn-progress'),
+                btnShowAnswer: document.getElementById('btn-show-answer'),
+                learnScoreButtons: document.getElementById('learn-score-buttons'),
+                btnLearnRight: document.getElementById('btn-learn-right'),
+                btnLearnWrong: document.getElementById('btn-learn-wrong'),
+                btnLearnPrev: document.getElementById('btn-learn-prev'),
+                btnLearnNext: document.getElementById('btn-learn-next'),
+                learnModeOrder: document.getElementById('learn-mode-order'),
+                learnModeRandom: document.getElementById('learn-mode-random'),
+                btnShuffleLearn: document.getElementById('btn-shuffle-learn'),
+
+                // テストコンポーネント
+                testContainer: document.getElementById('test-container'),
+                testQuestion: document.getElementById('test-question'),
+                testFeedback: document.getElementById('test-feedback'),
+                testUserInput: document.getElementById('test-user-input'),
+                btnTestSubmit: document.getElementById('btn-test-submit'),
+                btnTestNext: document.getElementById('btn-test-next'),
+                testProgress: document.getElementById('test-progress'),
+
+                // 統計
+                statsTableBody: document.getElementById('stats-table-body'),
+                btnResetStats: document.getElementById('btn-reset-stats')
+            };
+
+            // サイドバー：単語帳一覧更新表示
+            function renderDeckList() {
+                DOM.deckList.innerHTML = '';
+                AppState.decks.forEach((deck, idx) => {
+                    const validCardsCount = deck.cards.filter(c => !c.error).length;
+                    
+                    const item = document.createElement('div');
+                    item.className = `deck-item ${idx === AppState.currentDeckIndex ? 'active' : ''}`;
+                    item.innerHTML = `
+                        <span class="deck-name">${escapeHtml(deck.name)}</span>
+                        <span class="deck-count">${validCardsCount}</span>
+                    `;
+                    item.addEventListener('click', () => {
+                        AppState.currentDeckIndex = idx;
+                        renderDeckList();
+                        onDeckSwitch();
+                    });
+                    DOM.deckList.appendChild(item);
+                });
+            }
+
+            // 単語帳切り替え時の同期処理
+            function onDeckSwitch() {
+                // 各種セッションリセット
+                AppState.initSession(AppState.session.isRandom);
+                renderEditorFromState();
+                renderLearnCard();
+                renderTestCard();
+                renderStats();
+            }
+
+            // エディタの表示更新（Stateの特定単語帳データからテキストエリアを再構成）
+            function renderEditorFromState() {
+                DOM.textEditor.value = AppState.rawText;
+                updateEditorMeta();
+            }
+
+            // エディタ状態情報の更新（行番号、文字数、エラーチェック）
+            function updateEditorMeta() {
+                const text = DOM.textEditor.value;
+                AppState.rawText = text;
+                AppState.refreshDecks(); // 構造を常に同期更新
+
+                // 行番号処理
+                const lines = text.split('\n');
+                const lineCount = lines.length;
+                let lineNumHtml = '';
+                for(let i = 1; i <= lineCount; i++) {
+                    lineNumHtml += i + '<br>';
+                }
+                DOM.lineNumbers.innerHTML = lineNumHtml;
+
+                // 文字数・有効単語数集計
+                const charCount = text.length;
+                let totalCards = 0;
+                AppState.decks.forEach(d => {
+                    totalCards += d.cards.filter(c => !c.error).length;
+                });
+                DOM.editorInfo.textContent = `行: ${lineCount} | 文字: ${charCount} | 全有効カード: ${totalCards}`;
+
+                // リアルタイム構文エラー解析
+                const errors = Parser.validate(text);
+                if (errors.length > 0) {
+                    DOM.editorError.textContent = `⚠️ ${errors[0]} (他 ${errors.length - 1} 件)`;
+                    DOM.editorError.title = errors.join('\n');
+                } else {
+                    DOM.editorError.textContent = '';
+                }
+
+                // ストレージへ自動セーブ
+                AppState.save();
+            }
+
+            // 学習カード描画表示
+            function renderLearnCard() {
+                const session = AppState.session;
+                const deck = AppState.getCurrentDeck();
+
+                if (!deck || session.cards.length === 0) {
+                    DOM.learnQuestion.textContent = "有効なカードがありません。編集タブで追加してください。";
+                    DOM.learnAnswer.classList.remove('visible');
+                    DOM.learnProgress.textContent = "0 / 0";
+                    DOM.btnShowAnswer.style.display = 'block';
+                    DOM.learnScoreButtons.style.display = 'none';
+                    return;
+                }
+
+                const currentCard = session.cards[session.currentIndex];
+                DOM.learnQuestion.textContent = currentCard.question;
+                DOM.learnAnswer.textContent = currentCard.answer;
+                DOM.learnProgress.textContent = `${session.currentIndex + 1} / ${session.cards.length}`;
+
+                if (session.showAnswer) {
+                    DOM.learnAnswer.classList.add('visible');
+                    DOM.btnShowAnswer.style.display = 'none';
+                    DOM.learnScoreButtons.style.display = 'flex';
+                } else {
+                    DOM.learnAnswer.classList.remove('visible');
+                    DOM.btnShowAnswer.style.display = 'block';
+                    DOM.learnScoreButtons.style.display = 'none';
+                }
+            }
+
+            // テストカード描画表示
+            function renderTestCard() {
+                const session = AppState.session; // 学習とデータ配列構造を共有
+                const deck = AppState.getCurrentDeck();
+
+                // テストの進行度や表示は独自の同期ロジックを持つが構造はsession互換
+                if (!deck || session.cards.length === 0) {
+                    DOM.testQuestion.textContent = "有効なカードがありません。";
+                    DOM.testProgress.textContent = "0 / 0";
+                    DOM.testFeedback.className = "test-feedback";
+                    DOM.testUserInput.style.display = 'none';
+                    DOM.btnTestSubmit.style.display = 'none';
+                    DOM.btnTestNext.style.display = 'none';
+                    return;
+                }
+
+                DOM.testUserInput.style.display = 'block';
+                const currentCard = session.cards[session.currentIndex];
+                DOM.testQuestion.textContent = currentCard.question;
+                DOM.testProgress.textContent = `${session.currentIndex + 1} / ${session.cards.length}`;
+            }
+
+            // 統計情報の描画処理
+            function renderStats() {
+                DOM.statsTableBody.innerHTML = '';
+                
+                // 表示全体の最新状態同期
+                AppState.refreshDecks();
+
+                AppState.decks.forEach(deck => {
+                    const stat = AppState.stats[deck.name] || { learned: 0, right: 0, wrong: 0 };
+                    const cardCount = deck.cards.filter(c => !c.error).length;
+                    const rate = stat.learned > 0 ? Math.round((stat.right / stat.learned) * 100) : 0;
+
+                    const tr = document.createElement('tr');
+                    tr.innerHTML = `
+                        <td style="font-weight:bold;">${escapeHtml(deck.name)}</td>
+                        <td>${cardCount}</td>
+                        <td>${stat.learned}</td>
+                        <td style="color:var(--success)">${stat.right}</td>
+                        <td style="color:var(--danger)">${stat.wrong}</td>
+                        <td><span style="font-weight:bold; color:${rate > 70 ? 'var(--success)' : rate > 40 ? 'var(--warning)' : 'var(--text-muted)'}">${rate}%</span></td>
+                    `;
+                    DOM.statsTableBody.appendChild(tr);
+                });
+            }
+
+            // ==========================================
+            // 5. イベントリスナー・インタラクション制御
+            // ==========================================
+
+            // タブメニュー切り替えイベント
+            DOM.tabs.forEach(tab => {
+                tab.addEventListener('click', () => {
+                    DOM.tabs.forEach(t => t.classList.remove('active'));
+                    DOM.panels.forEach(p => p.classList.remove('active'));
+
+                    tab.classList.add('active');
+                    const activePanel = document.getElementById(`view-${tab.dataset.tab}`);
+                    if(activePanel) activePanel.classList.add('active');
+
+                    // タブ切り替え時の特別処理
+                    if (tab.dataset.tab === 'learn') {
+                        AppState.initSession(AppState.session.isRandom);
+                        renderLearnCard();
+                    } else if (tab.dataset.tab === 'test') {
+                        AppState.initSession(true); // テストは常にシャッフル出題推奨
+                        // テスト画面初期フォームリセット
+                        DOM.testUserInput.value = "";
+                        DOM.testFeedback.className = "test-feedback";
+                        DOM.btnTestSubmit.style.display = 'block';
+                        DOM.btnTestNext.style.display = 'none';
+                        renderTestCard();
+                    } else if (tab.dataset.tab === 'stats') {
+                        renderStats();
+                    }
+                });
+            });
+
+            // エディタリアルタイムタイピング同期
+            DOM.textEditor.addEventListener('input', updateEditorMeta);
+            DOM.textEditor.addEventListener('scroll', () => {
+                // 行番号のスクリプト追従同期
+                DOM.lineNumbers.scrollTop = DOM.textEditor.scrollTop;
+            });
+
+            // ショートカットキー (Ctrl + S / Cmd + S) の保存エミュレート
+            window.addEventListener('keydown', (e) => {
+                if ((e.ctrlKey || e.metaKey) && e.key === 's') {
+                    e.preventDefault();
+                    updateEditorMeta();
+                    // 視覚的フィードバック
+                    const oldColor = DOM.editorInfo.style.color;
+                    DOM.editorInfo.style.color = 'var(--success)';
+                    setTimeout(() => DOM.editorInfo.style.color = oldColor, 500);
+                }
+            });
+
+            // 単語帳 新規作成 (最下部へ追記)
+            DOM.btnNewDeck.addEventListener('click', () => {
+                const name = prompt("新規単語帳の名前を入力してください:", "新しい単語帳");
+                if (!name) return;
+                
+                const appendStr = `\n\n# ${name}\n新しい問題,答え`;
+                DOM.textEditor.value += appendStr;
+                updateEditorMeta();
+                AppState.currentDeckIndex = AppState.decks.length - 1; // 新規作成先へフォーカス
+                renderDeckList();
+                onDeckSwitch();
+            });
+
+            // 単語帳 複製
+            DOM.btnDupDeck.addEventListener('click', () => {
+                const current = AppState.getCurrentDeck();
+                if(!current) return;
+
+                // テキスト全体から該当ブロックを再抽出して末尾に追加
+                const lines = DOM.textEditor.value.split('\n');
+                let targetLines = [];
+                let collect = false;
+                
+                // 簡易パースで特定位置のテキストブロックを復元
+                for(let i=0; i<lines.length; i++) {
+                    if (i === current.startLine) {
+                        collect = true;
+                        targetLines.push(`# ${current.name} (コピー)`);
+                        continue;
+                    }
+                    if (collect && lines[i].startsWith('#')) {
+                        break;
+                    }
+                    if (collect) {
+                        targetLines.push(lines[i]);
+                    }
+                }
+
+                DOM.textEditor.value += "\n\n" + targetLines.join('\n');
+                updateEditorMeta();
+                AppState.currentDeckIndex = AppState.decks.length - 1;
+                renderDeckList();
+                onDeckSwitch();
+            });
+
+            // 単語帳 削除
+            DOM.btnDelDeck.addEventListener('click', () => {
+                const current = AppState.getCurrentDeck();
+                if (!current) return;
+                if (!confirm(`単語帳 「${current.name}」 を削除してもよろしいですか？\n※テキストデータから該当ブロックが消去されます。`)) return;
+
+                const lines = DOM.textEditor.value.split('\n');
+                // 次の宣言の手前までを削除対象とする
+                let nextDeckStart = lines.length;
+                for (let i = current.startLine + 1; i < lines.length; i++) {
+                    if (lines[i].startsWith('#')) {
+                        nextDeckStart = i;
+                        break;
+                    }
+                }
+
+                // 行配列から特定範囲を削除
+                lines.splice(current.startLine, nextDeckStart - current.startLine);
+                DOM.textEditor.value = lines.join('\n');
+                
+                updateEditorMeta();
+                AppState.currentDeckIndex = Math.max(0, AppState.currentDeckIndex - 1);
+                renderDeckList();
+                onDeckSwitch();
+            });
+
+            // --- 学習制御ロジック ---
+            DOM.btnShowAnswer.addEventListener('click', () => {
+                AppState.session.showAnswer = true;
+                renderLearnCard();
+            });
+
+            DOM.btnLearnRight.addEventListener('click', () => {
+                const deck = AppState.getCurrentDeck();
+                AppState.recordStat(deck.name, true);
+                moveLearnNext();
+            });
+
+            DOM.btnLearnWrong.addEventListener('click', () => {
+                const deck = AppState.getCurrentDeck();
+                AppState.recordStat(deck.name, false);
+                moveLearnNext();
+            });
+
+            DOM.btnLearnPrev.addEventListener('click', () => {
+                if (AppState.session.currentIndex > 0) {
+                    AppState.session.currentIndex--;
+                    AppState.session.showAnswer = false;
+                    renderLearnCard();
+                }
+            });
+
+            DOM.btnLearnNext.addEventListener('click', () => {
+                moveLearnNext();
+            });
+
+            function moveLearnNext() {
+                const session = AppState.session;
+                if (session.currentIndex < session.cards.length - 1) {
+                    session.currentIndex++;
+                    session.showAnswer = false;
+                    renderLearnCard();
+                } else {
+                    alert("単語帳の最後のカードです！最初に戻ります。");
+                    session.currentIndex = 0;
+                    session.showAnswer = false;
+                    renderLearnCard();
+                }
+            }
+
+            DOM.learnModeOrder.addEventListener('click', () => {
+                DOM.learnModeOrder.classList.add('active');
+                DOM.learnModeRandom.classList.remove('active');
+                AppState.initSession(false);
+                renderLearnCard();
+            });
+
+            DOM.learnModeRandom.addEventListener('click', () => {
+                DOM.learnModeRandom.classList.add('active');
+                DOM.learnModeOrder.classList.remove('active');
+                AppState.initSession(true);
+                renderLearnCard();
+            });
+
+            DOM.btnShuffleLearn.addEventListener('click', () => {
+                AppState.shuffleSession();
+                renderLearnCard();
+            });
+
+
+            // --- テスト制御ロジック ---
+            function submitTest() {
+                const session = AppState.session;
+                if(session.cards.length === 0) return;
+
+                const currentCard = session.cards[session.currentIndex];
+                const userAns = DOM.testUserInput.value.trim().toLowerCase();
+                const correctAns = currentCard.answer.trim().toLowerCase();
+                const deck = AppState.getCurrentDeck();
+
+                if (userAns === correctAns) {
+                    DOM.testFeedback.textContent = "正解！ ⭕";
+                    DOM.testFeedback.className = "test-feedback correct";
+                    AppState.recordStat(deck.name, true);
+                } else {
+                    DOM.testFeedback.textContent = `不正解 ❌ (正解: ${currentCard.answer})`;
+                    DOM.testFeedback.className = "test-feedback incorrect";
+                    AppState.recordStat(deck.name, false);
+                }
+
+                DOM.btnTestSubmit.style.display = 'none';
+                DOM.btnTestNext.style.display = 'block';
+            }
+
+            DOM.btnTestSubmit.addEventListener('click', submitTest);
+            
+            // テスト入力欄でのEnterキー対応
+            DOM.testUserInput.addEventListener('keydown', (e) => {
+                if (e.key === 'Enter') {
+                    if (DOM.btnTestSubmit.style.display !== 'none') {
+                        submitTest();
+                    } else {
+                        nextTestCard();
+                    }
+                }
+            });
+
+            function nextTestCard() {
+                const session = AppState.session;
+                if (session.currentIndex < session.cards.length - 1) {
+                    session.currentIndex++;
+                    DOM.testUserInput.value = "";
+                    DOM.testFeedback.className = "test-feedback";
+                    DOM.btnTestSubmit.style.display = 'block';
+                    DOM.btnTestNext.style.display = 'none';
+                    renderTestCard();
+                    DOM.testUserInput.focus();
+                } else {
+                    alert("テストが全て終了しました！再シャッフルしてリスタートします。");
+                    AppState.initSession(true);
+                    DOM.testUserInput.value = "";
+                    DOM.testFeedback.className = "test-feedback";
+                    DOM.btnTestSubmit.style.display = 'block';
+                    DOM.btnTestNext.style.display = 'none';
+                    renderTestCard();
+                }
+            }
+
+            DOM.btnTestNext.addEventListener('click', nextTestCard);
+
+            // 統計リセット
+            DOM.btnResetStats.addEventListener('click', () => {
+                if(confirm("すべての学習履歴と正誤統計データを初期化しますか？")) {
+                    AppState.stats = {};
+                    AppState.save();
+                    renderStats();
+                }
+            });
+
+            // ユーティリティ: HTMLエスケープ処理
+            function escapeHtml(str) {
+                if (!str) return '';
+                return str.replace(/&/g, '&amp;')
+                          .replace(/</g, '&lt;')
+                          .replace(/>/g, '&gt;')
+                          .replace(/"/g, '&quot;')
+                          .replace(/'/g, '&#039;');
+            }
+
+            // ==========================================
+            // 6. アプリケーション起動処理
+            // ==========================================
+            AppState.init();
+            renderDeckList();
+            renderEditorFromState();
+        });
+    </script>
+</body>
+</html>
