@@ -25,14 +25,15 @@
 
         /* --- 基本リセット --- */
         * { box-sizing: border-box; margin: 0; padding: 0; }
-        body {
-            font-family: var(--font);
-            background-color: var(--bg-main);
-            color: var(--text-main);
-            display: flex;
-            height: 100vh;
-            overflow: hidden;
-        }
+       body {
+    font-family: var(--font);
+    background-color: var(--bg-main);
+    color: var(--text-main);
+    display: flex;
+    min-height: 100vh; /* height: 100vh から変更 */
+    overflow-x: hidden;
+    overflow-y: auto;   /* overflow: hidden から変更 */
+}
 
         button, input, textarea {
             font-family: inherit;
@@ -346,20 +347,26 @@
         }
 
         /* --- レスポンシブ対応 (スマートフォン最優先) --- */
-        @media (max-width: 768px) {
-            .app-container { flex-direction: column; }
-            .sidebar {
-                width: 100%;
-                height: 220px;
-                border-right: none;
-                border-bottom: 1px solid var(--border);
-            }
-            .deck-list-container { flex: 1; height: auto; }
-            .main-content { flex: 1; height: calc(100vh - 220px); }
-            .card-text { font-size: 1.5rem; }
-            .huge-btn, .btn-choice { padding: 16px; font-size: 1.1rem; }
-            .error-log { max-width: 40%; }
-        }
+@media (max-width: 768px) {
+    .app-container { flex-direction: column; height: auto; }
+    .sidebar {
+        width: 100%;
+        height: 180px; /* 少し低くしてメイン領域を広く */
+        border-right: none;
+        border-bottom: 1px solid var(--border);
+    }
+    .deck-list-container { flex: 1; height: auto; }
+    /* 高さ固定を解除し、スマホの画面サイズに応じて自然に伸び縮みさせます */
+    .main-content { flex: none; height: auto; min-height: calc(100vh - 180px); } 
+    /* 各種コンテナの高さ縛りを解除 */
+    .view-panel { height: auto; overflow: visible; padding: 12px; }
+    .learn-container, .test-container { height: auto; min-height: 400px; }
+    .card-display { min-height: 180px; margin: 10px 0; padding: 20px; }
+    .card-text { font-size: 1.4rem; }
+    .huge-btn, .btn-choice { padding: 14px; font-size: 1.05rem; }
+    .error-log { max-width: 40%; }
+.test-input { font-size: 16px; padding: 12px; }
+}
     </style>
 </head>
 <body>
