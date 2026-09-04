@@ -1,0 +1,359 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>塾用 リアルタイム教材作成・印刷アプリ</title>
+    <!-- Marked.js (Markdownパース用) -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <!-- PeerJS (ログイン不要・サーバー要らずのP2Pリアルタイム通信) -->
+    <script src="https://unpkg.com/peerjs@1.5.2/dist/peerjs.min.js"></script>
+    <style>
+        :root {
+            --bg-color: #f4f6f9;
+            --panel-bg: #ffffff;
+            --border-color: #e0e0e0;
+            --primary-color: #2563eb;
+            --text-color: #1e293b;
+        }
+
+        * {
+            box-sizing: border-box;
+            margin: 0;
+            padding: 0;
+        }
+
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Helvetica Neue", Arial, sans-serif;
+            background-color: var(--bg-color);
+            color: var(--text-color);
+            height: 100vh;
+            display: flex;
+            flex-direction: column;
+            overflow: hidden;
+        }
+
+        /* ヘッダーエリア */
+        header {
+            background-color: var(--panel-bg);
+            border-bottom: 1px solid var(--border-color);
+            padding: 10px 20px;
+            display: flex;
+            align-items: center;
+            justify-content: space-between;
+            height: 60px;
+        }
+
+        .logo {
+            font-weight: bold;
+            font-size: 1.1rem;
+            color: var(--primary-color);
+        }
+
+        .status-bar {
+            display: flex;
+            align-items: center;
+            gap: 15px;
+            font-size: 0.9rem;
+        }
+
+        .status-indicator {
+            display: inline-block;
+            width: 10px;
+            height: 10px;
+            border-radius: 50%;
+            background-color: #94a3b8;
+        }
+
+        .status-indicator.connected {
+            background-color: #10b981;
+        }
+
+        .btn {
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 6px;
+            cursor: pointer;
+            font-weight: 500;
+            transition: background-color 0.2s;
+        }
+
+        .btn:hover {
+            background-color: #1d4ed8;
+        }
+
+        /* メインコンテンツエリア */
+        main {
+            display: flex;
+            flex: 1;
+            height: calc(100vh - 60px);
+            overflow: hidden;
+        }
+
+        /* 左側：編集パネル（タブレット向け） */
+        .editor-panel {
+            flex: 1;
+            display: flex;
+            flex-direction: column;
+            padding: 15px;
+            border-right: 1px solid var(--border-color);
+            background-color: var(--panel-bg);
+        }
+
+        .editor-panel label {
+            font-size: 0.85rem;
+            font-weight: bold;
+            margin-bottom: 8px;
+            color: #64748b;
+        }
+
+        textarea {
+            flex: 1;
+            width: 100%;
+            padding: 12px;
+            border: 1px solid var(--border-color);
+            border-radius: 6px;
+            font-family: inherit;
+            font-size: 1rem;
+            line-height: 1.6;
+            resize: none;
+            outline: none;
+        }
+
+        textarea:focus {
+            border-color: var(--primary-color);
+        }
+
+        /* 右側：A4プレビューパネル（PC向け） */
+        .preview-panel {
+            flex: 1;
+            padding: 20px;
+            overflow-y: auto;
+            background-color: #525659;
+            display: flex;
+            justify-content: center;
+        }
+
+        /* A4用紙のスタイル */
+        .a4-page {
+            width: 210mm;
+            min-height: 297mm;
+            padding: 20mm;
+            background-color: white;
+            box-shadow: 0 4px 10px rgba(0,0,0,0.3);
+            box-sizing: border-box;
+            color: #000;
+            line-height: 1.7;
+            font-size: 11pt;
+        }
+
+        /* AI出力・Markdownスタイルの調整 */
+        .a4-page h1 {
+            font-size: 20pt;
+            border-bottom: 2px solid #333;
+            padding-bottom: 5px;
+            margin-bottom: 15px;
+        }
+
+        .a4-page h2 {
+            font-size: 15pt;
+            border-left: 4px solid var(--primary-color);
+            padding-left: 8px;
+            margin-top: 20px;
+            margin-bottom: 10px;
+        }
+
+        .a4-page h3 {
+            font-size: 12pt;
+            margin-top: 15px;
+            margin-bottom: 5px;
+        }
+
+        .a4-page p {
+            margin-bottom: 10px;
+        }
+
+        .a4-page ul, .a4-page ol {
+            margin-left: 20px;
+            margin-bottom: 10px;
+        }
+
+        .a4-page table {
+            width: 100%;
+            border-collapse: collapse;
+            margin: 15px 0;
+        }
+
+        .a4-page th, .a4-page td {
+            border: 1px solid #333;
+            padding: 6px 10px;
+            text-align: left;
+            font-size: 10pt;
+        }
+
+        .a4-page th {
+            background-color: #f1f5f9;
+        }
+
+        .a4-page blockquote {
+            border-left: 3px solid #cbd5e1;
+            padding-left: 10px;
+            color: #475569;
+            margin: 10px 0;
+        }
+
+        /* 印刷時専用スタイル（A4印刷に完全最適化） */
+        @media print {
+            body {
+                background: white;
+                height: auto;
+                overflow: visible;
+            }
+
+            header, .editor-panel {
+                display: none !important;
+            }
+
+            main {
+                height: auto;
+                overflow: visible;
+            }
+
+            .preview-panel {
+                background: white;
+                padding: 0;
+                overflow: visible;
+                display: block;
+            }
+
+            .a4-page {
+                width: 100%;
+                min-height: auto;
+                padding: 0;
+                box-shadow: none;
+            }
+
+            @page {
+                size: A4 portrait;
+                margin: 15mm 12mm;
+            }
+        }
+    </style>
+</head>
+<body>
+
+    <header>
+        <div class="logo">塾用 リアルタイム教材エディタ</div>
+        <div class="status-bar">
+            <div><span class="status-indicator" id="status-dot"></span> <span id="status-text">通信準備中...</span></div>
+            <button class="btn" onclick="window.print()">印刷する (A4)</button>
+        </div>
+    </header>
+
+    <main>
+        <!-- 左：編集エリア -->
+        <div class="editor-panel">
+            <label for="markdown-input">テキスト入力 / AIの出力をそのまま貼り付け</label>
+            <textarea id="markdown-input" placeholder="ここにAIが生成したテキスト（Markdown形式）を貼り付けると、右側にリアルタイムでA4教材が生成されます..."></textarea>
+        </div>
+
+        <!-- 右：A4プレビューエリア -->
+        <div class="preview-panel">
+            <div class="a4-page" id="preview-output">
+                <!-- リアルタイムで反映されるコンテンツ -->
+            </div>
+        </div>
+    </main>
+
+    <script>
+        const inputArea = document.getElementById('markdown-input');
+        const outputArea = document.getElementById('preview-output');
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+
+        // URLパラメータからルームIDを取得（無ければデフォルト名）
+        const urlParams = new URLSearchParams(window.location.search);
+        const roomId = urlParams.get('room') || 'jyuku-room-1';
+
+        // PeerJSの初期化（WebRTCを使用したP2P通信で完全ログイン不要）
+        // 1つの固定ID（印刷用PC）に対してタブレットが接続する構成
+        const peer = new Peer(roomId + '-host');
+        let activeConns = [];
+
+        // 自分がホスト（印刷用PC）として起動できた場合
+        peer.on('open', (id) => {
+            statusDot.classList.add('connected');
+            statusText.innerText = '印刷PCとして待機中（ルーム: ' + roomId + '）';
+        });
+
+        // 既にホストが存在する場合はクライアント（タブレット）として接続
+        peer.on('error', (err) => {
+            if (err.type === 'unavailable-id') {
+                // ホストが存在するのでクライアントとして接続をやり直す
+                const clientPeer = new Peer();
+                clientPeer.on('open', () => {
+                    const conn = clientPeer.connect(roomId + '-host');
+                    setupConnection(conn);
+                });
+            }
+        });
+
+        // ホスト側：接続を受け入れる処理
+        peer.on('connection', (conn) => {
+            setupConnection(conn);
+        });
+
+        function setupConnection(conn) {
+            conn.on('open', () => {
+                activeConns.push(conn);
+                statusDot.classList.add('connected');
+                statusText.innerText = '同期中（接続済み）';
+
+                // 初期状態の送信
+                conn.send(inputArea.value);
+            });
+
+            // 相手からデータを受信した時
+            conn.on('data', (data) => {
+                inputArea.value = data;
+                updatePreview(data);
+            });
+
+            conn.on('close', () => {
+                activeConns = activeConns.filter(c => c !== conn);
+                if (activeConns.length === 0 && peer.disconnected) {
+                    statusDot.classList.remove('connected');
+                    statusText.innerText = '未接続';
+                }
+            });
+        }
+
+        // 入力時の処理（リアルタイム更新 ＆ データ送信）
+        inputArea.addEventListener('input', (e) => {
+            const text = e.target.value;
+            updatePreview(text);
+
+            // 接続中の端末へデータを一斉送信
+            activeConns.forEach(conn => {
+                if (conn.open) {
+                    conn.send(text);
+                }
+            });
+        });
+
+        // MarkdownをHTMLに変換してプレビューに描画
+        function updatePreview(text) {
+            if (!text.trim()) {
+                outputArea.innerHTML = '<p style="color:#aaa;">（プレビューエリア：左側に入力した内容がA4サイズで即座に反映されます）</p>';
+                return;
+            }
+            outputArea.innerHTML = marked.parse(text);
+        }
+
+        // 初期表示
+        updatePreview('');
+    </script>
+</body>
+</html>
