@@ -1,0 +1,962 @@
+<!DOCTYPE html>
+<html lang="ja" class="h-full">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Markdown & LaTeX to PDF Exporter</title>
+
+    <!-- Tailwind CSS for UI Layout -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script>
+        tailwind.config = {
+            darkMode: 'class',
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Inter', 'system-ui', '-apple-system', 'sans-serif'],
+                        serif: ['Noto Serif JP', 'Georgia', 'Cambria', 'serif'],
+                        mono: ['Fira Code', 'Monaco', 'Consolas', 'monospace']
+                    }
+                }
+            }
+        }
+    </script>
+
+    <!-- Fonts -->
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Fira+Code:wght@400;500;600&family=Inter:wght@300;400;500;600;700&family=Noto+Serif+JP:wght@400;600;700&display=swap" rel="stylesheet">
+
+    <!-- KaTeX CSS & JS for Fast LaTeX Rendering -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.css">
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/katex.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/katex@0.16.8/dist/contrib/auto-render.min.js"></script>
+
+    <!-- Marked.js for Markdown Parsing -->
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+    <!-- DOMPurify for XSS Sanitization -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/dompurify/3.0.6/purify.min.js"></script>
+
+    <!-- Highlight.js for Syntax Highlighting -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/styles/github.min.css" id="hljsTheme">
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/highlight.js/11.8.0/highlight.min.js"></script>
+
+    <!-- html2pdf.js for Client-side Direct PDF Generation -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/html2pdf.js/0.10.1/html2pdf.bundle.min.js"></script>
+
+    <!-- PptxGenJS for Client-side PowerPoint Export -->
+    <script src="https://cdn.jsdelivr.net/npm/pptxgenjs@3.12.0/dist/pptxgen.bundle.js"></script>
+
+    <!-- SheetJS (xlsx) for Client-side Excel Export -->
+    <script src="https://cdn.jsdelivr.net/npm/xlsx@0.18.5/dist/xlsx.full.min.js"></script>
+
+    <!-- FontAwesome Icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+
+    <style id="dynamicPrintStyle">
+        /* Dynamic @page rule inserted via JavaScript */
+        @page {
+            size: A4 portrait;
+            margin: 15mm;
+        }
+    </style>
+
+    <style>
+        /* Word Dynamic Document Formatting Options */
+        .line-spacing-1-0 .doc-content p { line-height: 1.2; margin-bottom: 0.5rem; }
+        .line-spacing-1-25 .doc-content p { line-height: 1.4; margin-bottom: 0.65rem; }
+        .line-spacing-1-5 .doc-content p { line-height: 1.65; margin-bottom: 0.85rem; }
+        .line-spacing-2-0 .doc-content p { line-height: 2.1; margin-bottom: 1.1rem; }
+
+        .margin-narrow { padding: 10mm 10mm !important; }
+        .margin-normal { padding: 20mm 18mm !important; }
+        .margin-wide { padding: 25mm 25mm !important; }
+
+        .font-sans-custom { font-family: 'Inter', system-ui, -apple-system, sans-serif !important; }
+        .font-serif-custom { font-family: 'Noto Serif JP', 'Georgia', serif !important; }
+        .font-mono-custom { font-family: 'Fira Code', 'Monaco', monospace !important; }
+
+        /* Document Themes for Preview Area */
+        .preview-theme-modern {
+            font-family: 'Inter', sans-serif;
+            color: #1f2937;
+        }
+        .preview-theme-modern h1 { font-size: 1.85rem; font-weight: 700; border-bottom: 2px solid #e5e7eb; padding-bottom: 0.4rem; margin-top: 1.2rem; margin-bottom: 0.8rem; color: #111827; }
+        .preview-theme-modern h2 { font-size: 1.45rem; font-weight: 600; border-bottom: 1px solid #f3f4f6; padding-bottom: 0.3rem; margin-top: 1rem; margin-bottom: 0.6rem; color: #1f2937; }
+        .preview-theme-modern h3 { font-size: 1.2rem; font-weight: 600; margin-top: 0.8rem; margin-bottom: 0.4rem; color: #374151; }
+
+        .preview-theme-academic {
+            font-family: 'Noto Serif JP', 'Georgia', serif;
+            color: #111111;
+            line-height: 1.75;
+        }
+        .preview-theme-academic h1 { font-size: 1.9rem; text-align: center; font-weight: 700; margin-top: 1.5rem; margin-bottom: 1.2rem; }
+        .preview-theme-academic h2 { font-size: 1.35rem; font-weight: 700; border-bottom: 1px solid #111; padding-bottom: 0.2rem; margin-top: 1.2rem; margin-bottom: 0.6rem; }
+        .preview-theme-academic h3 { font-size: 1.15rem; font-weight: 600; font-style: italic; margin-top: 1rem; margin-bottom: 0.4rem; }
+
+        .preview-theme-technical {
+            font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+            color: #24292e;
+        }
+        .preview-theme-technical h1 { font-size: 1.75rem; font-weight: 600; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; margin-top: 1.2rem; margin-bottom: 0.8rem; }
+        .preview-theme-technical h2 { font-size: 1.35rem; font-weight: 600; border-bottom: 1px solid #eaecef; padding-bottom: 0.3em; margin-top: 1rem; margin-bottom: 0.6rem; }
+
+        /* Shared Preview Formatting */
+        .doc-content p { margin-bottom: 0.75rem; line-height: 1.65; }
+        .doc-content ul { list-style-type: disc; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+        .doc-content ol { list-style-type: decimal; padding-left: 1.5rem; margin-bottom: 0.75rem; }
+        .doc-content li { margin-bottom: 0.25rem; }
+        .doc-content blockquote { border-left: 4px solid #3b82f6; padding-left: 1rem; margin: 0.8rem 0; color: #4b5563; background: #f8fafc; padding-top: 0.5rem; padding-bottom: 0.5rem; border-radius: 0 0.375rem 0.375rem 0; }
+        .doc-content pre { background: #0d1117; color: #c9d1d9; border-radius: 0.5rem; padding: 1rem; overflow-x: auto; font-family: 'Fira Code', monospace; font-size: 0.875rem; margin: 0.8rem 0; }
+        .doc-content code:not(pre code) { background: rgba(175, 184, 193, 0.2); font-family: 'Fira Code', monospace; font-size: 0.85em; padding: 0.2em 0.4em; border-radius: 0.25rem; }
+        .doc-content table { width: 100%; border-collapse: collapse; margin: 1rem 0; font-size: 0.9rem; }
+        .doc-content th, .doc-content td { border: 1px solid #d1d5db; padding: 0.5rem 0.75rem; text-align: left; }
+        .doc-content th { background: #f3f4f6; font-weight: 600; }
+        .doc-content hr { border: 0; border-top: 1px solid #e5e7eb; margin: 1.5rem 0; }
+        .doc-content img { max-width: 100%; height: auto; border-radius: 0.375rem; margin: 0.8rem 0; }
+        
+        /* KaTeX Overrides for Layout */
+        .katex-display { margin: 1em 0; overflow-x: auto; overflow-y: hidden; padding: 0.2em 0; }
+
+        /* Variable Paper Size Container in Web Preview */
+        .paper-preview {
+            background: #ffffff;
+            color: #1f2937;
+            padding: 20mm 18mm;
+            margin: 0 auto;
+            box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.1), 0 8px 10px -6px rgba(0, 0, 0, 0.1);
+            border-radius: 0.375rem;
+            box-sizing: border-box;
+            transition: all 0.2s ease-in-out;
+            min-height: 200mm;
+            max-width: 100%;
+        }
+
+        /* Dimension Preset Rules */
+        .paper-size-a0-portrait { width: 841mm; }
+        .paper-size-a0-landscape { width: 1189mm; }
+        .paper-size-a1-portrait { width: 594mm; }
+        .paper-size-a1-landscape { width: 841mm; }
+        .paper-size-a2-portrait { width: 420mm; }
+        .paper-size-a2-landscape { width: 594mm; }
+        .paper-size-a3-portrait { width: 297mm; }
+        .paper-size-a3-landscape { width: 420mm; }
+        .paper-size-a4-portrait { width: 210mm; }
+        .paper-size-a4-landscape { width: 297mm; }
+        .paper-size-a5-portrait { width: 148mm; }
+        .paper-size-a5-landscape { width: 210mm; }
+        .paper-size-a6-portrait { width: 105mm; }
+        .paper-size-a6-landscape { width: 148mm; }
+
+        .paper-size-b4-portrait { width: 257mm; }
+        .paper-size-b4-landscape { width: 364mm; }
+        .paper-size-b5-portrait { width: 182mm; }
+        .paper-size-b5-landscape { width: 257mm; }
+        .paper-size-b6-portrait { width: 128mm; }
+        .paper-size-b6-landscape { width: 182mm; }
+
+        .paper-size-letter-portrait { width: 216mm; }
+        .paper-size-letter-landscape { width: 279mm; }
+        .paper-size-legal-portrait { width: 216mm; }
+        .paper-size-legal-landscape { width: 356mm; }
+        .paper-size-tabloid-portrait { width: 279mm; }
+        .paper-size-tabloid-landscape { width: 432mm; }
+        .paper-size-executive-portrait { width: 184mm; }
+        .paper-size-executive-landscape { width: 267mm; }
+        .paper-size-statement-portrait { width: 140mm; }
+        .paper-size-statement-landscape { width: 216mm; }
+        .paper-size-ledger-portrait { width: 432mm; }
+        .paper-size-ledger-landscape { width: 279mm; }
+
+        /* PRINT OPTIMIZATION CSS */
+        @media print {
+            html, body {
+                background: #ffffff !important;
+                color: #000000 !important;
+                height: auto !important;
+                min-height: auto !important;
+                overflow: visible !important;
+                margin: 0 !important;
+                padding: 0 !important;
+            }
+
+            /* Hide UI Elements */
+            .no-print, header, nav, #editorSection, #statusBar, .mobile-tabs {
+                display: none !important;
+            }
+
+            main {
+                display: block !important;
+                height: auto !important;
+                overflow: visible !important;
+                position: static !important;
+            }
+
+            #previewSection {
+                display: block !important;
+                width: 100% !important;
+                height: auto !important;
+                overflow: visible !important;
+                position: static !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                background: #ffffff !important;
+            }
+
+            .paper-preview {
+                width: 100% !important;
+                max-width: 100% !important;
+                min-height: 0 !important;
+                padding: 0 !important;
+                margin: 0 !important;
+                box-shadow: none !important;
+                border-radius: 0 !important;
+            }
+
+            /* Prevent natural break points inside key elements */
+            h1, h2, h3, h4, h5, h6 {
+                page-break-after: avoid;
+                break-after: avoid;
+            }
+
+            pre, blockquote, table, .katex-display, img, tr {
+                page-break-inside: avoid;
+                break-inside: avoid;
+            }
+
+            .doc-content p {
+                orphans: 3;
+                widows: 3;
+            }
+        }
+    </style>
+</head>
+
+<body class="bg-slate-100 dark:bg-slate-900 text-slate-800 dark:text-slate-100 h-full flex flex-col font-sans transition-colors duration-200">
+
+    <header class="no-print bg-white dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 px-4 py-3 flex flex-wrap items-center justify-between gap-3 shadow-sm z-10">
+        <div class="flex items-center space-x-3">
+            <div class="bg-indigo-600 text-white p-2 rounded-lg shadow-md flex items-center justify-center">
+                <i class="fa-solid fa-file-pdf text-xl"></i>
+            </div>
+            <div>
+                <h1 class="font-bold text-lg leading-tight text-slate-800 dark:text-white">AI Text to PDF Exporter</h1>
+                <p class="text-xs text-slate-500 dark:text-slate-400">Markdown & LaTeX Math Optimizer</p>
+            </div>
+        </div>
+
+        <!-- Controls Toolbar -->
+        <div class="flex flex-wrap items-center gap-2">
+            <!-- Paper Size Selector -->
+            <div class="flex items-center space-x-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-lg text-xs">
+                <span class="text-slate-500 dark:text-slate-300 pl-2 pr-1 font-medium"><i class="fa-solid fa-ruler-combined mr-1"></i>Size:</span>
+                <select id="paperSizeSelect" class="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded px-2 py-1 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 border border-slate-200 dark:border-slate-600">
+                    <option value="a6">A6</option>
+                    <option value="a5">A5</option>
+                    <option value="a4">A4</option>
+                    <option value="a3">A3</option>
+                    <option value="a2">A2</option>
+                    <option value="a1">A1</option>
+                    <option value="a0">A0</option>
+                    <option value="b6">B6</option>
+                    <option value="b5">B5</option>
+                    <option value="b4">B4</option>
+                    <option value="letter">Letter</option>
+                    <option value="legal">Legal</option>
+                    <option value="tabloid">Tabloid</option>
+                    <option value="executive">Executive</option>
+                    <option value="statement">Statement</option>
+                    <option value="ledger">Ledger</option>
+                </select>
+                <!-- Orientation Toggle -->
+                <select id="paperOrientationSelect" class="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded px-2 py-1 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 border border-slate-200 dark:border-slate-600">
+                    <option value="portrait">Portrait (縦)</option>
+                    <option value="landscape">Landscape (横)</option>
+                </select>
+            </div>
+
+            <!-- Word Formatting Controls (Font, Line Spacing, Margins) -->
+            <div class="flex items-center space-x-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-lg text-xs">
+                <span class="text-slate-500 dark:text-slate-300 pl-2 pr-1 font-medium"><i class="fa-solid fa-font mr-1"></i>Font:</span>
+                <select id="fontSelect" class="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded px-2 py-1 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 border border-slate-200 dark:border-slate-600">
+                    <option value="sans">Gothic / Sans</option>
+                    <option value="serif">Mincho / Serif</option>
+                    <option value="mono">Monospace</option>
+                </select>
+
+                <span class="text-slate-500 dark:text-slate-300 pl-2 pr-1 font-medium"><i class="fa-solid fa-arrows-up-down mr-1"></i>Spacing:</span>
+                <select id="lineSpacingSelect" class="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded px-2 py-1 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 border border-slate-200 dark:border-slate-600">
+                    <option value="1-5">1.5</option>
+                    <option value="1-0">1.0</option>
+                    <option value="1-25">1.25</option>
+                    <option value="2-0">2.0</option>
+                </select>
+
+                <span class="text-slate-500 dark:text-slate-300 pl-2 pr-1 font-medium"><i class="fa-solid fa-border-all mr-1"></i>Margin:</span>
+                <select id="marginSelect" class="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded px-2 py-1 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 border border-slate-200 dark:border-slate-600">
+                    <option value="normal">Normal</option>
+                    <option value="narrow">Narrow</option>
+                    <option value="wide">Wide</option>
+                </select>
+            </div>
+
+            <!-- Theme Preset Selector -->
+            <div class="flex items-center space-x-1 bg-slate-100 dark:bg-slate-700 p-1 rounded-lg text-xs">
+                <span class="text-slate-500 dark:text-slate-300 pl-2 pr-1 font-medium"><i class="fa-solid fa-palette mr-1"></i>Theme:</span>
+                <select id="docThemeSelect" class="bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-200 rounded px-2 py-1 font-medium focus:outline-none focus:ring-1 focus:ring-indigo-500 border border-slate-200 dark:border-slate-600">
+                    <option value="modern">Modern (Sans)</option>
+                    <option value="academic">Academic (Serif)</option>
+                    <option value="technical">Technical (Docs)</option>
+                </select>
+            </div>
+
+            <!-- Quick Action Buttons -->
+            <button id="btnSample" class="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition shadow-sm flex items-center">
+                <i class="fa-solid fa-wand-magic-sparkles mr-1.5 text-indigo-500"></i>Sample
+            </button>
+            <button id="btnClear" class="px-3 py-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition shadow-sm flex items-center">
+                <i class="fa-solid fa-trash-can mr-1.5 text-rose-500"></i>Clear
+            </button>
+            <button id="btnToggleDark" class="p-1.5 text-xs font-medium text-slate-700 dark:text-slate-200 bg-white dark:bg-slate-700 border border-slate-300 dark:border-slate-600 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-600 transition shadow-sm" title="Toggle Dark Theme">
+                <i class="fa-solid fa-moon text-indigo-400 dark:hidden"></i>
+                <i class="fa-solid fa-sun text-amber-400 hidden dark:inline"></i>
+            </button>
+
+            <div class="h-5 w-px bg-slate-300 dark:bg-slate-600 mx-1"></div>
+
+            <!-- Word Export (.doc) Button -->
+            <button id="btnExportWord" class="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-100 bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-700 hover:bg-blue-100 dark:hover:bg-blue-800 transition rounded-lg shadow-sm flex items-center space-x-1.5">
+                <i class="fa-solid fa-file-word text-blue-600 dark:text-blue-400"></i>
+                <span>Word (.doc)</span>
+            </button>
+
+            <!-- PowerPoint Export (.pptx) Button -->
+            <button id="btnExportPptx" class="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-100 bg-amber-50 dark:bg-amber-900/40 border border-amber-200 dark:border-amber-700 hover:bg-amber-100 dark:hover:bg-amber-800 transition rounded-lg shadow-sm flex items-center space-x-1.5">
+                <i class="fa-solid fa-file-powerpoint text-amber-600 dark:text-amber-400"></i>
+                <span>PowerPoint (.pptx)</span>
+            </button>
+
+            <!-- Excel Export (.xlsx) Button -->
+            <button id="btnExportExcel" class="px-3 py-1.5 text-xs font-semibold text-slate-700 dark:text-slate-100 bg-emerald-50 dark:bg-emerald-900/40 border border-emerald-200 dark:border-emerald-700 hover:bg-emerald-100 dark:hover:bg-emerald-800 transition rounded-lg shadow-sm flex items-center space-x-1.5">
+                <i class="fa-solid fa-file-excel text-emerald-600 dark:text-emerald-400"></i>
+                <span>Excel (.xlsx)</span>
+            </button>
+
+            <!-- Standard Print Button -->
+            <button id="btnPrint" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-indigo-600 hover:bg-indigo-700 active:bg-indigo-800 rounded-lg shadow-sm transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-print"></i>
+                <span>Print / Browser PDF</span>
+            </button>
+
+            <!-- Direct Download PDF Button -->
+            <button id="btnDownloadPdf" class="px-3.5 py-1.5 text-xs font-semibold text-white bg-emerald-600 hover:bg-emerald-700 active:bg-emerald-800 rounded-lg shadow-sm transition flex items-center space-x-1.5">
+                <i class="fa-solid fa-download"></i>
+                <span>Direct PDF</span>
+            </button>
+        </div>
+    </header>
+
+    <div class="no-print mobile-tabs flex md:hidden bg-slate-200 dark:bg-slate-800 border-b border-slate-300 dark:border-slate-700">
+        <button id="btnTabEdit" class="flex-1 py-2 text-xs font-semibold text-center text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400 bg-white dark:bg-slate-700">
+            <i class="fa-solid fa-pen-to-square mr-1"></i>Editor
+        </button>
+        <button id="btnTabPreview" class="flex-1 py-2 text-xs font-semibold text-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white">
+            <i class="fa-solid fa-eye mr-1"></i>Preview
+        </button>
+    </div>
+
+    <main class="flex-1 flex overflow-hidden relative">
+        <!-- Editor Left Panel -->
+        <section id="editorSection" class="w-full md:w-1/2 flex flex-col border-r border-slate-200 dark:border-slate-700 bg-white dark:bg-slate-800">
+            <!-- Word-style Quick Formatting Toolbar -->
+            <div class="no-print px-3 py-1.5 bg-slate-100 dark:bg-slate-800 border-b border-slate-200 dark:border-slate-700 flex flex-wrap items-center gap-1 text-slate-600 dark:text-slate-300">
+                <button type="button" class="btn-fmt p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" data-fmt="bold" title="Bold"><i class="fa-solid fa-bold text-xs"></i></button>
+                <button type="button" class="btn-fmt p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" data-fmt="italic" title="Italic"><i class="fa-solid fa-italic text-xs"></i></button>
+                <button type="button" class="btn-fmt p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" data-fmt="strike" title="Strikethrough"><i class="fa-solid fa-strikethrough text-xs"></i></button>
+                <div class="h-4 w-px bg-slate-300 dark:bg-slate-600 mx-1"></div>
+                <button type="button" class="btn-fmt p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-xs font-bold" data-fmt="h1" title="Heading 1">H1</button>
+                <button type="button" class="btn-fmt p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-xs font-bold" data-fmt="h2" title="Heading 2">H2</button>
+                <button type="button" class="btn-fmt p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded text-xs font-bold" data-fmt="h3" title="Heading 3">H3</button>
+                <div class="h-4 w-px bg-slate-300 dark:bg-slate-600 mx-1"></div>
+                <button type="button" class="btn-fmt p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" data-fmt="ul" title="Bullet List"><i class="fa-solid fa-list-ul text-xs"></i></button>
+                <button type="button" class="btn-fmt p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" data-fmt="ol" title="Numbered List"><i class="fa-solid fa-list-ol text-xs"></i></button>
+                <button type="button" class="btn-fmt p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" data-fmt="quote" title="Quote"><i class="fa-solid fa-quote-left text-xs"></i></button>
+                <div class="h-4 w-px bg-slate-300 dark:bg-slate-600 mx-1"></div>
+                <button type="button" class="btn-fmt p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" data-fmt="table" title="Insert Table"><i class="fa-solid fa-table text-xs"></i></button>
+                <button type="button" class="btn-fmt p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" data-fmt="math" title="Insert Math Equation"><i class="fa-solid fa-calculator text-xs"></i></button>
+                <button type="button" class="btn-fmt p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" data-fmt="code" title="Code Block"><i class="fa-solid fa-code text-xs"></i></button>
+                <button type="button" class="btn-fmt p-1.5 hover:bg-slate-200 dark:hover:bg-slate-700 rounded" data-fmt="hr" title="Horizontal Line / Pagebreak"><i class="fa-solid fa-minus text-xs"></i></button>
+            </div>
+            <textarea id="markdownInput" class="flex-1 w-full p-4 font-mono text-sm bg-transparent text-slate-800 dark:text-slate-100 focus:outline-none resize-none leading-relaxed" placeholder="Paste your AI-generated Markdown and LaTeX ($...$ or $$...$$) here..."></textarea>
+        </section>
+
+        <!-- Preview Right Panel -->
+        <section id="previewSection" class="hidden md:flex w-full md:w-1/2 flex-col bg-slate-200/70 dark:bg-slate-950 overflow-auto p-4 md:p-8">
+            <div class="no-print mb-3 text-xs text-slate-500 dark:text-slate-400 flex justify-between items-center max-w-full mx-auto w-full px-2">
+                <span><i class="fa-solid fa-display mr-1"></i>Document Layout Live Preview</span>
+                <span id="paperBadge" class="text-indigo-600 dark:text-indigo-400 font-semibold bg-indigo-50 dark:bg-indigo-950 px-2 py-0.5 rounded border border-indigo-200 dark:border-indigo-800">A4 Portrait</span>
+            </div>
+            
+            <!-- Document Variable Container -->
+            <article id="previewPaper" class="paper-preview paper-size-a4-portrait preview-theme-modern line-spacing-1-5 margin-normal font-sans-custom">
+                <div id="previewContent" class="doc-content"></div>
+            </article>
+        </section>
+    </main>
+
+    <footer id="statusBar" class="no-print bg-white dark:bg-slate-800 border-t border-slate-200 dark:border-slate-700 px-4 py-1.5 text-xs text-slate-500 dark:text-slate-400 flex flex-wrap justify-between items-center gap-2">
+        <div class="flex items-center space-x-4">
+            <span><i class="fa-solid fa-shield-halved mr-1 text-indigo-500"></i>Local rendering</span>
+            <span id="charCounter">0 chars</span>
+            <span id="wordCounter">0 words</span>
+            <span id="paragraphCounter">0 paragraphs</span>
+            <span id="pageCounter" class="font-medium text-slate-700 dark:text-slate-300">~1 page</span>
+        </div>
+        <div>
+            <span id="statusPaperSpec">Format: <b>A4 Portrait</b></span>
+        </div>
+    </footer>
+
+    <script>
+        // UI Elements
+        var markdownInput = document.getElementById('markdownInput');
+        var previewContent = document.getElementById('previewContent');
+        var previewPaper = document.getElementById('previewPaper');
+        var charCounter = document.getElementById('charCounter');
+        var wordCounter = document.getElementById('wordCounter');
+        var paragraphCounter = document.getElementById('paragraphCounter');
+        var pageCounter = document.getElementById('pageCounter');
+        var docThemeSelect = document.getElementById('docThemeSelect');
+        var paperSizeSelect = document.getElementById('paperSizeSelect');
+        var paperOrientationSelect = document.getElementById('paperOrientationSelect');
+        var fontSelect = document.getElementById('fontSelect');
+        var lineSpacingSelect = document.getElementById('lineSpacingSelect');
+        var marginSelect = document.getElementById('marginSelect');
+        var paperBadge = document.getElementById('paperBadge');
+        var statusPaperSpec = document.getElementById('statusPaperSpec');
+        var dynamicPrintStyle = document.getElementById('dynamicPrintStyle');
+
+        var btnPrint = document.getElementById('btnPrint');
+        var btnDownloadPdf = document.getElementById('btnDownloadPdf');
+        var btnExportWord = document.getElementById('btnExportWord');
+        var btnExportPptx = document.getElementById('btnExportPptx');
+        var btnExportExcel = document.getElementById('btnExportExcel');
+        var btnClear = document.getElementById('btnClear');
+        var btnSample = document.getElementById('btnSample');
+        var btnToggleDark = document.getElementById('btnToggleDark');
+
+        var editorSection = document.getElementById('editorSection');
+        var previewSection = document.getElementById('previewSection');
+        var btnTabEdit = document.getElementById('btnTabEdit');
+        var btnTabPreview = document.getElementById('btnTabPreview');
+
+        // Sample Markdown with safely formatted LaTeX Math
+        var sampleMarkdownLines = [
+            "# Quantum Mechanics & Differential Equations",
+            "",
+            "This sample document demonstrates **Markdown formatting** and **LaTeX equations** rendered for clean PDF export.",
+            "",
+            "---",
+            "",
+            "## 1. Schrödinger Equation",
+            "",
+            "The 1D time-dependent Schrödinger wave equation is defined as:",
+            "",
+            "$$i\\hbar \\frac{\\partial}{\\partial t}\\Psi(x,t) = \\left[ -\\frac{\\hbar^2}{2m}\\frac{\\partial^2}{\\partial x^2} + V(x,t) \\right] \\Psi(x,t)$$",
+            "",
+            "Inline mathematical notations such as $E = mc^2$ and $\\hbar = \\frac{h}{2\\pi}$ are naturally integrated into standard text blocks.",
+            "",
+            "---",
+            "",
+            "## 2. Wavefunction Computation",
+            "",
+            "Code blocks are formatted cleanly with syntax highlighting:",
+            "",
+            "```python",
+            "import numpy as np",
+            "",
+            "def wave_function(x, t, k=1.0, omega=2.0):",
+            "    \"\"\"Calculates quantum wave amplitude\"\"\"",
+            "    return np.exp(1j * (k * x - omega * t))",
+            "",
+            "x_vals = np.linspace(-10, 10, 100)",
+            "psi = wave_function(x_vals, t=0)",
+            "print(f\"Calculated {len(psi)} grid points.\")",
+            "```",
+            "",
+            "---",
+            "",
+            "## 3. Physical Constants Table",
+            "",
+            "| Quantity | Symbol | SI Unit | Formula |",
+            "| :--- | :---: | :---: | :--- |",
+            "| Planck Constant | $h$ | $\\mathrm{J\\cdot s}$ | $E = h\\nu$ |",
+            "| Speed of Light | $c$ | $\\mathrm{m/s}$ | $c = \\lambda f$ |",
+            "| Electron Mass | $m_e$ | $\\mathrm{kg}$ | $m_e \\approx 9.1 \\times 10^{-31}$ |",
+            "",
+            "---",
+            "",
+            "> **Export Tip**: You can change paper size (A4, Letter, A3, B5) and orientation (Portrait/Landscape) using the controls at the top."
+        ];
+
+        var sampleText = sampleMarkdownLines.join('\n');
+
+        // Configure Marked Renderer
+        marked.setOptions({
+            gfm: true,
+            breaks: true,
+            highlight: function(code, lang) {
+                if (lang && hljs.getLanguage(lang)) {
+                    try {
+                        return hljs.highlight(code, { language: lang }).value;
+                    } catch (e) {}
+                }
+                return hljs.highlightAuto(code).value;
+            }
+        });
+
+        function renderDocument() {
+            var rawText = markdownInput.value;
+            
+            // Calculate Word Statistics
+            var charCount = rawText.length;
+            var words = rawText.trim() ? rawText.trim().split(/\s+/).length : 0;
+            var paragraphs = rawText.trim() ? rawText.split(/\n\s*\n/).filter(Boolean).length : 0;
+            var estimatedPages = Math.max(1, Math.ceil(charCount / 900));
+
+            charCounter.textContent = charCount + ' chars';
+            wordCounter.textContent = words + ' words';
+            paragraphCounter.textContent = paragraphs + ' paragraphs';
+            pageCounter.textContent = '~' + estimatedPages + ' page' + (estimatedPages > 1 ? 's' : '');
+
+            if (!rawText.trim()) {
+                previewContent.innerHTML = '<div class="text-slate-400 italic py-8 text-center">Preview will appear here when text is entered...</div>';
+                return;
+            }
+
+            try {
+                // Render Markdown to HTML and sanitize using DOMPurify
+                previewContent.innerHTML = DOMPurify.sanitize(marked.parse(rawText));
+
+                // Render KaTeX Math Expressions safely
+                renderMathInElement(previewContent, {
+                    delimiters: [
+                        {left: '$$', right: '$$', display: true},
+                        {left: '$', right: '$', display: false},
+                        {left: '\\(', right: '\\)', display: false},
+                        {left: '\\[', right: '\\]', display: true}
+                    ],
+                    throwOnError: false
+                });
+            } catch (err) {
+                console.error("Rendering error:", err);
+            }
+        }
+
+        // Word Formatting Quick-Insert Helper
+        function insertFormatting(prefix, suffix, defaultText) {
+            var start = markdownInput.selectionStart;
+            var end = markdownInput.selectionEnd;
+            var text = markdownInput.value;
+            var selected = text.substring(start, end) || defaultText;
+            var replacement = prefix + selected + suffix;
+            
+            markdownInput.value = text.substring(0, start) + replacement + text.substring(end);
+            markdownInput.focus();
+            markdownInput.setSelectionRange(start + prefix.length, start + prefix.length + selected.length);
+            renderDocument();
+        }
+
+        // Quick Formatting Toolbar Event Handlers
+        document.querySelectorAll('.btn-fmt').forEach(function(btn) {
+            btn.addEventListener('click', function() {
+                var fmt = btn.getAttribute('data-fmt');
+                switch(fmt) {
+                    case 'bold': insertFormatting('**', '**', 'bold text'); break;
+                    case 'italic': insertFormatting('*', '*', 'italic text'); break;
+                    case 'strike': insertFormatting('~~', '~~', 'strikethrough'); break;
+                    case 'h1': insertFormatting('# ', '', 'Heading 1'); break;
+                    case 'h2': insertFormatting('## ', '', 'Heading 2'); break;
+                    case 'h3': insertFormatting('### ', '', 'Heading 3'); break;
+                    case 'ul': insertFormatting('- ', '', 'List item'); break;
+                    case 'ol': insertFormatting('1. ', '', 'List item'); break;
+                    case 'quote': insertFormatting('> ', '', 'Quote text'); break;
+                    case 'code': insertFormatting('```python\n', '\n```', 'print("Hello World")'); break;
+                    case 'math': insertFormatting('$$ ', ' $$', 'E = mc^2'); break;
+                    case 'table': insertFormatting('\n| Header 1 | Header 2 |\n| --- | --- |\n| Cell 1 | Cell 2 |\n', '', ''); break;
+                    case 'hr': insertFormatting('\n---\n', '', ''); break;
+                }
+            });
+        });
+
+        // Update Document Styling Options
+        function updateDocStyleOptions() {
+            var font = fontSelect.value;
+            var spacing = lineSpacingSelect.value;
+            var margin = marginSelect.value;
+
+            // Remove existing style classes
+            previewPaper.className = previewPaper.className
+                .replace(/line-spacing-[a-z0-9-]+/g, '')
+                .replace(/margin-[a-z0-9-]+/g, '')
+                .replace(/font-[a-z0-9-]+/g, '')
+                .trim();
+
+            previewPaper.classList.add('line-spacing-' + spacing);
+            previewPaper.classList.add('margin-' + margin);
+            previewPaper.classList.add('font-' + font + '-custom');
+        }
+
+        fontSelect.addEventListener('change', updateDocStyleOptions);
+        lineSpacingSelect.addEventListener('change', updateDocStyleOptions);
+        marginSelect.addEventListener('change', updateDocStyleOptions);
+
+        // Word (.doc) Export Functionality
+        btnExportWord.addEventListener('click', function() {
+            if (!markdownInput.value.trim()) {
+                alert("Please enter text to export.");
+                return;
+            }
+
+            var htmlContent = previewPaper.innerHTML;
+            var header = "<html xmlns:o='urn:schemas-microsoft-microsoft-com:office:office' "+
+                "xmlns:w='urn:schemas-microsoft-microsoft-com:office:word' "+
+                "xmlns='http://www.w3.org/TR/REC-html40'>"+
+                "<head><meta charset='utf-8'><title>Exported Document</title>"+
+                "<style>body { font-family: Arial, sans-serif; font-size: 11pt; line-height: 1.5; } "+
+                "table { border-collapse: collapse; width: 100%; margin: 12px 0; } "+
+                "td, th { border: 1px solid #ccc; padding: 6px 10px; } "+
+                "pre { background: #f4f4f4; padding: 10px; font-family: Courier, monospace; }</style></head><body>";
+            var footer = "</body></html>";
+            
+            var fullHTML = header + htmlContent + footer;
+            var blob = new Blob(['\ufeff', fullHTML], { type: 'application/msword' });
+            var url = URL.createObjectURL(blob);
+            
+            var a = document.createElement('a');
+            a.href = url;
+            a.download = 'document_' + new Date().toISOString().slice(0, 10) + '.doc';
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+            URL.revokeObjectURL(url);
+        });
+
+        // PowerPoint (.pptx) Export Functionality
+        btnExportPptx.addEventListener('click', function() {
+            if (!markdownInput.value.trim()) {
+                alert("Please enter text to export.");
+                return;
+            }
+
+            try {
+                var pptx = new PptxGenJS();
+                pptx.layout = 'LAYOUT_16x9';
+                pptx.author = 'AI Text Exporter';
+                pptx.title = 'Exported Presentation';
+
+                var children = Array.from(previewContent.children);
+                if (children.length === 0) return;
+
+                var currentSlide = null;
+                var yPos = 1.2;
+
+                function startNewSlide(titleText) {
+                    currentSlide = pptx.addSlide();
+                    // Slide Title Header Bar
+                    currentSlide.addShape(pptx.shapes.RECTANGLE, {
+                        x: 0, y: 0, w: '100%', h: 0.9, fill: 'F8FAFC', line: { color: 'E2E8F0', width: 1 }
+                    });
+                    currentSlide.addText(titleText || "Slide " + pptx.slides.length, {
+                        x: 0.5, y: 0.2, w: 9.0, h: 0.5,
+                        fontSize: 20, bold: true, color: '1E293B',
+                        fontFace: fontSelect.value === 'serif' ? 'Georgia' : 'Arial'
+                    });
+                    yPos = 1.2;
+                }
+
+                // Initial Slide
+                startNewSlide("Presentation Overview");
+
+                children.forEach(function(el) {
+                    var tag = el.tagName.toLowerCase();
+
+                    if (tag === 'h1' || tag === 'h2') {
+                        startNewSlide(el.innerText.trim());
+                    } else if (tag === 'hr') {
+                        startNewSlide("Slide " + (pptx.slides.length + 1));
+                    } else if (tag === 'h3') {
+                        if (yPos > 6.0) startNewSlide("Continued");
+                        currentSlide.addText(el.innerText.trim(), {
+                            x: 0.6, y: yPos, w: 8.8, h: 0.4,
+                            fontSize: 15, bold: true, color: '334155'
+                        });
+                        yPos += 0.5;
+                    } else if (tag === 'p') {
+                        var text = el.innerText.trim();
+                        if (text) {
+                            if (yPos > 6.0) startNewSlide("Continued");
+                            currentSlide.addText(text, {
+                                x: 0.6, y: yPos, w: 8.8, h: 0.6,
+                                fontSize: 13, color: '475569',
+                                lineSpacing: 18
+                            });
+                            yPos += 0.7;
+                        }
+                    } else if (tag === 'ul' || tag === 'ol') {
+                        var items = Array.from(el.querySelectorAll('li')).map(function(li) {
+                            return { text: li.innerText.trim(), options: { bullet: true } };
+                        });
+                        if (items.length > 0) {
+                            if (yPos > 5.5) startNewSlide("Continued");
+                            var blockHeight = Math.max(0.5, items.length * 0.35);
+                            currentSlide.addText(items, {
+                                x: 0.8, y: yPos, w: 8.6, h: blockHeight,
+                                fontSize: 13, color: '334155'
+                            });
+                            yPos += blockHeight + 0.2;
+                        }
+                    } else if (tag === 'pre') {
+                        var codeText = el.innerText.trim();
+                        if (codeText) {
+                            if (yPos > 5.0) startNewSlide("Code Snippet");
+                            currentSlide.addText(codeText, {
+                                x: 0.6, y: yPos, w: 8.8, h: 1.5,
+                                fontSize: 10, fontFace: 'Courier New',
+                                color: 'F8FAFC', fill: '0F172A', inset: 0.1
+                            });
+                            yPos += 1.7;
+                        }
+                    } else if (tag === 'table') {
+                        var rows = [];
+                        Array.from(el.querySelectorAll('tr')).forEach(function(tr) {
+                            var rowData = [];
+                            Array.from(tr.querySelectorAll('th, td')).forEach(function(cell) {
+                                rowData.push({ text: cell.innerText.trim() });
+                            });
+                            if (rowData.length > 0) rows.push(rowData);
+                        });
+                        if (rows.length > 0) {
+                            if (yPos > 4.5) startNewSlide("Table Data");
+                            currentSlide.addTable(rows, {
+                                x: 0.6, y: yPos, w: 8.8,
+                                colW: Array(rows[0].length).fill(8.8 / rows[0].length),
+                                fontSize: 11, border: { pt: 1, color: 'CBD5E1' },
+                                fill: 'F8FAFC'
+                            });
+                            yPos += (rows.length * 0.4) + 0.3;
+                        }
+                    } else if (tag === 'blockquote') {
+                        var quoteText = el.innerText.trim();
+                        if (quoteText) {
+                            if (yPos > 5.8) startNewSlide("Quote");
+                            currentSlide.addText(quoteText, {
+                                x: 0.6, y: yPos, w: 8.8, h: 0.6,
+                                fontSize: 12, italic: true, color: '475569',
+                                fill: 'F1F5F9', inset: 0.1
+                            });
+                            yPos += 0.8;
+                        }
+                    }
+                });
+
+                pptx.writeFile({ fileName: 'presentation_' + new Date().toISOString().slice(0, 10) + '.pptx' });
+            } catch (err) {
+                console.error("PPTX Export Error:", err);
+                alert("Failed to export PowerPoint file: " + err.message);
+            }
+        });
+
+        // Excel (.xlsx) Export Functionality using SheetJS
+        btnExportExcel.addEventListener('click', function() {
+            if (!markdownInput.value.trim()) {
+                alert("Please enter text to export.");
+                return;
+            }
+
+            try {
+                var wb = XLSX.utils.book_new();
+                var children = Array.from(previewContent.children);
+                if (children.length === 0) return;
+
+                // 1. Convert Document Structure to Main Excel Sheet
+                var sheetData = [];
+                sheetData.push(["Category / Type", "Content / Text"]);
+
+                var tableCount = 0;
+
+                children.forEach(function(el) {
+                    var tag = el.tagName.toLowerCase();
+                    if (tag === 'h1') {
+                        sheetData.push(["Heading 1", el.innerText.trim()]);
+                    } else if (tag === 'h2') {
+                        sheetData.push(["Heading 2", el.innerText.trim()]);
+                    } else if (tag === 'h3') {
+                        sheetData.push(["Heading 3", el.innerText.trim()]);
+                    } else if (tag === 'p') {
+                        if (el.innerText.trim()) {
+                            sheetData.push(["Paragraph", el.innerText.trim()]);
+                        }
+                    } else if (tag === 'ul' || tag === 'ol') {
+                        var items = Array.from(el.querySelectorAll('li')).map(function(li) { return li.innerText.trim(); });
+                        items.forEach(function(item) {
+                            sheetData.push(["List Item", item]);
+                        });
+                    } else if (tag === 'pre') {
+                        sheetData.push(["Code Block", el.innerText.trim()]);
+                    } else if (tag === 'blockquote') {
+                        sheetData.push(["Quote", el.innerText.trim()]);
+                    } else if (tag === 'table') {
+                        tableCount++;
+                        sheetData.push(["Table " + tableCount, "(Refer to Sheet: Table " + tableCount + ")"]);
+                    }
+                });
+
+                var mainWs = XLSX.utils.aoa_to_sheet(sheetData);
+                mainWs['!cols'] = [{ wch: 18 }, { wch: 80 }];
+                XLSX.utils.book_append_sheet(wb, mainWs, "Document Summary");
+
+                // 2. Extract HTML Tables into Individual Sheets
+                var tables = previewContent.querySelectorAll('table');
+                tables.forEach(function(tbl, index) {
+                    var wsName = "Table " + (index + 1);
+                    var tableWs = XLSX.utils.table_to_sheet(tbl);
+                    XLSX.utils.book_append_sheet(wb, tableWs, wsName);
+                });
+
+                // Download XLSX File
+                var fileName = 'document_' + new Date().toISOString().slice(0, 10) + '.xlsx';
+                XLSX.writeFile(wb, fileName);
+
+            } catch (err) {
+                console.error("Excel Export Error:", err);
+                alert("Failed to export Excel file: " + err.message);
+            }
+        });
+
+        // Update Paper Dimensions and Print Styles
+        function updatePaperDimensions() {
+            var size = paperSizeSelect.value;
+            var orientation = paperOrientationSelect.value;
+
+            // Remove previous size classes
+            previewPaper.className = previewPaper.className.replace(/paper-size-[a-z0-9-]+/g, '').trim();
+            
+            var newClass = 'paper-size-' + size + '-' + orientation;
+            previewPaper.classList.add(newClass);
+
+            // Update CSS @page rule for standard print dialog
+            dynamicPrintStyle.textContent = '@page { size: ' + size + ' ' + orientation + '; margin: 15mm; }';
+
+            // Update Info Badges using full display text
+            var selectedText = paperSizeSelect.options[paperSizeSelect.selectedIndex].text;
+            var specLabel = selectedText + ' ' + (orientation === 'portrait' ? 'Portrait' : 'Landscape');
+            paperBadge.textContent = specLabel;
+            statusPaperSpec.innerHTML = 'Format: <b>' + specLabel + '</b>';
+        }
+
+        // Input listeners
+        markdownInput.addEventListener('input', renderDocument);
+        paperSizeSelect.addEventListener('change', updatePaperDimensions);
+        paperOrientationSelect.addEventListener('change', updatePaperDimensions);
+
+        // Standard Print Action
+        btnPrint.addEventListener('click', function() {
+            // Ensure preview is visible in case user is on mobile editor view
+            var editorHidden = editorSection.classList.contains('hidden');
+            if (!editorHidden && window.innerWidth < 768) {
+                previewSection.classList.remove('hidden');
+                previewSection.classList.add('flex');
+            }
+
+            window.print();
+        });
+
+        // Direct PDF Download using html2pdf.js
+        btnDownloadPdf.addEventListener('click', function() {
+            if (!markdownInput.value.trim()) {
+                alert("Please enter some text to export.");
+                return;
+            }
+
+            var size = paperSizeSelect.value;
+            var orientation = paperOrientationSelect.value;
+
+            // Show loading state
+            var originalText = btnDownloadPdf.innerHTML;
+            btnDownloadPdf.disabled = true;
+            btnDownloadPdf.innerHTML = '<i class="fa-solid fa-spinner fa-spin"></i> Generating...';
+
+            var opt = {
+                margin:       10,
+                filename:     'document_' + size + '_' + orientation + '.pdf',
+                image:        { type: 'jpeg', quality: 0.98 },
+                html2canvas:  { scale: 2, useCORS: true, logging: false },
+                jsPDF:        { unit: 'mm', format: size, orientation: orientation }
+            };
+
+            // Execute html2pdf conversion
+            html2pdf().set(opt).from(previewPaper).save().then(function() {
+                btnDownloadPdf.disabled = false;
+                btnDownloadPdf.innerHTML = originalText;
+            }).catch(function(err) {
+                console.error("PDF Export Error:", err);
+                alert("Export failed. Please try using standard Browser Print instead.");
+                btnDownloadPdf.disabled = false;
+                btnDownloadPdf.innerHTML = originalText;
+            });
+        });
+
+        // Clear Button
+        btnClear.addEventListener('click', function() {
+            markdownInput.value = '';
+            renderDocument();
+        });
+
+        // Sample Button
+        btnSample.addEventListener('click', function() {
+            markdownInput.value = sampleText;
+            renderDocument();
+        });
+
+        // Theme Style Selector
+        docThemeSelect.addEventListener('change', function(e) {
+            var selectedTheme = e.target.value;
+            previewPaper.classList.remove('preview-theme-modern', 'preview-theme-academic', 'preview-theme-technical');
+            previewPaper.classList.add('preview-theme-' + selectedTheme);
+        });
+
+        // Dark Mode Toggle
+        btnToggleDark.addEventListener('click', function() {
+            document.documentElement.classList.toggle('dark');
+        });
+
+        // Mobile View Switcher
+        btnTabEdit.addEventListener('click', function() {
+            editorSection.classList.remove('hidden');
+            previewSection.classList.add('hidden');
+            previewSection.classList.remove('flex');
+
+            btnTabEdit.className = "flex-1 py-2 text-xs font-semibold text-center text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400 bg-white dark:bg-slate-700";
+            btnTabPreview.className = "flex-1 py-2 text-xs font-semibold text-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+        });
+
+        btnTabPreview.addEventListener('click', function() {
+            editorSection.classList.add('hidden');
+            previewSection.classList.remove('hidden');
+            previewSection.classList.add('flex');
+
+            btnTabPreview.className = "flex-1 py-2 text-xs font-semibold text-center text-indigo-600 dark:text-indigo-400 border-b-2 border-indigo-600 dark:border-indigo-400 bg-white dark:bg-slate-700";
+            btnTabEdit.className = "flex-1 py-2 text-xs font-semibold text-center text-slate-600 dark:text-slate-400 hover:text-slate-900 dark:hover:text-white";
+        });
+
+        // Initial Initialization on page load
+        window.addEventListener('DOMContentLoaded', function() {
+            markdownInput.value = sampleText;
+            updatePaperDimensions();
+            renderDocument();
+        });
+    </script>
+</body>
+</html>
