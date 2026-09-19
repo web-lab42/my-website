@@ -95,7 +95,7 @@
                         軸の <span class="math-symbol">x</span> 座標
                     </label>
                     <div class="relative">
-                        <input type="text" id="axisInput" value="a" placeholder="例: a, 2a, 1..." class="w-full text-sm p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none transition">
+                        <input type="text" id="axisInput" value="a" placeholder="例: 3, 2*a, a+1, a^2 ..." class="w-full text-sm p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none transition">
                     </div>
                 </div>
 
@@ -188,7 +188,7 @@
                         軸と定義域の設定
                     </h4>
                     <p class="pl-6 text-slate-500">
-                        左側のパネルから軸の <span class="math-symbol">x</span> 座標（例: <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">a</code>, <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">2a</code>）と定義域 <span class="math-symbol">[L, R]</span> を入力します。文字式を含めた入力が可能です。
+                        左側のパネルから軸の <span class="math-symbol">x</span> 座標（例: <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">a</code>, <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">2a</code>）と定義域 <span class="math-symbol">[L, R]</span> を入力します。文字式を含めた入力が可能です。（※定義域と軸は正しく入力してください）
                     </p>
                 </div>
 
@@ -263,7 +263,9 @@
                     .replace(/\^/g, '**');
                 if (!/^[0-9a-zA-Z\s\+\-\*\/\.\(\)]+$/.test(expr)) return fallback;
                 const res = new Function(`return ${sanitized}`)();
-                return isNaN(res) || !isFinite(res) ? fallback : res;
+                if (isNaN(res) || !isFinite(res)) return fallback;
+                // Clamp values to prevent numerical overflow freeze
+                return Math.max(-1000, Math.min(1000, res));
             } catch (e) {
                 return fallback;
             }
@@ -407,15 +409,22 @@
         }
 
         function getParams() {
-            const axisX = evalExpr(state.axisExpr, state.a, 1.0);
+            let axisX = evalExpr(state.axisExpr, state.a, 1.0);
             let dLeft = evalExpr(state.domainLExpr, state.a, 0.0);
             let dRight = evalExpr(state.domainRExpr, state.a, 2.0);
+
+            if (!isFinite(axisX)) axisX = 1.0;
+            if (!isFinite(dLeft)) dLeft = 0.0;
+            if (!isFinite(dRight)) dRight = 2.0;
 
             if (dLeft > dRight) { const t = dLeft; dLeft = dRight; dRight = t; }
             else if (dLeft === dRight) { dRight = dLeft + 0.1; }
 
             // Pure parabola: f(x) = concave * (x - axisX)^2
-            const f = (x) => state.concave * Math.pow(x - axisX, 2);
+            const f = (x) => {
+                const res = state.concave * Math.pow(x - axisX, 2);
+                return isFinite(res) ? res : 0;
+            };
 
             return { axisX, dLeft, dRight, f };
         }
@@ -506,18 +515,29 @@
             const minYVal = Math.min(yLeft, yRight, yVertex, 0) - 1.5;
             const maxYVal = Math.max(yLeft, yRight, yVertex, 0) + 2.5;
 
-            const toScreenX = (x) => ((x - minX) / (maxX - minX)) * width;
-            const toScreenY = (y) => height - ((y - minYVal) / (maxYVal - minYVal)) * height;
+            const spanX = (maxX - minX) || 1;
+            const spanY = (maxYVal - minYVal) || 1;
 
-            // Grid Lines (格子線)
+            const toScreenX = (x) => ((x - minX) / spanX) * width;
+            const toScreenY = (y) => height - ((y - minYVal) / spanY) * height;
+
+            // Grid Lines (格子線 - 動的ステップでフリーズ防止)
             ctx.strokeStyle = '#f1f5f9';
             ctx.lineWidth = 1;
-            for (let x = Math.floor(minX); x <= maxX; x += 1) {
-                const sx = toScreenX(x);
-                ctx.beginPath();
-                ctx.moveTo(sx, 0);
-                ctx.lineTo(sx, height);
-                ctx.stroke();
+            if (isFinite(spanX) && spanX > 0) {
+                let step = Math.pow(10, Math.floor(Math.log10(spanX / 10)));
+                if (spanX / step > 20) step *= 2;
+                if (spanX / step > 20) step *= 2.5;
+                step = Math.max(0.1, step);
+
+                const startX = Math.ceil(minX / step) * step;
+                for (let x = startX; x <= maxX; x += step) {
+                    const sx = toScreenX(x);
+                    ctx.beginPath();
+                    ctx.moveTo(sx, 0);
+                    ctx.lineTo(sx, height);
+                    ctx.stroke();
+                }
             }
 
             // 2. 定義域：赤（赤シェード ＋ 赤破線）
