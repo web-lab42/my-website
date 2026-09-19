@@ -34,7 +34,6 @@
             user-select: none;
             -webkit-user-select: none;
         }
-        /* Custom slider styling for mobile touch */
         input[type=range]::-webkit-slider-thumb {
             width: 22px;
             height: 22px;
@@ -67,9 +66,8 @@
     <!-- Main Content Area -->
     <main class="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
 
-        <!-- Controls Panel (Left on Desktop, Top on Mobile) -->
+        <!-- Controls Panel -->
         <aside class="lg:col-span-4 space-y-4">
-            
             <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
                 <h2 class="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
                     <i class="fa-solid fa-sliders text-blue-600"></i>
@@ -95,7 +93,7 @@
                         軸の <span class="math-symbol">x</span> 座標
                     </label>
                     <div class="relative">
-                        <input type="text" id="axisInput" value="a" placeholder="例: a, a^2 + 2*(a + 1) - 2/3  ..." class="w-full text-sm p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none transition">
+                        <input type="text" id="axisInput" value="a" placeholder="例: a, 2*a, a^2 - 1" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none transition">
                     </div>
                 </div>
 
@@ -116,12 +114,10 @@
                     </div>
                 </div>
             </div>
-
         </aside>
 
-        <!-- Display & Graph Panel (Right on Desktop, Bottom on Mobile) -->
+        <!-- Display & Graph Panel -->
         <section class="lg:col-span-8 space-y-4">
-
             <!-- Parameter Control Bar -->
             <div class="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 sm:gap-4">
                 <div class="flex items-center gap-2 shrink-0">
@@ -147,30 +143,23 @@
 
             <!-- Canvas Container -->
             <div class="bg-white p-2 sm:p-3 rounded-2xl border border-slate-200 shadow-sm relative flex flex-col items-center overflow-hidden">
-                
-                <!-- Canvas Area -->
                 <canvas id="canvas" class="w-full h-[320px] sm:h-[420px] bg-white rounded-xl cursor-grab active:cursor-grabbing border border-slate-100"></canvas>
-
-                <!-- Help Tip overlay for touch/mouse drag -->
                 <div class="absolute top-4 left-4 right-4 sm:right-auto bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200/80 text-[11px] text-slate-600 shadow-sm pointer-events-none flex items-center gap-2">
                     <i class="fa-solid fa-hand-pointer text-blue-500 shrink-0"></i>
                     <span><b>「軸(青)」</b>や<b>「定義域(赤)」</b>を左右に直接ドラッグできます</span>
                 </div>
             </div>
-
         </section>
 
     </main>
 
-    <!-- Footer -->
     <footer class="bg-white border-t border-slate-200 py-3 text-center text-xs text-slate-400 font-medium">
         二次関数の場合分け 可視化ツール
     </footer>
 
-    <!-- Modal: Modal Usage Guide -->
+    <!-- Modal Usage Guide -->
     <div id="usageModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
         <div class="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
-            <!-- Modal Header -->
             <div class="bg-slate-50 border-b border-slate-200 px-5 py-4 flex justify-between items-center">
                 <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
                     <i class="fa-solid fa-book-open text-blue-600"></i>
@@ -180,7 +169,6 @@
                     <i class="fa-solid fa-xmark text-lg"></i>
                 </button>
             </div>
-            <!-- Modal Body -->
             <div class="p-5 space-y-4 text-xs sm:text-sm text-slate-600 overflow-y-auto leading-relaxed">
                 <div class="space-y-1.5">
                     <h4 class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
@@ -188,41 +176,19 @@
                         軸と定義域の設定
                     </h4>
                     <p class="pl-6 text-slate-500">
-                        左側のパネルから軸の <span class="math-symbol">x</span> 座標（例: <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">a</code>, <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">a^2 + 2*(a + 1) - 2/3 </code>）と定義域 <span class="math-symbol">[L, R]</span> を入力します。文字式を含めた入力が可能です。（※定義域と軸は正しく入力してください）
+                        左側のパネルから軸の <span class="math-symbol">x</span> 座標（例: <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">a</code>, <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">2*a</code>）と定義域 <span class="math-symbol">[L, R]</span> を入力します。
                     </p>
                 </div>
-
                 <div class="space-y-1.5">
                     <h4 class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
                         <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">2</span>
                         パラメータ <span class="math-symbol">a</span> の動かし方
                     </h4>
                     <p class="pl-6 text-slate-500">
-                        スライダーをドラッグするか、「動かす」ボタンでアニメーション再生できます。両端の数値ボックスからスライダーの最小値・最大値を自由に変更することも可能です。
-                    </p>
-                </div>
-
-                <div class="space-y-1.5">
-                    <h4 class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                        <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">3</span>
-                        グラフ上のダイレクトドラッグ
-                    </h4>
-                    <p class="pl-6 text-slate-500">
-                        グラフ上の<b>青い軸線</b>や<b>赤領域の端線</b>を指やマウスで左右に直接引っ張ることで、直感的にパラメータ <span class="math-symbol">a</span> を操作できます。
-                    </p>
-                </div>
-
-                <div class="space-y-1.5">
-                    <h4 class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
-                        <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">4</span>
-                        最大値・最小値の観察
-                    </h4>
-                    <p class="pl-6 text-slate-500">
-                        定義域内における<b>最大値</b>（赤）と<b>最小値</b>（青）の点が常にグラフ上に表示されます。<span class="math-symbol">a</span> の変化に伴って、頂点と端点のどちらで最大・最小をとるかが切り替わる様子を観察できます。
+                        スライダーをドラッグするか、「動かす」ボタンでアニメーション再生できます。
                     </p>
                 </div>
             </div>
-            <!-- Modal Footer -->
             <div class="bg-slate-50 border-t border-slate-200 px-5 py-3 text-right">
                 <button onclick="closeUsageModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition">
                     閉じる
@@ -231,14 +197,12 @@
         </div>
     </div>
 
-    <!-- JavaScript Logic -->
     <script>
-        // State Management
         const state = {
             a: 1.0,
             aMin: -4.0,
             aMax: 4.0,
-            concave: 1, // 1: Downwards (a>0), -1: Upwards (a<0)
+            concave: 1,
             axisExpr: "a",
             domainLExpr: "0",
             domainRExpr: "2",
@@ -246,7 +210,6 @@
             animDir: 1,
             animId: null,
             
-            // Drag state
             isDragging: false,
             dragStartX: 0,
             dragStartA: 0
@@ -254,17 +217,19 @@
 
         let canvas, ctx;
 
-        // Fail-safe Expression Evaluator
         function evalExpr(expr, aVal, fallback = 0) {
             if (!expr || expr.trim() === "") return fallback;
             try {
                 let sanitized = expr.trim()
+                    .replace(/([0-9])a/g, '$1*a')
+                    .replace(/a([0-9])/g, 'a*$1')
                     .replace(/a/g, `(${aVal})`)
                     .replace(/\^/g, '**');
-                if (!/^[0-9a-zA-Z\s\+\-\*\/\.\(\)]+$/.test(expr)) return fallback;
-                const res = new Function(`return ${sanitized}`)();
-                if (isNaN(res) || !isFinite(res)) return fallback;
-                // Clamp values to prevent numerical overflow freeze
+                
+                if (!/^[0-9\s\+\-\*\/\.\(\)\*]+$/.test(sanitized)) return fallback;
+                
+                const res = Function(`"use strict"; return (${sanitized})`)();
+                if (typeof res !== 'number' || isNaN(res) || !isFinite(res)) return fallback;
                 return Math.max(-1000, Math.min(1000, res));
             } catch (e) {
                 return fallback;
@@ -278,7 +243,6 @@
             resizeCanvas();
             window.addEventListener('resize', resizeCanvas);
 
-            // Slider & Parameter Controls Listener
             const slider = document.getElementById('aSlider');
             const directInput = document.getElementById('aDirectInput');
             const minInput = document.getElementById('aMinInput');
@@ -319,7 +283,6 @@
                 }
             });
 
-            // Input Listeners
             ['axisInput', 'domainLInput', 'domainRInput'].forEach(id => {
                 document.getElementById(id).addEventListener('input', () => {
                     readInputs();
@@ -327,12 +290,12 @@
                 });
             });
 
-            // Touch & Pointer Drag Interactions
             canvas.addEventListener('pointerdown', handlePointerDown);
             window.addEventListener('pointermove', handlePointerMove);
             window.addEventListener('pointerup', handlePointerUp);
             window.addEventListener('pointercancel', handlePointerUp);
 
+            readInputs();
             update();
         };
 
@@ -420,7 +383,6 @@
             if (dLeft > dRight) { const t = dLeft; dLeft = dRight; dRight = t; }
             else if (dLeft === dRight) { dRight = dLeft + 0.1; }
 
-            // Pure parabola: f(x) = concave * (x - axisX)^2
             const f = (x) => {
                 const res = state.concave * Math.pow(x - axisX, 2);
                 return isFinite(res) ? res : 0;
@@ -429,7 +391,6 @@
             return { axisX, dLeft, dRight, f };
         }
 
-        // Pointer Drag Functions
         function getCanvasMousePos(e) {
             const rect = canvas.getBoundingClientRect();
             return {
@@ -454,13 +415,15 @@
             const sxLeft = toScreenX(dLeft);
             const sxRight = toScreenX(dRight);
 
-            const hitThreshold = 20; // Touch-friendly hit area
+            const hitThreshold = 25;
 
             if (Math.abs(pos.x - sxAxis) < hitThreshold || Math.abs(pos.x - sxLeft) < hitThreshold || Math.abs(pos.x - sxRight) < hitThreshold) {
                 state.isDragging = true;
                 state.dragStartX = pos.x;
                 state.dragStartA = state.a;
-                canvas.setPointerCapture(e.pointerId);
+                try {
+                    canvas.setPointerCapture(e.pointerId);
+                } catch(err) {}
             }
         }
 
@@ -487,6 +450,9 @@
         function handlePointerUp(e) {
             if (state.isDragging) {
                 state.isDragging = false;
+                try {
+                    canvas.releasePointerCapture(e.pointerId);
+                } catch(err) {}
             }
         }
 
@@ -497,13 +463,11 @@
             const width = canvas.width / dpr;
             const height = canvas.height / dpr;
 
-            // 1. 背面：白
             ctx.fillStyle = '#ffffff';
             ctx.fillRect(0, 0, width, height);
 
             const { axisX, dLeft, dRight, f } = getParams();
 
-            // Coordinate System Setup
             const centerX = (dLeft + dRight) / 2;
             const rangeX = Math.max(Math.abs(dRight - dLeft) * 2.2, 8);
             const minX = centerX - rangeX / 2;
@@ -521,7 +485,7 @@
             const toScreenX = (x) => ((x - minX) / spanX) * width;
             const toScreenY = (y) => height - ((y - minYVal) / spanY) * height;
 
-            // Grid Lines (格子線 - 動的ステップでフリーズ防止)
+            // Grid Lines
             ctx.strokeStyle = '#f1f5f9';
             ctx.lineWidth = 1;
             if (isFinite(spanX) && spanX > 0) {
@@ -540,14 +504,14 @@
                 }
             }
 
-            // 2. 定義域：赤（赤シェード ＋ 赤破線）
+            // Domain Area (Red)
             const sxLeft = toScreenX(dLeft);
             const sxRight = toScreenX(dRight);
 
             ctx.fillStyle = 'rgba(239, 68, 68, 0.08)';
             ctx.fillRect(sxLeft, 0, sxRight - sxLeft, height);
 
-            ctx.strokeStyle = '#ef4444'; // 赤
+            ctx.strokeStyle = '#ef4444';
             ctx.lineWidth = 1.5;
             ctx.setLineDash([4, 4]);
 
@@ -561,17 +525,16 @@
             ctx.lineTo(sxRight, height);
             ctx.stroke();
 
-            ctx.setLineDash([]); // リセット
+            ctx.setLineDash([]);
 
-            // 定義域のラベル (赤)
             ctx.fillStyle = '#ef4444';
             ctx.font = 'bold 11px sans-serif';
             ctx.fillText(`L=${dLeft.toFixed(1)}`, sxLeft - 18, 18);
             ctx.fillText(`R=${dRight.toFixed(1)}`, sxRight + 4, 18);
 
-            // 3. 軸：青（青破線）
+            // Axis Line (Blue)
             const sxAxis = toScreenX(axisX);
-            ctx.strokeStyle = '#2563eb'; // 青
+            ctx.strokeStyle = '#2563eb';
             ctx.lineWidth = 2;
             ctx.setLineDash([5, 5]);
 
@@ -580,15 +543,13 @@
             ctx.lineTo(sxAxis, height);
             ctx.stroke();
 
-            ctx.setLineDash([]); // リセット
+            ctx.setLineDash([]);
 
-            // 軸ラベル (青)
             ctx.fillStyle = '#2563eb';
             ctx.font = 'bold 11px sans-serif';
             ctx.fillText(`軸 x=${axisX.toFixed(1)}`, sxAxis + 4, height - 12);
 
-            // 4. グラフ：黒 (全体は薄い黒・定義域内は太い黒)
-            // 全体（定義域外）
+            // Outside Graph
             ctx.strokeStyle = '#cbd5e1';
             ctx.lineWidth = 1.5;
             ctx.beginPath();
@@ -605,8 +566,8 @@
             }
             ctx.stroke();
 
-            // 定義域内（強調した黒）
-            ctx.strokeStyle = '#000000'; // 黒
+            // Inside Domain Graph
+            ctx.strokeStyle = '#000000';
             ctx.lineWidth = 3.5;
             ctx.beginPath();
 
@@ -622,20 +583,18 @@
             }
             ctx.stroke();
 
-            // 5. 注目点（最大値および最小値の点）
+            // Key Points (Min / Max)
             let minPts = [];
             let maxPts = [];
 
             const mid = (dLeft + dRight) / 2;
             const eps = 0.0001;
 
-            if (state.concave === 1) { // 下に凸
-                // 最小値
+            if (state.concave === 1) {
                 if (axisX < dLeft) minPts.push(dLeft);
                 else if (axisX > dRight) minPts.push(dRight);
                 else minPts.push(axisX);
 
-                // 最大値
                 if (Math.abs(axisX - mid) < eps) {
                     maxPts.push(dLeft, dRight);
                 } else if (axisX < mid) {
@@ -643,13 +602,11 @@
                 } else {
                     maxPts.push(dLeft);
                 }
-            } else { // 上に凸
-                // 最大値
+            } else {
                 if (axisX < dLeft) maxPts.push(dLeft);
                 else if (axisX > dRight) maxPts.push(dRight);
                 else maxPts.push(axisX);
 
-                // 最小値
                 if (Math.abs(axisX - mid) < eps) {
                     minPts.push(dLeft, dRight);
                 } else if (axisX < mid) {
@@ -659,7 +616,6 @@
                 }
             }
 
-            // 点の描画処理
             const drawPoint = (xVal, labelText, color) => {
                 const yVal = f(xVal);
                 const sx = toScreenX(xVal);
@@ -678,9 +634,7 @@
                 ctx.fillText(labelText, sx + 8, sy - 8);
             };
 
-            // 最小値の点 (青)
             minPts.forEach(ptX => drawPoint(ptX, '最小', '#2563eb'));
-            // 最大値の点 (赤)
             maxPts.forEach(ptX => drawPoint(ptX, '最大', '#ef4444'));
         }
 
