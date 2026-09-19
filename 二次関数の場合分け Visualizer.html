@@ -1,0 +1,673 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+    <title>二次関数の場合分け Visualizer</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- FontAwesome CDN for icons -->
+    <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css">
+    <!-- Google Fonts -->
+    <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+JP:wght@400;500;700;900&display=swap" rel="stylesheet">
+    <script>
+        tailwind.config = {
+            theme: {
+                extend: {
+                    fontFamily: {
+                        sans: ['Noto Sans JP', 'sans-serif'],
+                    }
+                }
+            }
+        }
+    </script>
+    <style>
+        body {
+            font-family: 'Noto Sans JP', sans-serif;
+            background-color: #f8fafc;
+            color: #0f172a;
+            -webkit-tap-highlight-color: transparent;
+        }
+        .math-symbol { font-family: 'Times New Roman', serif; font-style: italic; }
+        canvas {
+            touch-action: none;
+            user-select: none;
+            -webkit-user-select: none;
+        }
+        /* Custom slider styling for mobile touch */
+        input[type=range]::-webkit-slider-thumb {
+            width: 22px;
+            height: 22px;
+        }
+        input[type=range]::-moz-range-thumb {
+            width: 22px;
+            height: 22px;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col justify-between selection:bg-blue-100 selection:text-blue-900">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 py-3 px-4 shadow-sm sticky top-0 z-10">
+        <div class="max-w-5xl mx-auto flex justify-between items-center">
+            <h1 class="text-base sm:text-lg font-extrabold text-slate-800 flex items-center gap-2">
+                <i class="fa-solid fa-chart-line text-blue-600"></i>
+                二次関数の場合分け Visualizer
+            </h1>
+            <div class="flex items-center gap-2">
+                <span class="hidden sm:inline-block text-xs text-slate-500 font-bold bg-slate-100 px-2 py-1 rounded">高校数学Ⅰ</span>
+                <button onclick="openUsageModal()" class="text-xs font-bold text-blue-600 hover:text-blue-700 bg-blue-50 hover:bg-blue-100 px-3 py-1.5 rounded-xl transition flex items-center gap-1.5 border border-blue-200">
+                    <i class="fa-solid fa-circle-question"></i>
+                    <span>使い方</span>
+                </button>
+            </div>
+        </div>
+    </header>
+
+    <!-- Main Content Area -->
+    <main class="flex-1 max-w-5xl w-full mx-auto p-3 sm:p-5 grid grid-cols-1 lg:grid-cols-12 gap-4 sm:gap-6 items-start">
+
+        <!-- Controls Panel (Left on Desktop, Top on Mobile) -->
+        <aside class="lg:col-span-4 space-y-4">
+            
+            <div class="bg-white p-4 sm:p-5 rounded-2xl border border-slate-200 shadow-sm space-y-4">
+                <h2 class="text-sm font-bold text-slate-800 border-b border-slate-100 pb-2 flex items-center gap-2">
+                    <i class="fa-solid fa-sliders text-blue-600"></i>
+                    関数の設定
+                </h2>
+
+                <!-- Open Direction -->
+                <div>
+                    <label class="block text-xs text-slate-600 font-bold mb-1.5">グラフの向き</label>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <button id="btnDown" onclick="setConcave(1)" class="py-2.5 rounded-xl border border-blue-600 bg-blue-50 text-blue-700 font-bold transition flex items-center justify-center gap-1">
+                            <span class="text-sm font-black">∪</span> 下に凸
+                        </button>
+                        <button id="btnUp" onclick="setConcave(-1)" class="py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-bold transition flex items-center justify-center gap-1">
+                            <span class="text-sm font-black">∩</span> 上に凸
+                        </button>
+                    </div>
+                </div>
+
+                <!-- Axis Input -->
+                <div>
+                    <label class="block text-xs text-slate-600 font-bold mb-1.5">
+                        軸の <span class="math-symbol">x</span> 座標
+                    </label>
+                    <div class="relative">
+                        <input type="text" id="axisInput" value="a" placeholder="例: a, 2a, 1..." class="w-full text-sm p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none transition">
+                    </div>
+                </div>
+
+                <!-- Domain Input -->
+                <div>
+                    <label class="block text-xs text-slate-600 font-bold mb-1.5">
+                        定義域 <span class="math-symbol">[L, R]</span>
+                    </label>
+                    <div class="grid grid-cols-2 gap-2">
+                        <div>
+                            <span class="block text-[10px] text-slate-400 font-bold mb-1">左端 L</span>
+                            <input type="text" id="domainLInput" value="0" placeholder="左端" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none transition">
+                        </div>
+                        <div>
+                            <span class="block text-[10px] text-slate-400 font-bold mb-1">右端 R</span>
+                            <input type="text" id="domainRInput" value="2" placeholder="右端" class="w-full text-sm p-2.5 bg-slate-50 border border-slate-300 rounded-xl font-mono text-slate-800 focus:ring-2 focus:ring-blue-500 focus:bg-white focus:outline-none transition">
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+        </aside>
+
+        <!-- Display & Graph Panel (Right on Desktop, Bottom on Mobile) -->
+        <section class="lg:col-span-8 space-y-4">
+
+            <!-- Parameter Control Bar -->
+            <div class="bg-white p-3 sm:p-4 rounded-2xl border border-slate-200 shadow-sm flex flex-wrap sm:flex-nowrap items-center justify-between gap-3 sm:gap-4">
+                <div class="flex items-center gap-2 shrink-0">
+                    <span class="text-xs font-bold text-slate-500">パラメータ</span>
+                    <div class="flex items-center bg-amber-50 px-2.5 py-1 rounded-lg border border-amber-200 text-amber-900 font-mono text-sm font-black">
+                        <span class="mr-1">a =</span>
+                        <input type="number" id="aDirectInput" value="1.00" step="0.05" class="w-16 bg-transparent text-amber-900 font-black font-mono focus:outline-none border-b border-amber-400 focus:border-amber-600 text-center p-0">
+                    </div>
+                </div>
+                
+                <!-- Slider & Range Adjuster -->
+                <div class="flex-1 min-w-[200px] flex items-center gap-2">
+                    <input type="number" id="aMinInput" value="-4" step="1" class="w-12 text-center text-xs text-slate-600 font-mono font-bold bg-slate-100 border border-slate-200 rounded-lg p-1 focus:ring-1 focus:ring-blue-500 focus:outline-none" title="a の最小値">
+                    <input type="range" id="aSlider" min="-4" max="4" step="0.05" value="1" class="w-full h-2 bg-slate-200 rounded-lg appearance-none accent-amber-500 cursor-pointer">
+                    <input type="number" id="aMaxInput" value="4" step="1" class="w-12 text-center text-xs text-slate-600 font-mono font-bold bg-slate-100 border border-slate-200 rounded-lg p-1 focus:ring-1 focus:ring-blue-500 focus:outline-none" title="a の最大値">
+                </div>
+
+                <!-- Play Button -->
+                <button id="playBtn" onclick="togglePlay()" class="w-full sm:w-auto bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-sm shrink-0">
+                    <i id="playIcon" class="fa-solid fa-play"></i> <span id="playText">動かす</span>
+                </button>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="bg-white p-2 sm:p-3 rounded-2xl border border-slate-200 shadow-sm relative flex flex-col items-center overflow-hidden">
+                
+                <!-- Canvas Area -->
+                <canvas id="canvas" class="w-full h-[320px] sm:h-[420px] bg-white rounded-xl cursor-grab active:cursor-grabbing border border-slate-100"></canvas>
+
+                <!-- Help Tip overlay for touch/mouse drag -->
+                <div class="absolute top-4 left-4 right-4 sm:right-auto bg-white/90 backdrop-blur-md px-3 py-1.5 rounded-lg border border-slate-200/80 text-[11px] text-slate-600 shadow-sm pointer-events-none flex items-center gap-2">
+                    <i class="fa-solid fa-hand-pointer text-blue-500 shrink-0"></i>
+                    <span><b>「軸(青)」</b>や<b>「定義域(赤)」</b>を左右に直接ドラッグできます</span>
+                </div>
+            </div>
+
+        </section>
+
+    </main>
+
+    <!-- Footer -->
+    <footer class="bg-white border-t border-slate-200 py-3 text-center text-xs text-slate-400 font-medium">
+        二次関数の場合分け 可視化ツール
+    </footer>
+
+    <!-- Modal: Modal Usage Guide -->
+    <div id="usageModal" class="fixed inset-0 bg-slate-900/50 backdrop-blur-sm z-50 flex items-center justify-center p-4 hidden">
+        <div class="bg-white w-full max-w-lg rounded-2xl shadow-xl overflow-hidden flex flex-col max-h-[90vh]">
+            <!-- Modal Header -->
+            <div class="bg-slate-50 border-b border-slate-200 px-5 py-4 flex justify-between items-center">
+                <h3 class="font-bold text-slate-800 text-base flex items-center gap-2">
+                    <i class="fa-solid fa-book-open text-blue-600"></i>
+                    使い方ガイド
+                </h3>
+                <button onclick="closeUsageModal()" class="text-slate-400 hover:text-slate-600 p-1 transition">
+                    <i class="fa-solid fa-xmark text-lg"></i>
+                </button>
+            </div>
+            <!-- Modal Body -->
+            <div class="p-5 space-y-4 text-xs sm:text-sm text-slate-600 overflow-y-auto leading-relaxed">
+                <div class="space-y-1.5">
+                    <h4 class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">1</span>
+                        軸と定義域の設定
+                    </h4>
+                    <p class="pl-6 text-slate-500">
+                        左側のパネルから軸の <span class="math-symbol">x</span> 座標（例: <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">a</code>, <code class="bg-slate-100 px-1 py-0.5 rounded font-mono">2a</code>）と定義域 <span class="math-symbol">[L, R]</span> を入力します。文字式を含めた入力が可能です。
+                    </p>
+                </div>
+
+                <div class="space-y-1.5">
+                    <h4 class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">2</span>
+                        パラメータ <span class="math-symbol">a</span> の動かし方
+                    </h4>
+                    <p class="pl-6 text-slate-500">
+                        スライダーをドラッグするか、「動かす」ボタンでアニメーション再生できます。両端の数値ボックスからスライダーの最小値・最大値を自由に変更することも可能です。
+                    </p>
+                </div>
+
+                <div class="space-y-1.5">
+                    <h4 class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">3</span>
+                        グラフ上のダイレクトドラッグ
+                    </h4>
+                    <p class="pl-6 text-slate-500">
+                        グラフ上の<b>青い軸線</b>や<b>赤領域の端線</b>を指やマウスで左右に直接引っ張ることで、直感的にパラメータ <span class="math-symbol">a</span> を操作できます。
+                    </p>
+                </div>
+
+                <div class="space-y-1.5">
+                    <h4 class="font-bold text-slate-800 text-sm flex items-center gap-1.5">
+                        <span class="w-5 h-5 rounded-full bg-blue-100 text-blue-600 flex items-center justify-center text-xs font-black">4</span>
+                        最大値・最小値の観察
+                    </h4>
+                    <p class="pl-6 text-slate-500">
+                        定義域内における<b>最大値</b>（赤）と<b>最小値</b>（青）の点が常にグラフ上に表示されます。<span class="math-symbol">a</span> の変化に伴って、頂点と端点のどちらで最大・最小をとるかが切り替わる様子を観察できます。
+                    </p>
+                </div>
+            </div>
+            <!-- Modal Footer -->
+            <div class="bg-slate-50 border-t border-slate-200 px-5 py-3 text-right">
+                <button onclick="closeUsageModal()" class="bg-blue-600 hover:bg-blue-700 text-white font-bold px-4 py-2 rounded-xl text-xs transition">
+                    閉じる
+                </button>
+            </div>
+        </div>
+    </div>
+
+    <!-- JavaScript Logic -->
+    <script>
+        // State Management
+        const state = {
+            a: 1.0,
+            aMin: -4.0,
+            aMax: 4.0,
+            concave: 1, // 1: Downwards (a>0), -1: Upwards (a<0)
+            axisExpr: "a",
+            domainLExpr: "0",
+            domainRExpr: "2",
+            isPlaying: false,
+            animDir: 1,
+            animId: null,
+            
+            // Drag state
+            isDragging: false,
+            dragStartX: 0,
+            dragStartA: 0
+        };
+
+        let canvas, ctx;
+
+        // Fail-safe Expression Evaluator
+        function evalExpr(expr, aVal, fallback = 0) {
+            if (!expr || expr.trim() === "") return fallback;
+            try {
+                let sanitized = expr.trim()
+                    .replace(/a/g, `(${aVal})`)
+                    .replace(/\^/g, '**');
+                if (!/^[0-9a-zA-Z\s\+\-\*\/\.\(\)]+$/.test(expr)) return fallback;
+                const res = new Function(`return ${sanitized}`)();
+                return isNaN(res) || !isFinite(res) ? fallback : res;
+            } catch (e) {
+                return fallback;
+            }
+        }
+
+        window.onload = function() {
+            canvas = document.getElementById('canvas');
+            ctx = canvas.getContext('2d');
+
+            resizeCanvas();
+            window.addEventListener('resize', resizeCanvas);
+
+            // Slider & Parameter Controls Listener
+            const slider = document.getElementById('aSlider');
+            const directInput = document.getElementById('aDirectInput');
+            const minInput = document.getElementById('aMinInput');
+            const maxInput = document.getElementById('aMaxInput');
+
+            slider.addEventListener('input', (e) => {
+                state.a = parseFloat(e.target.value);
+                directInput.value = state.a.toFixed(2);
+                update();
+            });
+
+            directInput.addEventListener('input', (e) => {
+                const val = parseFloat(e.target.value);
+                if (!isNaN(val)) {
+                    state.a = val;
+                    slider.value = val;
+                    update();
+                }
+            });
+
+            minInput.addEventListener('change', (e) => {
+                const val = parseFloat(e.target.value);
+                if (!isNaN(val) && val < state.aMax) {
+                    state.aMin = val;
+                    slider.min = val;
+                } else {
+                    e.target.value = state.aMin;
+                }
+            });
+
+            maxInput.addEventListener('change', (e) => {
+                const val = parseFloat(e.target.value);
+                if (!isNaN(val) && val > state.aMin) {
+                    state.aMax = val;
+                    slider.max = val;
+                } else {
+                    e.target.value = state.aMax;
+                }
+            });
+
+            // Input Listeners
+            ['axisInput', 'domainLInput', 'domainRInput'].forEach(id => {
+                document.getElementById(id).addEventListener('input', () => {
+                    readInputs();
+                    update();
+                });
+            });
+
+            // Touch & Pointer Drag Interactions
+            canvas.addEventListener('pointerdown', handlePointerDown);
+            window.addEventListener('pointermove', handlePointerMove);
+            window.addEventListener('pointerup', handlePointerUp);
+            window.addEventListener('pointercancel', handlePointerUp);
+
+            update();
+        };
+
+        function openUsageModal() {
+            document.getElementById('usageModal').classList.remove('hidden');
+        }
+
+        function closeUsageModal() {
+            document.getElementById('usageModal').classList.add('hidden');
+        }
+
+        function resizeCanvas() {
+            if (!canvas) return;
+            const rect = canvas.parentElement.getBoundingClientRect();
+            const dpr = window.devicePixelRatio || 1;
+            const displayWidth = rect.width - 16;
+            const displayHeight = window.innerWidth < 640 ? 320 : 420;
+
+            canvas.width = displayWidth * dpr;
+            canvas.height = displayHeight * dpr;
+            ctx.scale(dpr, dpr);
+            draw();
+        }
+
+        function readInputs() {
+            state.axisExpr = document.getElementById('axisInput').value;
+            state.domainLExpr = document.getElementById('domainLInput').value;
+            state.domainRExpr = document.getElementById('domainRInput').value;
+        }
+
+        function setConcave(val) {
+            state.concave = val;
+            const bDown = document.getElementById('btnDown');
+            const bUp = document.getElementById('btnUp');
+            if (state.concave === 1) {
+                bDown.className = "py-2.5 rounded-xl border border-blue-600 bg-blue-50 text-blue-700 font-bold transition flex items-center justify-center gap-1";
+                bUp.className = "py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-bold transition flex items-center justify-center gap-1";
+            } else {
+                bUp.className = "py-2.5 rounded-xl border border-blue-600 bg-blue-50 text-blue-700 font-bold transition flex items-center justify-center gap-1";
+                bDown.className = "py-2.5 rounded-xl border border-slate-200 bg-slate-50 text-slate-600 font-bold transition flex items-center justify-center gap-1";
+            }
+            update();
+        }
+
+        function togglePlay() {
+            state.isPlaying = !state.isPlaying;
+            const btn = document.getElementById('playBtn');
+            const icon = document.getElementById('playIcon');
+            const text = document.getElementById('playText');
+
+            if (state.isPlaying) {
+                btn.className = "w-full sm:w-auto bg-amber-600 hover:bg-amber-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-sm shrink-0";
+                icon.className = "fa-solid fa-pause";
+                text.innerText = "停止";
+                animate();
+            } else {
+                btn.className = "w-full sm:w-auto bg-blue-600 hover:bg-blue-700 active:scale-95 text-white text-xs font-bold px-4 py-2.5 rounded-xl transition flex items-center justify-center gap-2 shadow-sm shrink-0";
+                icon.className = "fa-solid fa-play";
+                text.innerText = "動かす";
+                cancelAnimationFrame(state.animId);
+            }
+        }
+
+        function animate() {
+            if (!state.isPlaying) return;
+            state.a += 0.02 * state.animDir;
+            if (state.a >= state.aMax) { state.a = state.aMax; state.animDir = -1; }
+            else if (state.a <= state.aMin) { state.a = state.aMin; state.animDir = 1; }
+
+            document.getElementById('aSlider').value = state.a;
+            document.getElementById('aDirectInput').value = state.a.toFixed(2);
+            update();
+            state.animId = requestAnimationFrame(animate);
+        }
+
+        function getParams() {
+            const axisX = evalExpr(state.axisExpr, state.a, 1.0);
+            let dLeft = evalExpr(state.domainLExpr, state.a, 0.0);
+            let dRight = evalExpr(state.domainRExpr, state.a, 2.0);
+
+            if (dLeft > dRight) { const t = dLeft; dLeft = dRight; dRight = t; }
+            else if (dLeft === dRight) { dRight = dLeft + 0.1; }
+
+            // Pure parabola: f(x) = concave * (x - axisX)^2
+            const f = (x) => state.concave * Math.pow(x - axisX, 2);
+
+            return { axisX, dLeft, dRight, f };
+        }
+
+        // Pointer Drag Functions
+        function getCanvasMousePos(e) {
+            const rect = canvas.getBoundingClientRect();
+            return {
+                x: e.clientX - rect.left,
+                y: e.clientY - rect.top
+            };
+        }
+
+        function handlePointerDown(e) {
+            const pos = getCanvasMousePos(e);
+            const { axisX, dLeft, dRight } = getParams();
+            const width = canvas.width / (window.devicePixelRatio || 1);
+
+            const centerX = (dLeft + dRight) / 2;
+            const rangeX = Math.max(Math.abs(dRight - dLeft) * 2.2, 8);
+            const minX = centerX - rangeX / 2;
+            const maxX = centerX + rangeX / 2;
+
+            const toScreenX = (x) => ((x - minX) / (maxX - minX)) * width;
+
+            const sxAxis = toScreenX(axisX);
+            const sxLeft = toScreenX(dLeft);
+            const sxRight = toScreenX(dRight);
+
+            const hitThreshold = 20; // Touch-friendly hit area
+
+            if (Math.abs(pos.x - sxAxis) < hitThreshold || Math.abs(pos.x - sxLeft) < hitThreshold || Math.abs(pos.x - sxRight) < hitThreshold) {
+                state.isDragging = true;
+                state.dragStartX = pos.x;
+                state.dragStartA = state.a;
+                canvas.setPointerCapture(e.pointerId);
+            }
+        }
+
+        function handlePointerMove(e) {
+            if (!state.isDragging) return;
+
+            const pos = getCanvasMousePos(e);
+            const width = canvas.width / (window.devicePixelRatio || 1);
+            const { dLeft, dRight } = getParams();
+
+            const rangeX = Math.max(Math.abs(dRight - dLeft) * 2.2, 8);
+            const dxPixels = pos.x - state.dragStartX;
+            const dxMath = (dxPixels / width) * rangeX;
+
+            let newA = state.dragStartA + dxMath;
+            newA = Math.max(state.aMin, Math.min(state.aMax, newA));
+            state.a = parseFloat(newA.toFixed(2));
+
+            document.getElementById('aSlider').value = state.a;
+            document.getElementById('aDirectInput').value = state.a.toFixed(2);
+            update();
+        }
+
+        function handlePointerUp(e) {
+            if (state.isDragging) {
+                state.isDragging = false;
+            }
+        }
+
+        function draw() {
+            if (!canvas || !ctx) return;
+
+            const dpr = window.devicePixelRatio || 1;
+            const width = canvas.width / dpr;
+            const height = canvas.height / dpr;
+
+            // 1. 背面：白
+            ctx.fillStyle = '#ffffff';
+            ctx.fillRect(0, 0, width, height);
+
+            const { axisX, dLeft, dRight, f } = getParams();
+
+            // Coordinate System Setup
+            const centerX = (dLeft + dRight) / 2;
+            const rangeX = Math.max(Math.abs(dRight - dLeft) * 2.2, 8);
+            const minX = centerX - rangeX / 2;
+            const maxX = centerX + rangeX / 2;
+
+            const yLeft = f(dLeft);
+            const yRight = f(dRight);
+            const yVertex = f(axisX);
+            const minYVal = Math.min(yLeft, yRight, yVertex, 0) - 1.5;
+            const maxYVal = Math.max(yLeft, yRight, yVertex, 0) + 2.5;
+
+            const toScreenX = (x) => ((x - minX) / (maxX - minX)) * width;
+            const toScreenY = (y) => height - ((y - minYVal) / (maxYVal - minYVal)) * height;
+
+            // Grid Lines (格子線)
+            ctx.strokeStyle = '#f1f5f9';
+            ctx.lineWidth = 1;
+            for (let x = Math.floor(minX); x <= maxX; x += 1) {
+                const sx = toScreenX(x);
+                ctx.beginPath();
+                ctx.moveTo(sx, 0);
+                ctx.lineTo(sx, height);
+                ctx.stroke();
+            }
+
+            // 2. 定義域：赤（赤シェード ＋ 赤破線）
+            const sxLeft = toScreenX(dLeft);
+            const sxRight = toScreenX(dRight);
+
+            ctx.fillStyle = 'rgba(239, 68, 68, 0.08)';
+            ctx.fillRect(sxLeft, 0, sxRight - sxLeft, height);
+
+            ctx.strokeStyle = '#ef4444'; // 赤
+            ctx.lineWidth = 1.5;
+            ctx.setLineDash([4, 4]);
+
+            ctx.beginPath();
+            ctx.moveTo(sxLeft, 0);
+            ctx.lineTo(sxLeft, height);
+            ctx.stroke();
+
+            ctx.beginPath();
+            ctx.moveTo(sxRight, 0);
+            ctx.lineTo(sxRight, height);
+            ctx.stroke();
+
+            ctx.setLineDash([]); // リセット
+
+            // 定義域のラベル (赤)
+            ctx.fillStyle = '#ef4444';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillText(`L=${dLeft.toFixed(1)}`, sxLeft - 18, 18);
+            ctx.fillText(`R=${dRight.toFixed(1)}`, sxRight + 4, 18);
+
+            // 3. 軸：青（青破線）
+            const sxAxis = toScreenX(axisX);
+            ctx.strokeStyle = '#2563eb'; // 青
+            ctx.lineWidth = 2;
+            ctx.setLineDash([5, 5]);
+
+            ctx.beginPath();
+            ctx.moveTo(sxAxis, 0);
+            ctx.lineTo(sxAxis, height);
+            ctx.stroke();
+
+            ctx.setLineDash([]); // リセット
+
+            // 軸ラベル (青)
+            ctx.fillStyle = '#2563eb';
+            ctx.font = 'bold 11px sans-serif';
+            ctx.fillText(`軸 x=${axisX.toFixed(1)}`, sxAxis + 4, height - 12);
+
+            // 4. グラフ：黒 (全体は薄い黒・定義域内は太い黒)
+            // 全体（定義域外）
+            ctx.strokeStyle = '#cbd5e1';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+
+            const steps = 150;
+            for (let i = 0; i <= steps; i++) {
+                const x = minX + (i / steps) * (maxX - minX);
+                const y = f(x);
+                const sx = toScreenX(x);
+                const sy = toScreenY(y);
+
+                if (i === 0) ctx.moveTo(sx, sy);
+                else ctx.lineTo(sx, sy);
+            }
+            ctx.stroke();
+
+            // 定義域内（強調した黒）
+            ctx.strokeStyle = '#000000'; // 黒
+            ctx.lineWidth = 3.5;
+            ctx.beginPath();
+
+            const dSteps = 80;
+            for (let i = 0; i <= dSteps; i++) {
+                const x = dLeft + (i / dSteps) * (dRight - dLeft);
+                const y = f(x);
+                const sx = toScreenX(x);
+                const sy = toScreenY(y);
+
+                if (i === 0) ctx.moveTo(sx, sy);
+                else ctx.lineTo(sx, sy);
+            }
+            ctx.stroke();
+
+            // 5. 注目点（最大値および最小値の点）
+            let minPts = [];
+            let maxPts = [];
+
+            const mid = (dLeft + dRight) / 2;
+            const eps = 0.0001;
+
+            if (state.concave === 1) { // 下に凸
+                // 最小値
+                if (axisX < dLeft) minPts.push(dLeft);
+                else if (axisX > dRight) minPts.push(dRight);
+                else minPts.push(axisX);
+
+                // 最大値
+                if (Math.abs(axisX - mid) < eps) {
+                    maxPts.push(dLeft, dRight);
+                } else if (axisX < mid) {
+                    maxPts.push(dRight);
+                } else {
+                    maxPts.push(dLeft);
+                }
+            } else { // 上に凸
+                // 最大値
+                if (axisX < dLeft) maxPts.push(dLeft);
+                else if (axisX > dRight) maxPts.push(dRight);
+                else maxPts.push(axisX);
+
+                // 最小値
+                if (Math.abs(axisX - mid) < eps) {
+                    minPts.push(dLeft, dRight);
+                } else if (axisX < mid) {
+                    minPts.push(dRight);
+                } else {
+                    minPts.push(dLeft);
+                }
+            }
+
+            // 点の描画処理
+            const drawPoint = (xVal, labelText, color) => {
+                const yVal = f(xVal);
+                const sx = toScreenX(xVal);
+                const sy = toScreenY(yVal);
+
+                ctx.fillStyle = color;
+                ctx.beginPath();
+                ctx.arc(sx, sy, 6, 0, Math.PI * 2);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 2;
+                ctx.stroke();
+
+                ctx.fillStyle = '#000000';
+                ctx.font = 'bold 12px sans-serif';
+                ctx.fillText(labelText, sx + 8, sy - 8);
+            };
+
+            // 最小値の点 (青)
+            minPts.forEach(ptX => drawPoint(ptX, '最小', '#2563eb'));
+            // 最大値の点 (赤)
+            maxPts.forEach(ptX => drawPoint(ptX, '最大', '#ef4444'));
+        }
+
+        function update() {
+            document.getElementById('aDirectInput').value = state.a.toFixed(2);
+            draw();
+        }
+    </script>
+</body>
+</html>
