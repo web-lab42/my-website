@@ -1,0 +1,677 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>時差学習用 円筒世界地図</title>
+    <!-- Tailwind CSS CDN -->
+    <script src="https://cdn.tailwindcss.com"></script>
+    <!-- Three.js CDN -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <!-- OrbitControls for Three.js -->
+    <script src="https://cdn.jsdelivr.net/npm/three@0.128.0/examples/js/controls/OrbitControls.js"></script>
+    <style>
+        body {
+            font-family: 'Helvetica Neue', Arial, 'Hiragino Kaku Gothic ProN', 'Hiragino Sans', Meiryo, sans-serif;
+            overflow-x: hidden;
+            user-select: none;
+        }
+        #canvas-container {
+            width: 100%;
+            height: 100%;
+            min-height: 300px;
+            cursor: grab;
+        }
+        #canvas-container:active {
+            cursor: grabbing;
+        }
+        /* Custom scrollbar for controls */
+        ::-webkit-scrollbar {
+            width: 6px;
+            height: 6px;
+        }
+        ::-webkit-scrollbar-thumb {
+            background: #cbd5e1;
+            border-radius: 3px;
+        }
+    </style>
+</head>
+<body class="bg-slate-100 text-slate-800 flex flex-col h-screen">
+
+    <!-- Header -->
+    <header class="bg-white border-b border-slate-200 px-4 py-3 flex flex-wrap justify-between items-center gap-2 z-10 shadow-sm">
+        <div class="flex items-center space-x-3">
+            <div class="bg-blue-500 p-2 rounded-lg text-white shadow-sm">
+                <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3.055 11H5a2 2 0 012 2v1a2 2 0 002 2 2 2 0 012 2v2.945M8 3.935V5.5A2.5 2.5 0 0010.5 8h.5a2 2 0 012 2 2 2 0 002 2h1.5a2.5 2.5 0 002.5-2.5V11a2 2 0 012-2h1.054M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                </svg>
+            </div>
+            <div>
+                <h1 class="font-bold text-base sm:text-lg leading-tight text-slate-800">時差学習用 円筒世界地図</h1>
+                <p class="text-xs text-slate-500">経線（15度＝1時間）を数えて2都市の時差を考えてみよう</p>
+            </div>
+        </div>
+
+        <!-- Reset Camera Button -->
+        <button id="btn-reset-cam" class="px-3 py-1.5 bg-slate-200 hover:bg-slate-300 active:bg-slate-400 text-slate-700 text-xs rounded-md border border-slate-300 transition flex items-center space-x-1 shadow-sm">
+            <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+            </svg>
+            <span>視点をリセット</span>
+        </button>
+    </header>
+
+    <!-- Main Content Area -->
+    <div class="flex-1 flex flex-col md:flex-row overflow-hidden relative">
+        
+        <!-- Controls Sidebar / Top bar on mobile -->
+        <div class="w-full md:w-80 bg-white/90 backdrop-blur-md p-3 sm:p-4 border-b md:border-b-0 md:border-r border-slate-200 flex flex-col justify-between overflow-y-auto z-10 space-y-3 max-h-[40vh] md:max-h-none shadow-md md:shadow-none">
+            
+            <div class="space-y-3 sm:space-y-4">
+                <!-- Sorting Selection -->
+                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200">
+                    <label class="block text-xs font-semibold text-slate-700 mb-1.5">1. 都市リストの並び順</label>
+                    <div class="grid grid-cols-2 gap-2 text-xs">
+                        <label class="flex items-center space-x-2 bg-white p-2 rounded cursor-pointer hover:bg-slate-100 border border-slate-200 shadow-sm">
+                            <input type="radio" name="sort-order" value="kana" checked class="text-blue-600 focus:ring-0">
+                            <span>50音順</span>
+                        </label>
+                        <label class="flex items-center space-x-2 bg-white p-2 rounded cursor-pointer hover:bg-slate-100 border border-slate-200 shadow-sm">
+                            <input type="radio" name="sort-order" value="alphabet" class="text-blue-600 focus:ring-0">
+                            <span>アルファベット順</span>
+                        </label>
+                    </div>
+                </div>
+
+                <!-- City Selection 1 & 2 -->
+                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 space-y-2.5">
+                    <label class="block text-xs font-semibold text-slate-700">2. 比較する都市を選択（※お探しの地名がない可能性があります）</label>
+                    
+                    <!-- City 1 -->
+                    <div>
+                        <div class="flex justify-between items-center text-xs text-slate-500 mb-1">
+                            <span class="flex items-center font-medium text-slate-700"><span class="w-2.5 h-2.5 bg-red-500 rounded-full inline-block mr-1.5 shadow-sm"></span>都市 A</span>
+                            <span id="city1-coords" class="font-mono text-[10px] text-slate-500">--</span>
+                        </div>
+                        <select id="select-city1" class="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm">
+                        </select>
+                    </div>
+
+                    <!-- City 2 -->
+                    <div>
+                        <div class="flex justify-between items-center text-xs text-slate-500 mb-1">
+                            <span class="flex items-center font-medium text-slate-700"><span class="w-2.5 h-2.5 bg-amber-500 rounded-full inline-block mr-1.5 shadow-sm"></span>都市 B</span>
+                            <span id="city2-coords" class="font-mono text-[10px] text-slate-500">--</span>
+                        </div>
+                        <select id="select-city2" class="w-full bg-white border border-slate-300 rounded px-2.5 py-1.5 text-xs text-slate-800 focus:outline-none focus:border-blue-500 shadow-sm">
+                        </select>
+                    </div>
+                </div>
+
+                <!-- Legend / Map Rule Explanation -->
+                <div class="bg-slate-50 p-2.5 rounded-lg border border-slate-200 text-xs space-y-1.5">
+                    <span class="font-semibold text-slate-700 block mb-1">経線の見方・凡例</span>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-6 h-0.5 bg-black"></div>
+                        <span class="text-slate-700"><b>中線</b>: 0°, 45°, 90°, 135°, 180°</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-6 h-[1px] bg-slate-600"></div>
+                        <span class="text-slate-700"><b>薄い線</b>: 15° 単位</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-6 border-b border-dashed border-slate-500"></div>
+                        <span class="text-slate-600"><b>薄い点線</b>: 5° 単位</span>
+                    </div>
+                    <div class="flex items-center space-x-2">
+                        <div class="w-6 h-1 bg-red-600"></div>
+                        <span class="text-red-600 font-bold">赤線: 日付変更線 (※実際のものとは異なります)</span>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Learning Note -->
+            <div class="bg-blue-50 border border-blue-200 p-2.5 rounded-lg text-[11px] text-blue-900 leading-relaxed shadow-sm">
+                <span class="font-bold text-blue-700 block mb-0.5">💡 学習ヒント</span>
+                経度15度で時差が「1時間」生じます。（360度÷24時間＝15度/時間）※世界地図と都市の位置は正確ではありません。お手持ちの教科書でご確認ください。
+            </div>
+        </div>
+
+        <!-- 3D Canvas Area -->
+        <main class="flex-1 relative bg-slate-100 flex flex-col items-center justify-center overflow-hidden">
+            <div id="canvas-container"></div>
+
+            <!-- Interaction Overlay Hint -->
+            <div class="absolute bottom-3 right-3 bg-white/80 backdrop-blur px-3 py-1.5 rounded-full border border-slate-200 text-[11px] text-slate-600 pointer-events-none flex items-center space-x-1.5 shadow">
+                <svg class="w-4 h-4 text-slate-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 15l-2 5L9 9l11 4-5 2zm0 0l5 5M7.188 2.239l.777 2.897M5.136 7.965l-2.898-.777M13.95 4.05l-2.122 2.122m-5.657 5.656l-2.12 2.122"></path>
+                </svg>
+                <span>ドラッグして回転 / スワイプ・ピンチで操作</span>
+            </div>
+        </main>
+    </div>
+
+    <!-- Hidden Canvas for Texture Generation -->
+    <canvas id="texture-canvas" class="hidden" width="2048" height="1024"></canvas>
+
+    <script>
+        // 世界主要都市データ（主要首都・経済都市・地理学習重要都市）
+        const CITIES = [
+            // 日本・極東
+            { id: 'tokyo', kana: 'トウキョウ', en: 'Tokyo', lat: 35.68, lng: 139.69, name: '東京' },
+            { id: 'sapporo', kana: 'サッポロ', en: 'Sapporo', lat: 43.06, lng: 141.35, name: '札幌' },
+            { id: 'fukuoka', kana: 'フクオカ', en: 'Fukuoka', lat: 33.59, lng: 130.40, name: '福岡' },
+            { id: 'naha', kana: 'ナハ', en: 'Naha', lat: 26.21, lng: 127.68, name: '那覇' },
+            { id: 'seoul', kana: 'ソウル', en: 'Seoul', lat: 37.56, lng: 126.97, name: 'ソウル' },
+            { id: 'beijing', kana: 'ペキン', en: 'Beijing', lat: 39.90, lng: 116.40, name: '北京' },
+            { id: 'shanghai', kana: 'シャンハイ', en: 'Shanghai', lat: 31.23, lng: 121.47, name: '上海' },
+            { id: 'hongkong', kana: 'ホンコン', en: 'Hong Kong', lat: 22.32, lng: 114.17, name: '香港' },
+            { id: 'taipei', kana: 'タイペイ', en: 'Taipei', lat: 25.03, lng: 121.56, name: '台北' },
+            { id: 'vladivostok', kana: 'ウラジオストク', en: 'Vladivostok', lat: 43.11, lng: 131.88, name: 'ウラジオストク' },
+            { id: 'ulaanbaatar', kana: 'ウランバートル', en: 'Ulaanbaatar', lat: 47.88, lng: 106.91, name: 'ウランバートル' },
+
+            // 東南アジア・南アジア
+            { id: 'bangkok', kana: 'バンコク', en: 'Bangkok', lat: 13.75, lng: 100.50, name: 'バンコク' },
+            { id: 'singapore', kana: 'シンガポール', en: 'Singapore', lat: 1.35, lng: 103.82, name: 'シンガポール' },
+            { id: 'jakarta', kana: 'ジャカルタ', en: 'Jakarta', lat: -6.21, lng: 106.85, name: 'ジャカルタ' },
+            { id: 'manila', kana: 'マニラ', en: 'Manila', lat: 14.60, lng: 120.98, name: 'マニラ' },
+            { id: 'hanoi', kana: 'ハノイ', en: 'Hanoi', lat: 21.03, lng: 105.85, name: 'ハノイ' },
+            { id: 'kualalumpur', kana: 'クアラルンプール', en: 'Kuala Lumpur', lat: 3.14, lng: 101.69, name: 'クアラルンプール' },
+            { id: 'yangon', kana: 'ヤンゴン', en: 'Yangon', lat: 16.87, lng: 96.20, name: 'ヤンゴン' },
+            { id: 'delhi', kana: 'デリー', en: 'Delhi', lat: 28.61, lng: 77.21, name: 'デリー' },
+            { id: 'mumbai', kana: 'ムンバイ', en: 'Mumbai', lat: 19.07, lng: 72.88, name: 'ムンバイ' },
+            { id: 'dhaka', kana: 'ダッカ', en: 'Dhaka', lat: 23.81, lng: 90.41, name: 'ダッカ' },
+            { id: 'colombo', kana: 'コロンボ', en: 'Colombo', lat: 6.92, lng: 79.86, name: 'コロンボ' },
+            { id: 'kathmandu', kana: 'カトマンズ', en: 'Kathmandu', lat: 27.71, lng: 85.32, name: 'カトマンズ' },
+
+            // 中央アジア・中東
+            { id: 'tashkent', kana: 'タシケント', en: 'Tashkent', lat: 41.30, lng: 69.24, name: 'タシケント' },
+            { id: 'almaty', kana: 'アルマトイ', en: 'Almaty', lat: 43.24, lng: 76.91, name: 'アルマトイ' },
+            { id: 'tehran', kana: 'テヘラン', en: 'Tehran', lat: 35.69, lng: 51.39, name: 'テヘラン' },
+            { id: 'riyadh', kana: 'リヤド', en: 'Riyadh', lat: 24.71, lng: 46.68, name: 'リヤド' },
+            { id: 'dubai', kana: 'ドバイ', en: 'Dubai', lat: 25.20, lng: 55.27, name: 'ドバイ' },
+            { id: 'baghdad', kana: 'バグダッド', en: 'Baghdad', lat: 33.32, lng: 44.36, name: 'バグダッド' },
+            { id: 'jerusalem', kana: 'エルサレム', en: 'Jerusalem', lat: 31.77, lng: 35.21, name: 'エルサレム' },
+            { id: 'istanbul', kana: 'イスタンブール', en: 'Istanbul', lat: 41.01, lng: 28.98, name: 'イスタンブール' },
+
+            // ヨーロッパ・ロシア
+            { id: 'london', kana: 'ロンドン', en: 'London', lat: 51.50, lng: -0.12, name: 'ロンドン' },
+            { id: 'paris', kana: 'パリ', en: 'Paris', lat: 48.85, lng: 2.35, name: 'パリ' },
+            { id: 'berlin', kana: 'ベルリン', en: 'Berlin', lat: 52.52, lng: 13.40, name: 'ベルリン' },
+            { id: 'rome', kana: 'ローマ', en: 'Rome', lat: 41.90, lng: 12.49, name: 'ローマ' },
+            { id: 'madrid', kana: 'マドリード', en: 'Madrid', lat: 40.42, lng: -3.70, name: 'マドリード' },
+            { id: 'vienna', kana: 'ウィーン', en: 'Vienna', lat: 48.21, lng: 16.37, name: 'ウィーン' },
+            { id: 'amsterdam', kana: 'アムステルダム', en: 'Amsterdam', lat: 52.37, lng: 4.89, name: 'アムステルダム' },
+            { id: 'brussels', kana: 'ブリュッセル', en: 'Brussels', lat: 50.85, lng: 4.35, name: 'ブリュッセル' },
+            { id: 'athens', kana: 'アテネ', en: 'Athens', lat: 37.98, lng: 23.72, name: 'アテネ' },
+            { id: 'moscow', kana: 'モスクワ', en: 'Moscow', lat: 55.75, lng: 37.61, name: 'モスクワ' },
+            { id: 'kyiv', kana: 'キーウ', en: 'Kyiv', lat: 50.45, lng: 30.52, name: 'キーウ' },
+            { id: 'warsaw', kana: 'ワルシャワ', en: 'Warsaw', lat: 52.23, lng: 21.01, name: 'ワルシャワ' },
+            { id: 'stockholm', kana: 'ストックホルム', en: 'Stockholm', lat: 59.33, lng: 18.06, name: 'ストックホルム' },
+            { id: 'oslo', kana: 'オスロ', en: 'Oslo', lat: 59.91, lng: 10.75, name: 'オスロ' },
+            { id: 'helsinki', kana: 'ヘルシンキ', en: 'Helsinki', lat: 60.17, lng: 24.94, name: 'ヘルシンキ' },
+            { id: 'copenhagen', kana: 'コペンハーゲン', en: 'Copenhagen', lat: 55.68, lng: 12.57, name: 'コペンハーゲン' },
+            { id: 'dublin', kana: 'ダブリン', en: 'Dublin', lat: 53.35, lng: -6.26, name: 'ダブリン' },
+            { id: 'reykjavik', kana: 'レイキャビク', en: 'Reykjavik', lat: 64.15, lng: -21.94, name: 'レイキャビク' },
+            { id: 'lisbon', kana: 'リスボン', en: 'Lisbon', lat: 38.72, lng: -9.14, name: 'リスボン' },
+            { id: 'zurich', kana: 'チューリッヒ', en: 'Zurich', lat: 47.37, lng: 8.54, name: 'チューリッヒ' },
+
+            // アフリカ
+            { id: 'cairo', kana: 'カイロ', en: 'Cairo', lat: 30.04, lng: 31.23, name: 'カイロ' },
+            { id: 'casablanca', kana: 'カサブランカ', en: 'Casablanca', lat: 33.57, lng: -7.58, name: 'カサブランカ' },
+            { id: 'algiers', kana: 'アルジェ', en: 'Algiers', lat: 36.75, lng: 3.06, name: 'アルジェ' },
+            { id: 'dakar', kana: 'ダカール', en: 'Dakar', lat: 14.72, lng: -17.47, name: 'ダカール' },
+            { id: 'lagos', kana: 'ラゴス', en: 'Lagos', lat: 6.52, lng: 3.38, name: 'ラゴス' },
+            { id: 'addisababa', kana: 'アディスアベバ', en: 'Addis Ababa', lat: 9.03, lng: 38.74, name: 'アディスアベバ' },
+            { id: 'nairobi', kana: 'ナイロビ', en: 'Nairobi', lat: -1.29, lng: 36.82, name: 'ナイロビ' },
+            { id: 'kinshasa', kana: 'キンシャサ', en: 'Kinshasa', lat: -4.44, lng: 15.27, name: 'キンシャサ' },
+            { id: 'johannesburg', kana: 'ヨハネスブルグ', en: 'Johannesburg', lat: -26.20, lng: 28.04, name: 'ヨハネスブルグ' },
+            { id: 'capetown', kana: 'ケープタウン', en: 'Cape Town', lat: -33.92, lng: 18.42, name: 'ケープタウン' },
+
+            // 北アメリカ・中米・カリブ
+            { id: 'washington', kana: 'ワシントン', en: 'Washington, D.C.', lat: 38.90, lng: -77.03, name: 'ワシントンD.C.' },
+            { id: 'newyork', kana: 'ニューヨーク', en: 'New York', lat: 40.71, lng: -74.00, name: 'ニューヨーク' },
+            { id: 'chicago', kana: 'シカゴ', en: 'Chicago', lat: 41.88, lng: -87.63, name: 'シカゴ' },
+            { id: 'houston', kana: 'ヒューストン', en: 'Houston', lat: 29.76, lng: -95.36, name: 'ヒューストン' },
+            { id: 'denver', kana: 'デンバー', en: 'Denver', lat: 39.74, lng: -104.99, name: 'デンバー' },
+            { id: 'losangeles', kana: 'ロサンゼルス', en: 'Los Angeles', lat: 34.05, lng: -118.24, name: 'ロサンゼルス' },
+            { id: 'sanfrancisco', kana: 'サンフランシスコ', en: 'San Francisco', lat: 37.77, lng: -122.42, name: 'サンフランシスコ' },
+            { id: 'seattle', kana: 'シアトル', en: 'Seattle', lat: 47.61, lng: -122.33, name: 'シアトル' },
+            { id: 'anchorage', kana: 'アンカレジ', en: 'Anchorage', lat: 61.21, lng: -149.90, name: 'アンカレジ' },
+            { id: 'honolulu', kana: 'ホノルル', en: 'Honolulu', lat: 21.30, lng: -157.85, name: 'ホノルル' },
+            { id: 'toronto', kana: 'トロント', en: 'Toronto', lat: 43.65, lng: -79.38, name: 'トロント' },
+            { id: 'vancouver', kana: 'バンクーバー', en: 'Vancouver', lat: 49.28, lng: -123.12, name: 'バンクーバー' },
+            { id: 'montreal', kana: 'モントリオール', en: 'Montreal', lat: 45.50, lng: -73.56, name: 'モントリオール' },
+            { id: 'mexicocity', kana: 'メキシコシティ', en: 'Mexico City', lat: 19.43, lng: -99.13, name: 'メキシコシティ' },
+            { id: 'havana', kana: 'ハバナ', en: 'Havana', lat: 23.11, lng: -82.37, name: 'ハバナ' },
+            { id: 'panamacity', kana: 'パナマシティ', en: 'Panama City', lat: 8.98, lng: -79.52, name: 'パナマシティ' },
+
+            // 南アメリカ
+            { id: 'bogota', kana: 'ボゴタ', en: 'Bogota', lat: 4.71, lng: -74.07, name: 'ボゴタ' },
+            { id: 'quito', kana: 'キト', en: 'Quito', lat: -0.18, lng: -78.47, name: 'キト' },
+            { id: 'lima', kana: 'リマ', en: 'Lima', lat: -12.04, lng: -77.04, name: 'リマ' },
+            { id: 'lapaz', kana: 'ラパス', en: 'La Paz', lat: -16.50, lng: -68.12, name: 'ラパス' },
+            { id: 'santiago', kana: 'サンティアゴ', en: 'Santiago', lat: -33.45, lng: -70.66, name: 'サンティアゴ' },
+            { id: 'buenosaires', kana: 'ブエノスアイレス', en: 'Buenos Aires', lat: -34.60, lng: -58.38, name: 'ブエノスアイレス' },
+            { id: 'saopaulo', kana: 'サンパウロ', en: 'São Paulo', lat: -23.55, lng: -46.63, name: 'サンパウロ' },
+            { id: 'rio', kana: 'リオデジャネイロ', en: 'Rio de Janeiro', lat: -22.90, lng: -43.17, name: 'リオデジャネイロ' },
+            { id: 'brasilia', kana: 'ブラジリア', en: 'Brasilia', lat: -15.79, lng: -47.88, name: 'ブラジリア' },
+            { id: 'caracas', kana: 'カラカス', en: 'Caracas', lat: 10.48, lng: -66.90, name: 'カラカス' },
+
+            // オセアニア
+            { id: 'sydney', kana: 'シドニー', en: 'Sydney', lat: -33.86, lng: 151.20, name: 'シドニー' },
+            { id: 'melbourne', kana: 'メルボルン', en: 'Melbourne', lat: -37.81, lng: 144.96, name: 'メルボルン' },
+            { id: 'canberra', kana: 'キャンベラ', en: 'Canberra', lat: -35.28, lng: 149.13, name: 'キャンベラ' },
+            { id: 'perth', kana: 'パース', en: 'Perth', lat: -31.95, lng: 115.86, name: 'パース' },
+            { id: 'auckland', kana: 'オークランド', en: 'Auckland', lat: -36.85, lng: 174.76, name: 'オークランド' },
+            { id: 'wellington', kana: 'ウェリントン', en: 'Wellington', lat: -41.29, lng: 174.78, name: 'ウェリントン' },
+            { id: 'suva', kana: 'スバ', en: 'Suva', lat: -18.14, lng: 178.44, name: 'スバ' }
+        ];
+
+        // 超軽量化した簡略大陸ベクターパスデータ（経緯度ベース）
+        const CONTINENTS = [
+            // ユーラシア & アフリカ
+            [
+                [-10, 35], [0, 42], [10, 44], [25, 35], [35, 30], [45, 12], [51, 28], [70, 20], [80, 8], [90, 22], [105, 10], [120, 23], [140, 35], [140, 55], [170, 65], [180, 70],
+                [180, 75], [60, 75], [30, 70], [10, 60], [-10, 60], [-10, 35]
+            ],
+            // アフリカ大陸
+            [
+                [-15, 30], [35, 30], [43, 11], [50, 10], [40, -10], [33, -27], [20, -35], [12, -34], [10, -5], [0, 5], [-15, 12], [-15, 30]
+            ],
+            // 北アメリカ大陸
+            [
+                [-168, 65], [-140, 60], [-125, 50], [-120, 35], [-105, 20], [-90, 16], [-80, 8], [-75, 20], [-80, 25], [-75, 35], [-60, 46], [-64, 50], [-80, 60], [-120, 70], [-168, 65]
+            ],
+            // 南アメリカ大陸
+            [
+                [-80, 8], [-60, 10], [-35, -5], [-38, -18], [-55, -34], [-68, -55], [-75, -45], [-72, -18], [-80, 8]
+            ],
+            // オーストラリア大陸
+            [
+                [114, -22], [130, -12], [142, -10], [153, -28], [148, -38], [138, -35], [115, -35], [114, -22]
+            ],
+            // 日本列島 (強調)
+            [
+                [130, 31], [132, 33], [136, 35], [140, 36], [141, 41], [145, 44], [140, 45], [138, 40], [135, 34], [130, 31]
+            ],
+            // イギリス
+            [
+                [-5, 50], [0, 52], [1, 58], [-4, 58], [-5, 50]
+            ],
+            // マダガスカル
+            [
+                [44, -12], [50, -16], [47, -25], [43, -25], [44, -12]
+            ],
+            // グリーンランド
+            [
+                [-50, 60], [-20, 70], [-25, 82], [-60, 82], [-50, 60]
+            ]
+        ];
+
+        let scene, camera, renderer, controls, cylinderMesh;
+        let textureCanvas, textureCtx, canvasTexture;
+        let selectedCity1 = CITIES.find(c => c.id === 'tokyo');
+        let selectedCity2 = CITIES.find(c => c.id === 'london');
+        let markerMeshGroup;
+
+        // Canvasに世界地図と指定された仕様通りの経線を描画して3Dテクスチャを生成
+        function generateMapTexture() {
+            textureCanvas = document.getElementById('texture-canvas');
+            textureCtx = textureCanvas.getContext('2d');
+            const width = textureCanvas.width;
+            const height = textureCanvas.height;
+
+            // 背景（海：明るい水色）
+            textureCtx.fillStyle = '#bae6fd'; // sky-200 (明るい水色)
+            textureCtx.fillRect(0, 0, width, height);
+
+            // 緯度経度からCanvas座標への変換関数
+            const lngToX = (lng) => ((lng + 180) / 360) * width;
+            const latToY = (lat) => ((90 - lat) / 180) * height;
+
+            // 陸地の描画（緑色）
+            textureCtx.fillStyle = '#86efac'; // green-300 / emerald系 (明るい緑色)
+            textureCtx.strokeStyle = '#4ade80'; // green-400 (やや濃い緑で縁取り)
+            textureCtx.lineWidth = 2;
+
+            CONTINENTS.forEach(polygon => {
+                textureCtx.beginPath();
+                polygon.forEach(([lng, lat], idx) => {
+                    const x = lngToX(lng);
+                    const y = latToY(lat);
+                    if (idx === 0) textureCtx.moveTo(x, y);
+                    else textureCtx.lineTo(x, y);
+                });
+                textureCtx.closePath();
+                textureCtx.fill();
+                textureCtx.stroke();
+            });
+
+            // 緯度線（赤道および主要な補助線）
+            textureCtx.strokeStyle = '#94a3b8';
+            textureCtx.lineWidth = 1;
+            textureCtx.setLineDash([4, 4]);
+            [-60, -30, 0, 30, 60].forEach(lat => {
+                const y = latToY(lat);
+                textureCtx.beginPath();
+                textureCtx.moveTo(0, y);
+                textureCtx.lineTo(width, y);
+                textureCtx.stroke();
+            });
+            textureCtx.setLineDash([]); // リセット
+
+            // 赤線 (赤道)
+            const equatorY = latToY(0);
+            textureCtx.strokeStyle = '#64748b';
+            textureCtx.lineWidth = 1.5;
+            textureCtx.beginPath();
+            textureCtx.moveTo(0, equatorY);
+            textureCtx.lineTo(width, equatorY);
+            textureCtx.stroke();
+
+            // 経線の描画（要件定義に基づく精密描画）
+            // 全線：黒色ベース（日付変更線のみ赤色）
+            // - 5度刻み: 細線/薄い点線
+            // - 15度刻み: 薄い線
+            // - 0, 45, 90, 135, 180度: 中線
+
+            for (let lng = -180; lng <= 180; lng += 5) {
+                const x = lngToX(lng);
+                const absLng = Math.abs(lng);
+
+                // 日付変更線 (180度 / -180度) の処理 -> 赤色
+                if (absLng === 180) {
+                    textureCtx.strokeStyle = '#dc2626'; // 明るい赤
+                    textureCtx.lineWidth = 4;
+                    textureCtx.setLineDash([]);
+                }
+                // 中線: 0, 45, 90, 135度
+                else if (absLng % 45 === 0) {
+                    textureCtx.strokeStyle = '#000000'; // 黒色
+                    textureCtx.lineWidth = 2.5;
+                    textureCtx.setLineDash([]);
+                }
+                // 薄い線: 15度刻み (45の倍数以外)
+                else if (absLng % 15 === 0) {
+                    textureCtx.strokeStyle = 'rgba(0, 0, 0, 0.65)'; // 薄い黒
+                    textureCtx.lineWidth = 1.2;
+                    textureCtx.setLineDash([]);
+                }
+                // Thin dashed line: 5度刻み (15の倍数以外)
+                else {
+                    textureCtx.strokeStyle = 'rgba(0, 0, 0, 0.3)'; // 薄い点線
+                    textureCtx.lineWidth = 1;
+                    textureCtx.setLineDash([6, 6]);
+                }
+
+                textureCtx.beginPath();
+                textureCtx.moveTo(x, 0);
+                textureCtx.lineTo(x, height);
+                textureCtx.stroke();
+                textureCtx.setLineDash([]); // reset
+            }
+
+            return new THREE.CanvasTexture(textureCanvas);
+        }
+
+        function init3D() {
+            const container = document.getElementById('canvas-container');
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            // Scene
+            scene = new THREE.Scene();
+            scene.background = new THREE.Color(0xf1f5f9); // slate-100 (明るい背景)
+
+            // Camera
+            camera = new THREE.PerspectiveCamera(45, width / height, 0.1, 1000);
+            camera.position.set(0, 5, 28);
+
+            // Renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(width, height);
+            renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+            renderer.shadowMap.enabled = true;
+            container.appendChild(renderer.domElement);
+
+            // OrbitControls
+            controls = new THREE.OrbitControls(camera, renderer.domElement);
+            controls.enableDamping = true;
+            controls.dampingFactor = 0.05;
+            controls.maxPolarAngle = Math.PI / 2 + 0.3; // アングル制限
+            controls.minPolarAngle = Math.PI / 2 - 0.3;
+            controls.minDistance = 12;
+            controls.maxDistance = 45;
+
+            // Lights
+            const ambientLight = new THREE.AmbientLight(0xffffff, 1.0);
+            scene.add(ambientLight);
+
+            const dirLight = new THREE.DirectionalLight(0xffffff, 0.5);
+            dirLight.position.set(10, 20, 15);
+            scene.add(dirLight);
+
+            // 円筒（Cylinder）の生成
+            const radius = 6.5;
+            const cylinderHeight = 8.5;
+            const geometry = new THREE.CylinderGeometry(radius, radius, cylinderHeight, 128, 1, true);
+
+            // テクスチャ生成＆適用 (正像化処理)
+            canvasTexture = generateMapTexture();
+            canvasTexture.wrapS = THREE.RepeatWrapping;
+            canvasTexture.repeat.x = 1;
+            canvasTexture.offset.x = 0.5; // 本初子午線(0度)を正面に配置
+
+            const material = new THREE.MeshStandardMaterial({
+                map: canvasTexture,
+                side: THREE.DoubleSide,
+                roughness: 0.5,
+                metalness: 0.05
+            });
+
+            cylinderMesh = new THREE.Mesh(geometry, material);
+            cylinderMesh.rotation.y = 0;
+            scene.add(cylinderMesh);
+
+            // マーカーグループ
+            markerMeshGroup = new THREE.Group();
+            scene.add(markerMeshGroup);
+
+            // リサイズ対応
+            window.addEventListener('resize', onWindowResize);
+
+            // 初期位置のマーカー描画
+            updateMarkers();
+
+            // アニメーションループ開始
+            animate();
+        }
+
+        // 緯度経度から円筒表面上の3D座標を計算（東経が右、西経が左の正像座標系）
+        function latLngToCylinderPosition(lat, lng, radius = 6.5, height = 8.5) {
+            const rad = (lng * Math.PI) / 180;
+            const x = radius * Math.sin(rad);
+            const z = radius * Math.cos(rad);
+            const y = (lat / 90) * (height / 2);
+
+            return new THREE.Vector3(x, y, z);
+        }
+
+        // 都市マーカーの更新（赤色目立つピン）
+        function updateMarkers() {
+            // 既存マーカークリア
+            while (markerMeshGroup.children.length > 0) {
+                const obj = markerMeshGroup.children[0];
+                markerMeshGroup.remove(obj);
+            }
+
+            const citiesToDraw = [
+                { city: selectedCity1, color: 0xef4444, label: '都市 A: ' + (selectedCity1 ? selectedCity1.name : '') },
+                { city: selectedCity2, color: 0xf59e0b, label: '都市 B: ' + (selectedCity2 ? selectedCity2.name : '') }
+            ];
+
+            citiesToDraw.forEach(({ city, color, label }) => {
+                if (!city) return;
+
+                const pos = latLngToCylinderPosition(city.lat, city.lng);
+
+                // 1. 光る地点球体マーカー
+                const sphereGeo = new THREE.SphereGeometry(0.25, 16, 16);
+                const sphereMat = new THREE.MeshBasicMaterial({ color: color });
+                const sphereMesh = new THREE.Mesh(sphereGeo, sphereMat);
+                sphereMesh.position.copy(pos);
+
+                // 少し表面から持ち上げる
+                const normal = new THREE.Vector3(pos.x, 0, pos.z).normalize();
+                sphereMesh.position.add(normal.clone().multiplyScalar(0.15));
+
+                markerMeshGroup.add(sphereMesh);
+
+                // 2. 垂直ピンポール
+                const lineGeo = new THREE.BufferGeometry().setFromPoints([
+                    pos,
+                    pos.clone().add(normal.clone().multiplyScalar(1.2))
+                ]);
+                const lineMat = new THREE.LineBasicMaterial({ color: color, linewidth: 3 });
+                const line = new THREE.Line(lineGeo, lineMat);
+                markerMeshGroup.add(line);
+
+                // 3. テキストラベルスプライト
+                const canvas = document.createElement('canvas');
+                const ctx = canvas.getContext('2d');
+                canvas.width = 256;
+                canvas.height = 64;
+
+                ctx.fillStyle = color === 0xef4444 ? 'rgba(239, 68, 68, 0.9)' : 'rgba(245, 158, 11, 0.9)';
+                ctx.beginPath();
+                ctx.roundRect(4, 4, 248, 56, 12);
+                ctx.fill();
+                ctx.strokeStyle = '#ffffff';
+                ctx.lineWidth = 3;
+                ctx.stroke();
+
+                ctx.fillStyle = '#ffffff';
+                ctx.font = 'bold 24px sans-serif';
+                ctx.textAlign = 'center';
+                ctx.textBaseline = 'middle';
+                ctx.fillText(city.name, 128, 32);
+
+                const spriteTexture = new THREE.CanvasTexture(canvas);
+                const spriteMat = new THREE.SpriteMaterial({ map: spriteTexture, depthTest: false });
+                const sprite = new THREE.Sprite(spriteMat);
+                
+                sprite.position.copy(pos.clone().add(normal.clone().multiplyScalar(1.6)));
+                sprite.scale.set(2.2, 0.55, 1);
+                markerMeshGroup.add(sprite);
+            });
+
+            // UI上の経緯度テキスト更新
+            if (selectedCity1) {
+                document.getElementById('city1-coords').textContent = formatCoords(selectedCity1.lat, selectedCity1.lng);
+            }
+            if (selectedCity2) {
+                document.getElementById('city2-coords').textContent = formatCoords(selectedCity2.lat, selectedCity2.lng);
+            }
+        }
+
+        // 座標表記フォーマット（東経/西経、北緯/南緯）
+        function formatCoords(lat, lng) {
+            const latStr = lat >= 0 ? `北緯${lat.toFixed(1)}°` : `南緯${Math.abs(lat).toFixed(1)}°`;
+            const lngStr = lng >= 0 ? `東経${lng.toFixed(1)}°` : `西経${Math.abs(lng).toFixed(1)}°`;
+            return `${lngStr}, ${latStr}`;
+        }
+
+        function setupUI() {
+            const radioSorts = document.getElementsByName('sort-order');
+            const select1 = document.getElementById('select-city1');
+            const select2 = document.getElementById('select-city2');
+            const btnResetCam = document.getElementById('btn-reset-cam');
+
+            // 都市リストの並び替え＆ドロップダウン生成
+            function populateCitySelects() {
+                const sortType = Array.from(radioSorts).find(r => r.checked).value;
+
+                const sorted = [...CITIES].sort((a, b) => {
+                    if (sortType === 'kana') {
+                        return a.kana.localeCompare(b.kana, 'ja');
+                    } else {
+                        return a.en.localeCompare(b.en);
+                    }
+                });
+
+                const currentVal1 = select1.value || 'tokyo';
+                const currentVal2 = select2.value || 'london';
+
+                select1.innerHTML = '';
+                select2.innerHTML = '';
+
+                sorted.forEach(c => {
+                    const nameDisplay = sortType === 'kana' ? `${c.name} (${c.kana})` : `${c.name} (${c.en})`;
+                    
+                    const opt1 = new Option(nameDisplay, c.id);
+                    const opt2 = new Option(nameDisplay, c.id);
+
+                    select1.add(opt1);
+                    select2.add(opt2);
+                });
+
+                select1.value = currentVal1;
+                select2.value = currentVal2;
+            }
+
+            // ラジオボタンイベント
+            radioSorts.forEach(radio => {
+                radio.addEventListener('change', populateCitySelects);
+            });
+
+            // セレクト変更イベント
+            select1.addEventListener('change', (e) => {
+                selectedCity1 = CITIES.find(c => c.id === e.target.value);
+                updateMarkers();
+            });
+
+            select2.addEventListener('change', (e) => {
+                selectedCity2 = CITIES.find(c => c.id === e.target.value);
+                updateMarkers();
+            });
+
+            // カメラリセットボタン
+            btnResetCam.addEventListener('click', () => {
+                camera.position.set(0, 5, 28);
+                controls.target.set(0, 0, 0);
+                controls.update();
+            });
+
+            populateCitySelects();
+        }
+
+        function onWindowResize() {
+            const container = document.getElementById('canvas-container');
+            if (!container) return;
+            const width = container.clientWidth;
+            const height = container.clientHeight;
+
+            camera.aspect = width / height;
+            camera.updateProjectionMatrix();
+
+            renderer.setSize(width, height);
+        }
+
+        function animate() {
+            requestAnimationFrame(animate);
+
+            // マーカーを回転（球体に固定されているため自然に回転）
+            controls.update();
+
+            renderer.render(scene, camera);
+        }
+
+        // ページロード時スタート
+        window.onload = function () {
+            init3D();
+            setupUI();
+        };
+    </script>
+</body>
+</html>
