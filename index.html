@@ -1,63 +1,200 @@
-<!DOCTYPE html>
-<html>
+<!doctype html>
+<html lang="ja">
 <head>
-  <meta charset="utf-8">
-  <title>my-website</title>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#0b1220">
+<meta name="description" content="8×8の盤面から3つの爆弾を推理する、無料のHit & Blowパズル。">
+<title>Mine Hit & Blow</title>
+<style>
+:root{color-scheme:dark;--bg:#0b1220;--panel:#111c2e;--panel2:#17243a;--line:#2b3b54;--text:#e8eef8;--muted:#9aabc3;--cyan:#67e8f9;--blue:#60a5fa;--green:#6ee7b7;--amber:#fbbf24;--red:#fb7185}
+*{box-sizing:border-box}body{margin:0;background:radial-gradient(ellipse at top,#14243c 0,var(--bg) 55%);color:var(--text);font:16px/1.5 system-ui,-apple-system,"Segoe UI",sans-serif;min-height:100vh}button{font:inherit;cursor:pointer}button:focus-visible{outline:3px solid var(--cyan);outline-offset:2px}button:disabled{opacity:.45;cursor:not-allowed}.wrap{width:min(1080px,100%);margin:auto;padding:16px}.top{display:flex;align-items:center;justify-content:space-between;gap:12px;padding:12px 0 20px;border-bottom:1px solid var(--line)}.brand{display:flex;align-items:center;gap:12px}.logo{display:grid;place-items:center;width:44px;height:44px;border-radius:13px;background:#164e63;color:var(--cyan);font-size:24px}.brand h1{font-size:clamp(20px,4vw,27px);margin:0;letter-spacing:.02em}.brand p{margin:2px 0 0;color:var(--muted);font-size:13px}.btn{border:1px solid var(--line);background:var(--panel2);color:var(--text);border-radius:10px;padding:9px 13px;font-weight:650}.btn:hover:not(:disabled){filter:brightness(1.15)}.primary{background:#0891b2;border-color:#22d3ee;color:#03151c}.green{background:#065f46;border-color:#34d399}.warn{background:#78350f;border-color:#fbbf24}.layout{display:grid;gap:16px}.panel{background:linear-gradient(160deg,rgba(23,36,58,.96),rgba(15,25,42,.96));border:1px solid var(--line);border-radius:18px;padding:18px;box-shadow:0 12px 32px #0002}.screen-title{text-align:center;margin:18px auto 24px;max-width:620px}.screen-title h2{margin:0 0 6px;font-size:25px}.muted{color:var(--muted)}.modes{display:grid;gap:12px}.mode-card{text-align:left;min-height:150px;padding:18px;border-radius:14px;border:1px solid var(--line);background:#111d30;color:var(--text)}.mode-card:hover{border-color:var(--cyan);transform:translateY(-1px)}.mode-card h3{margin:0 0 8px}.mode-card p{margin:0;color:var(--muted);font-size:14px}.mode-icon{font-size:24px;margin-bottom:10px;color:var(--cyan)}.status{display:flex;align-items:center;justify-content:space-between;gap:10px;flex-wrap:wrap}.pill{border:1px solid var(--line);border-radius:99px;padding:5px 10px;font-size:13px;background:#0b1525}.gamegrid{display:grid;gap:16px;margin-top:16px}.boardbox{max-width:540px;width:100%;margin:auto}.board{display:grid;grid-template-columns:24px repeat(8,minmax(0,1fr));gap:5px}.axis{display:grid;place-items:center;color:var(--muted);font-size:12px;font-weight:700}.cell{aspect-ratio:1;min-width:0;padding:0;border-radius:8px;border:1px solid #34445e;background:#1a2940;color:#e2e8f0;font-weight:750;font-size:clamp(11px,2.5vw,16px);display:grid;place-items:center;position:relative}.cell:hover:not(:disabled){border-color:var(--cyan);background:#243a56}.cell.selected{background:#0e7490;border-color:var(--cyan);color:white}.cell.revealed{background:#26364d;color:var(--cyan)}.cell.hit{background:#9f1239;border-color:#fb7185;color:white}.cell.bomb{background:#7f1d1d;border-color:#fb7185;color:white}.cell.flag::after{content:"⚑";position:absolute;top:1px;right:3px;color:var(--amber);font-size:10px}.controls{display:grid;gap:12px}.actions{display:grid;gap:8px}.actionbtn{width:100%;padding:12px}.history{max-height:310px;overflow:auto;display:grid;gap:8px}.log{padding:10px;border:1px solid var(--line);background:#0d1727;border-radius:10px;font-size:13px;display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.hittext{color:var(--green);font-weight:800}.blowtext{color:var(--amber);font-weight:800}.note{font-size:13px;color:var(--muted)}.hidden{display:none!important}.selection{display:flex;justify-content:space-between;gap:8px;flex-wrap:wrap;margin:10px 0;color:var(--muted);font-size:13px}.modal{position:fixed;inset:0;background:#020617d9;display:grid;place-items:center;padding:16px;z-index:10}.modal-card{width:min(520px,100%);max-height:90vh;overflow:auto;background:#111c2e;border:1px solid var(--line);border-radius:18px;padding:22px}.modal-card h2{margin-top:0}.modal-card li{margin:.5em 0}.footer{text-align:center;color:#71819a;font-size:12px;padding:24px 0 10px}
+@media(min-width:760px){.modes{grid-template-columns:repeat(3,1fr)}.gamegrid{grid-template-columns:minmax(0,1.2fr) minmax(280px,.8fr);align-items:start}.panel{padding:20px}}
+@media(max-width:420px){.wrap{padding:10px}.panel{padding:12px}.board{gap:3px;grid-template-columns:20px repeat(8,minmax(0,1fr))}.cell{border-radius:5px}.top{align-items:flex-start}.btn{padding:8px 10px;font-size:13px}}
+</style>
 </head>
 <body>
-  <h1>Welcome</h1>
-  <p>趣味でAIと作成した作品の置き場</p>
-  <!-- <p><a href="jhs_english_words.html">jhs_english_words</a></p> -->
-  <!--<p><a href="jhs_english_words_battle.html">jhs_english_words_battle</a></p>-->
-  <p><a href="periodic_table.html">periodic_table：周期表です</a></p>
-  <!-- <p><a href="GSL_Word_Battle.html">GSL_Word_Battle</a></p> -->
-  <!--<p><a href="Quadratic_Explorer.html">Quadratic_Explorer：二次関数の場合分け可視化ツールです</a></p>-->
-  <!--<p><a href="triangle_on_rectangle.html">triangle_on_rectangle</a></p>-->
-  <!--<p><a href="Goldbach's_conjecture.html">Goldbach's_conjecture</a></p>-->
-  <p><a href="Make_a_ten!.html">Make_a_ten!：運要素ありの算数ゲームです</a></p>
-  <!--<p><a href="6x6 Forbidden Othello.html">6x6 Forbidden Othello：手を制限されます</a></p>
-  <p><a href="eitango.html">eitango：学習履歴を詳細に残す暗記ツールです</a></p>-->
-  <p><a href="Piactone.html">Piactone：ピアノとエレクトーンを混ぜました</a></p>
-  <p><a href="Plus Minus Rush.html">Plus Minus Rush：正負の計算練習</a></p>
-  <p><a href="surface-visualizer.html">surface-visualizer</a></p>
-  <p><a href="【小学生レベル】英単語バトル.html">【小学生レベル】英単語バトル</a></p>
-  <p><a href="Master_Math_Terms.html">ますたーますたーむす</a></p>  
-  <p><a href="Easy_Edit_Flashcards.html">Easy Edit Flashcards（改修中）</a></p>  
-  <p><a href="Markdown_Converter.html">Markdown Converter</a></p>  
-  <p><a href="二次関数の場合分け Visualizer.html">二次関数の場合分け Visualizer</a></p>  
-  <p><a href="時差学習用円筒世界地図.html">時差学習用円筒世界地図</a></p>  
-  <p><a href="カズペア.html">カズペア</a></p>  
+<div class="wrap">
+<header class="top">
+ <div class="brand"><div class="logo" aria-hidden="true">✹</div><div><h1>Mine Hit &amp; Blow</h1><p>推論 × マインスイーパー</p></div></div>
+ <button class="btn" id="rulesBtn" type="button">ルール</button>
+</header>
+<main>
+<section id="menu" class="panel" aria-labelledby="menuTitle">
+ <div class="screen-title"><h2 id="menuTitle">ゲームモードを選択</h2><p class="muted">8×8の盤面に隠された3つの爆弾を、10ターン以内に見つけよう。</p></div>
+ <div class="modes">
+  <button class="mode-card" data-mode="solo" type="button"><div class="mode-icon">◉</div><h3>シングルプレイ</h3><p>隠された爆弾3つを10ターン以内に特定します。</p></button>
+  <button class="mode-card" data-mode="pvp-same" type="button"><div class="mode-icon">⇄</div><h3>2人対戦・同一盤面</h3><p>同じ盤面を交互に解き、先に全爆弾を見つけた人が勝利。</p></button>
+  <button class="mode-card" data-mode="pvp-custom" type="button"><div class="mode-icon">✎</div><h3>2人対戦・出題者あり</h3><p>プレイヤー1が爆弾を配置し、プレイヤー2が挑戦します。</p></button>
+ </div>
+ <p class="note" style="text-align:center;margin:18px 0 0">無料・登録不要・通信不要。ゲームの状態はサーバーへ送信しません。</p>
+</section>
+<section id="game" class="hidden">
+ <div class="panel status">
+  <div style="display:flex;gap:10px;align-items:center;flex-wrap:wrap"><span class="pill" id="playerLabel">Player 1</span><span>ターン <strong id="turnLabel">1</strong> / 10</span><span class="pill" id="modeLabel">シングル</span></div>
+  <button class="btn" id="menuBtn" type="button">モード選択へ</button>
+ </div>
+ <div id="setupBanner" class="panel hidden" style="margin-top:12px">
+  <strong style="color:var(--green)">出題フェーズ：Player 1</strong>
+  <p class="muted" style="margin:6px 0 12px">爆弾を3つ選択してください。爆弾同士は隣接できません。</p>
+  <button class="btn green" id="confirmSetup" type="button" disabled>配置を確定（0/3）</button>
+ </div>
+ <div class="gamegrid">
+  <section class="panel">
+   <div class="boardbox"><div class="board" id="board" role="group" aria-label="8×8ゲーム盤面"></div></div>
+   <div class="selection"><span>選択中：<strong id="selectedLabel">0</strong> / <span id="requiredLabel">3</span>マス</span><span>右クリック／長押し：メモ</span></div>
+   <p class="note">HIT＝爆弾に直接命中。BLOW＝そのマスの周囲8マスに爆弾あり。数字は周囲の爆弾数です。</p>
+  </section>
+  <aside class="controls">
+   <section class="panel">
+    <h2 style="font-size:16px;margin:0 0 12px">アクション</h2>
+    <div class="actions">
+     <button class="btn primary actionbtn" id="shootBtn" type="button" disabled>通常ショット（3マス選択）</button>
+     <button class="btn actionbtn" id="skillShotBtn" type="button">スキル：3×3ショット（各プレイヤー1回）</button>
+     <button class="btn warn actionbtn" id="changeBtn" type="button">スキル：チェンジ（各プレイヤー1回）</button>
+     <button class="btn actionbtn" id="cancelSkillBtn" type="button">スキル選択を解除</button>
+    </div>
+    <p id="statusMessage" class="note" aria-live="polite" style="margin-bottom:0">マスを3つ選択してください。</p>
+   </section>
+   <section class="panel">
+    <div class="status" style="margin-bottom:10px"><h2 style="font-size:16px;margin:0">ショット履歴</h2><span class="note" id="logCount">0件</span></div>
+    <div class="history" id="history"><p class="note">まだ履歴はありません。</p></div>
+   </section>
+  </aside>
+ </div>
+</section>
+</main>
+<footer class="footer">Mine Hit &amp; Blow · 無料のブラウザゲーム</footer>
+</div>
+<div id="rulesModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="rulesTitle">
+ <div class="modal-card"><div class="status"><h2 id="rulesTitle">ルール説明</h2><button class="btn" id="closeRules" type="button" aria-label="閉じる">閉じる</button></div>
+ <ul><li>8×8の盤面に隠された爆弾3つを、10ターン以内にすべて見つけると勝利です。</li><li><b>HIT：</b>選んだマスに爆弾がある。</li><li><b>BLOW：</b>選んだマスには爆弾がないが、周囲8マスに爆弾が1つ以上ある。履歴のBLOW数は該当マスの数です。</li><li>爆弾同士は上下左右・斜めに隣接できません。</li><li><b>3×3ショット：</b>選んだマスを中心とする最大9マスを一度に開きます。各プレイヤー1回。</li><li><b>チェンジ：</b>爆弾1つを、配置ルールを満たす別の場所へ移動します。各プレイヤー1回。公開済みの情報が古くなる点に注意してください。</li><li>2人対戦・同一盤面では交互に行動します。出題者ありモードではPlayer 1が配置し、Player 2が解きます。</li></ul>
+ <p class="note">このゲームはブラウザ内だけで動作します。秘密情報の共有やオンライン対戦機能はありません。</p>
+ </div>
+</div>
+<div id="resultModal" class="modal hidden" role="dialog" aria-modal="true" aria-labelledby="resultTitle">
+ <div class="modal-card"><h2 id="resultTitle">ゲーム終了</h2><p id="resultText"></p><p id="resultDetails" class="muted"></p><div class="actions"><button class="btn primary" id="againBtn" type="button">同じモードでもう一度</button><button class="btn" id="resultMenuBtn" type="button">モード選択へ</button></div></div>
+</div>
+<script>
+"use strict";
+(() => {
+ const $ = id => document.getElementById(id);
+ const SIZE=8, BOMB_COUNT=3, MAX_TURNS=10;
+ const state={mode:"solo",bombs:[],turn:1,player:1,selected:[],revealed:new Map(),flags:new Map(),skills:{1:{shot:false,change:false},2:{shot:false,change:false}},skillMode:null,setup:false,setupBombs:[],over:false,history:[]};
+ const coord=i=>String.fromCharCode(65+i%SIZE)+(Math.floor(i/SIZE)+1);
+ const around=i=>{const r=Math.floor(i/SIZE),c=i%SIZE,out=[];for(let dr=-1;dr<=1;dr++)for(let dc=-1;dc<=1;dc++){const rr=r+dr,cc=c+dc;if(rr>=0&&rr<SIZE&&cc>=0&&cc<SIZE)out.push(rr*SIZE+cc)}return out};
+ const adjacent=i=>around(i).filter(n=>n!==i);
+ const valid=(i,bombs)=>!bombs.includes(i)&&!around(i).some(n=>n!==i&&bombs.includes(n));
+ function randomBombs(){const all=Array.from({length:64},(_,i)=>i);for(let i=all.length-1;i>0;i--){const j=Math.floor(Math.random()*(i+1));[all[i],all[j]]=[all[j],all[i]]}const chosen=[];for(const i of all){if(valid(i,chosen))chosen.push(i);if(chosen.length===BOMB_COUNT)return chosen}throw new Error("爆弾配置を生成できませんでした");}
+ function setMessage(msg){$("statusMessage").textContent=msg}
+ function safeText(el,text){el.textContent=text}
+ function start(mode){
+  state.mode=mode;state.turn=1;state.player=1;state.selected=[];state.revealed=new Map();state.flags=new Map();state.skills={1:{shot:false,change:false},2:{shot:false,change:false}};state.skillMode=null;state.setup=mode==="pvp-custom";state.setupBombs=[];state.over=false;state.history=[];
+  if(mode==="pvp-custom")state.bombs=[];else state.bombs=randomBombs();
+  $("menu").classList.add("hidden");$("game").classList.remove("hidden");$("resultModal").classList.add("hidden");$("setupBanner").classList.toggle("hidden",!state.setup);
+  safeText($("modeLabel"),({solo:"シングルプレイ","pvp-same":"2人対戦・同一盤面","pvp-custom":"2人対戦・出題者あり"})[mode]);
+  safeText($("statusMessage"),state.setup?"Player 1：爆弾を3つ配置してください。":"マスを3つ選択してください。");
+  render();
+ }
+ function render(){
+  safeText($("playerLabel"),state.setup?"Player 1（出題）":`Player ${state.player}`);
+  safeText($("turnLabel"),String(state.turn));safeText($("selectedLabel"),String(state.selected.length));
+  safeText($("confirmSetup"),`配置を確定（${state.setupBombs.length}/3）`);$("confirmSetup").disabled=state.setupBombs.length!==3;
+  $("requiredLabel").textContent=state.skillMode==="shot"?"中心1":"3";
+  $("shootBtn").disabled=state.over||state.setup||state.selected.length!==3||!!state.skillMode;
+  $("skillShotBtn").disabled=state.over||state.setup||state.skills[state.player].shot;
+  $("changeBtn").disabled=state.over||state.setup||state.skills[state.player].change;
+  $("skillShotBtn").classList.toggle("primary",state.skillMode==="shot");
+  const board=$("board");board.replaceChildren();
+  const blank=document.createElement("div");blank.className="axis";board.append(blank);
+  for(let c=0;c<SIZE;c++){const a=document.createElement("div");a.className="axis";a.textContent=String.fromCharCode(65+c);board.append(a)}
+  for(let r=0;r<SIZE;r++){
+   const row=document.createElement("div");row.className="axis";row.textContent=String(r+1);board.append(row);
+   for(let c=0;c<SIZE;c++){
+    const i=r*SIZE+c,b=document.createElement("button");b.type="button";b.className="cell";b.setAttribute("aria-label",coord(i));
+    const rev=state.revealed.get(i),isBomb=state.bombs.includes(i),selected=state.selected.includes(i),setupBomb=state.setupBombs.includes(i);
+    if(state.setup){if(setupBomb){b.textContent="✹";b.classList.add("hit")}else b.textContent=""}
+    else if(state.over&&isBomb){b.textContent="✹";b.classList.add("bomb")}
+    else if(rev){if(rev.isBomb){b.textContent="✹";b.classList.add("hit")}else{b.textContent=rev.count||"";b.classList.add("revealed")}}
+    else if(selected){b.textContent="◎";b.classList.add("selected")}
+    else if(state.flags.has(i)){b.textContent=state.flags.get(i)==="bomb"?"⚑":"✓";b.classList.add("flag")}
+    b.disabled=state.over||(!state.setup&&state.revealed.has(i));
+    b.addEventListener("click",()=>cellClick(i));
+    b.addEventListener("contextmenu",e=>{e.preventDefault();toggleFlag(i)});
+    let holdTimer; b.addEventListener("touchstart",()=>{holdTimer=setTimeout(()=>toggleFlag(i),550)},{passive:true});b.addEventListener("touchend",()=>clearTimeout(holdTimer),{passive:true});b.addEventListener("touchmove",()=>clearTimeout(holdTimer),{passive:true});
+    board.append(b);
+   }
+  }
+  renderHistory();
+ }
+ function cellClick(i){
+  if(state.over)return;
+  if(state.setup){
+   if(state.setupBombs.includes(i))state.setupBombs=state.setupBombs.filter(n=>n!==i);
+   else if(state.setupBombs.length<BOMB_COUNT){if(!valid(i,state.setupBombs)){setMessage("爆弾同士は隣接できません。");return}state.setupBombs.push(i)}
+   render();return;
+  }
+  if(state.skillMode==="shot"){useShot(i);return}
+  if(state.selected.includes(i))state.selected=state.selected.filter(n=>n!==i);
+  else if(state.selected.length<3)state.selected.push(i);
+  render();
+ }
+ function toggleFlag(i){if(state.over||state.setup||state.revealed.has(i))return;const f=state.flags.get(i);if(!f)state.flags.set(i,"bomb");else if(f==="bomb")state.flags.set(i,"safe");else state.flags.delete(i);render()}
+ function reveal(i){const isBomb=state.bombs.includes(i),count=adjacent(i).filter(n=>state.bombs.includes(n)).length;state.revealed.set(i,{isBomb,count});return isBomb}
+ function addLog(type,details,hit,blow){state.history.unshift({turn:state.turn,player:state.player,type,details,hit,blow})}
+ function shoot(){
+  if(state.selected.length!==3||state.over||state.setup)return;
+  let hit=0,blow=0;const picks=[...state.selected];
+  for(const i of picks){if(reveal(i))hit++;else if(adjacent(i).some(n=>state.bombs.includes(n)))blow++}
+  addLog("normal",picks.map(coord).join(", "),hit,blow);state.selected=[];state.skillMode=null;
+  if(state.bombs.every(i=>state.revealed.get(i)?.isBomb)){finish(true,`Player ${state.player}`);return}
+  advance();setMessage(`${hit} HIT / ${blow} BLOW。次の手を選んでください。`);render();
+ }
+ function useShot(center){
+  const area=around(center);let hit=0;for(const i of area)if(reveal(i))hit++;
+  state.skills[state.player].shot=true;state.skillMode=null;state.selected=[];addLog("shot",`3×3（${coord(center)}）`,hit,"—");
+  if(state.bombs.every(i=>state.revealed.get(i)?.isBomb)){finish(true,`Player ${state.player}`);return}
+  advance();setMessage(`${area.length}マスを開き、爆弾を${hit}個発見。`);render();
+ }
+ function useChange(){
+  if(state.over||state.setup||state.skills[state.player].change)return;
+  const old=[...state.bombs],movable=old.filter(n=>!state.revealed.get(n)?.isBomb);if(!movable.length){setMessage("移動できる未発見の爆弾がありません。");return}const target=movable[Math.floor(Math.random()*movable.length)],rest=old.filter(n=>n!==target);
+  const candidates=Array.from({length:64},(_,i)=>i).filter(i=>valid(i,rest)&&!state.revealed.has(i));
+  if(!candidates.length){setMessage("移動先が見つかりません。");return}
+  const next=candidates[Math.floor(Math.random()*candidates.length)];
+  state.bombs=[...rest,next];state.skills[state.player].change=true;addLog("change","爆弾1つを移動","—","—");advance();setMessage("爆弾1つの位置が変わりました。公開済みの情報に注意してください。");render();
+ }
+ function advance(){
+  if(state.mode==="pvp-same"){state.player=state.player===1?2:1;if(state.player===1)state.turn++}
+  else state.turn++;
+  if(state.turn>MAX_TURNS)finish(false,null);
+ }
+ function finish(win,winner){
+  state.over=true;render();const bombs=state.bombs.map(coord).sort().join("、");
+  safeText($("resultTitle"),win?"クリア！":"ゲーム終了");
+  safeText($("resultText"),win?`${winner} がすべての爆弾を発見しました。`:"10ターン以内にすべての爆弾を発見できませんでした。");
+  safeText($("resultDetails"),`爆弾の位置：${bombs}　／　ターン：${Math.min(state.turn,MAX_TURNS)}`);
+  $("resultModal").classList.remove("hidden");
+ }
+ function renderHistory(){
+  const host=$("history");host.replaceChildren();safeText($("logCount"),`${state.history.length}件`);
+  if(!state.history.length){const p=document.createElement("p");p.className="note";p.textContent="まだ履歴はありません。";host.append(p);return}
+  for(const item of state.history){const card=document.createElement("div");card.className="log";const left=document.createElement("span");left.textContent=item.type==="normal"?`T${item.turn} P${item.player} · ${item.details}`:item.type==="shot"?`T${item.turn} P${item.player} · 3×3 ${item.details}`:`T${item.turn} P${item.player} · チェンジ`;const right=document.createElement("span");if(item.type==="normal"){const h=document.createElement("b");h.className="hittext";h.textContent=`${item.hit} HIT`;const sep=document.createTextNode(" / ");const bl=document.createElement("b");bl.className="blowtext";bl.textContent=`${item.blow} BLOW`;right.append(h,sep,bl)}else right.textContent=item.type==="shot"?`${item.hit}個発見`:"移動完了";card.append(left,right);host.append(card)}
+ }
+ $("rulesBtn").addEventListener("click",()=>$("rulesModal").classList.remove("hidden"));
+ $("closeRules").addEventListener("click",()=>$("rulesModal").classList.add("hidden"));
+ $("rulesModal").addEventListener("click",e=>{if(e.target===$("rulesModal"))$("rulesModal").classList.add("hidden")});
+ document.querySelectorAll("[data-mode]").forEach(b=>b.addEventListener("click",()=>start(b.dataset.mode)));
+ $("menuBtn").addEventListener("click",toMenu);$("resultMenuBtn").addEventListener("click",toMenu);
+ $("againBtn").addEventListener("click",()=>start(state.mode));
+ function toMenu(){$("resultModal").classList.add("hidden");$("game").classList.add("hidden");$("menu").classList.remove("hidden")}
+ $("confirmSetup").addEventListener("click",()=>{if(state.setupBombs.length!==3)return;state.bombs=[...state.setupBombs];state.setup=false;state.player=2;state.turn=1;$("setupBanner").classList.add("hidden");setMessage("Player 2：挑戦開始。マスを3つ選択してください。");render()});
+ $("shootBtn").addEventListener("click",shoot);
+ $("skillShotBtn").addEventListener("click",()=>{if(state.skills[state.player].shot||state.over)return;state.skillMode=state.skillMode==="shot"?null:"shot";state.selected=[];setMessage(state.skillMode?"3×3エリアの中心を選択してください。":"スキル選択を解除しました。");render()});
+ $("changeBtn").addEventListener("click",()=>{if(!state.skills[state.player].change&&!state.over&&confirm("爆弾1つを別の場所へ移動しますか？"))useChange()});
+ $("cancelSkillBtn").addEventListener("click",()=>{state.skillMode=null;state.selected=[];setMessage("選択を解除しました。");render()});
+ // Initial UI is intentionally inert until a mode is selected.
+})();
+</script>
 </body>
 </html>
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
